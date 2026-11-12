@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.11.0
+- **Friends and guild first**: your friends (including Battle.net friends playing Forever) and guild members get an icon next to their name and go to the top of the list.
+- Players on your game ignore list no longer show up.
+- **Right-click a row** to hide it for this session or to block the player. Blocked players stay hidden after a reload.
+- **Hidden (N)** button next to Search again: lists everyone you hid or blocked, with **Show** / **Unblock** for each one and **Show all**.
+- Unblocking also works in the options (**Unblock all**) or with `/gf unblock <name>` / `/gf unblock all`; `/gf blocked` lists them.
+
 ## 0.10.0
 - **Needs you**: groups with an open spot for a role you marked in Looking For Group get a green bar and a "needs you" tag.
 - The Needs filter uses the open spots the game reports for each group (tank, healer, DPS) instead of guessing from the members.

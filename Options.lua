@@ -225,6 +225,9 @@ local function refreshOne(w)
     w.debug:SetChecked(db.debug)
     w.lang:SetText(NS.LanguageName(NS.Language()) .. "  |cffffd200v|r")
     w.donate:SetShown(NS.DONATE_URL ~= nil and NS.DONATE_URL ~= "")
+    local nb = NS.BlockedCount and NS.BlockedCount() or 0
+    w.blockedLabel:SetText(format(L["Blocked players: %d"], nb))
+    w.unblock:SetEnabled(nb > 0)
 end
 
 local function refresh()
@@ -347,6 +350,23 @@ local function buildContent(root)
         local sp = _G.SettingsPanel
         if sp and sp:IsShown() then NS.Print(L["Close the game options to see the tour."]) end
     end)
+    -- bloqueados pelo clique direito numa linha
+    w.unblock = button(root, L["Unblock all"], 150)
+    w.unblock:SetPoint("TOPLEFT", tour, "BOTTOMLEFT", 0, -4)
+    w.unblock:SetScript("OnClick", function()
+        NS.Unblock("all")
+        NS.Print(L["blocked list cleared."])
+        refresh()
+    end)
+    w.unblock:SetScript("OnEnter", function(self)
+        GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
+        GameTooltip:SetText(format(L["Blocked players: %d"], NS.BlockedCount and NS.BlockedCount() or 0))
+        GameTooltip:AddLine(L["Right-click a row in the list to block a player. /gf blocked lists them; /gf unblock <name> unblocks one."], 1, 1, 1, true)
+        GameTooltip:Show()
+    end)
+    w.unblock:SetScript("OnLeave", function() GameTooltip:Hide() end)
+    w.blockedLabel = text(root, "", "GameFontDisableSmall")
+    w.blockedLabel:SetPoint("LEFT", w.unblock, "RIGHT", 8, 0)
 
     -- avançado
     local h5 = text(root, L["Advanced"], "GameFontNormal")

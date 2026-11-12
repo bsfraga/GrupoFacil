@@ -35,6 +35,7 @@ local DEFAULTS = {
     autoOpen = true,          -- abre junto com a janela do Looking For Group
     docked = true,            -- encaixado à direita da janela do Looking For Group
     debug = false,
+    blocked = {},             -- [nome normalizado] = nome como apareceu; bloqueados pelo clique direito
     filters = {
         mode = "players",     -- "players", "groups" ou "all"
         minLevel = nil,
@@ -382,6 +383,97 @@ local function readPlayer(p, e)
     end
 end
 
+------------------------------------------------------------------------
+-- amigos, guilda e ignorados (só leitura; nada muda nas listas do jogo)
+------------------------------------------------------------------------
+-- Uma foto de quem você conhece, feita uma vez por busca (o Battle.net custa caro).
+local function bnetCharacterNames()
+    local names = {}
+    if not (BNGetNumFriends and C_BattleNet and C_BattleNet.GetFriendNumGameAccounts and C_BattleNet.GetFriendGameAccountInfo) then
+        return names
+    end
+    local n = BNGetNumFriends() or 0
+    for i = 1, n do
+        for j = 1, (C_BattleNet.GetFriendNumGameAccounts(i) or 0) do
+            local info = C_BattleNet.GetFriendGameAccountInfo(i, j)
+            if type(info) == "table" and info.clientProgram == BNET_CLIENT_WOW
+                and (WOW_PROJECT_ID == nil or info.wowProjectID == WOW_PROJECT_ID)
+                and type(info.characterName) == "string" and not isSecret(info.characterName) then
+                names[lower(info.characterName)] = true
+            end
+        end
+    end
+    return names
+end
+
+function NS.NewRelationLookup()
+    local lk = { inGuild = false, legacy = false, bn = {} }
+    -- comparações dentro do pcall: um valor secreto daria erro fora dele
+    local ok, v = pcall(function() return IsInGuild ~= nil and IsInGuild() == true end)
+    lk.inGuild = ok and v == true
+    if C_FriendList and C_FriendList.GetFriendInfo then
+        if C_FriendList.IsLegacyFriendSystemEnabled then
+            local ok2, l = pcall(function() return C_FriendList.IsLegacyFriendSystemEnabled() == true end)
+            lk.legacy = ok2 and l == true
+        else
+            lk.legacy = true
+        end
+    end
+    local ok3, bn = pcall(bnetCharacterNames)
+    if ok3 and type(bn) == "table" then lk.bn = bn end
+    return lk
+end
+
+local function relationOf(name, lk)
+    if not lk or type(name) ~= "string" or isSecret(name) then return nil end
+    local short = Ambiguate and Ambiguate(name, "none") or name
+    if lk.inGuild and C_GuildInfo and C_GuildInfo.MemberExistsByName then
+        local ok, r = pcall(function() return C_GuildInfo.MemberExistsByName(name) == true end)
+        if ok and r == true then return "guild" end
+    end
+    if lk.legacy then
+        local ok, r = pcall(function() return C_FriendList.GetFriendInfo(name) ~= nil end)
+        if ok and r == true then return "friend" end
+    end
+    if lk.bn[lower(name)] or lk.bn[lower(short)] then return "friend" end
+    return nil
+end
+
+local function isIgnored(name)
+    if type(name) ~= "string" or isSecret(name) then return false end
+    local fn = (C_FriendList and C_FriendList.IsIgnored) or IsIgnored
+    if not fn then return false end
+    local ok, r = pcall(function() return fn(name) == true end)
+    return ok and r == true
+end
+
+-- As listas do jogo mudaram (roster da guilda chegou, amigo novo, ignorado novo):
+-- refaz amigo/guilda/ignorado nas linhas que já estão na tela, sem nova busca.
+local relationsQueued = false
+function NS.RefreshRelations()
+    if relationsQueued then return end
+    relationsQueued = true
+    C_Timer.After(0.5, function()
+        relationsQueued = false
+        if NS.InLockdown() or not next(NS.entries) then return end
+        NS.relLookup = NS.NewRelationLookup()
+        for _, e in pairs(NS.entries) do
+            if e and e.name then
+                e.relation = relationOf(e.name, NS.relLookup)
+                e.ignored = isIgnored(e.name)
+            end
+        end
+        NS.Refresh("relations")
+    end)
+end
+
+-- O roster da guilda só chega quando alguém pede; pedimos ao abrir a janela.
+function NS.RequestGuildRoster()
+    if not (IsInGuild and IsInGuild()) then return end
+    if C_GuildInfo and C_GuildInfo.GuildRoster then pcall(C_GuildInfo.GuildRoster)
+    elseif GuildRoster then pcall(GuildRoster) end
+end
+
 local function readResult(id)
     local info = C_LFGList.GetSearchResultInfo(id)
     if info == nil then return nil, "info nil" end
@@ -399,6 +491,10 @@ local function readResult(id)
         age = info.age,
     }
     e.solo = e.numMembers <= 1
+    if e.name then
+        e.relation = relationOf(e.name, NS.relLookup)
+        e.ignored = isIgnored(e.name)
+    end
 
     local acts = info.activityIDs
     e.activityIDs = {}
@@ -521,6 +617,9 @@ function NS.RebuildAll(reason)
     end
     wipe(NS.entries)
     wipe(NS.order)
+    if NS.CloseRowMenu then NS.CloseRowMenu() end -- a linha do menu pode ter mudado
+    local okLk, lk = pcall(NS.NewRelationLookup)
+    NS.relLookup = okLk and lk or nil
     local read, skipped, secretIds, players, groups = 0, {}, 0, 0, 0
     local sampledSolo, sampledGroups, sampledBad = 0, 0, 0
     for i, id in ipairs(results) do
@@ -606,9 +705,111 @@ local function matchesActivity(e, set)
     return false
 end
 
--- skipRoles: ignora o filtro de role (usado para contar quantos passariam em cada role).
-function NS.Matches(e, f, skipRoles)
+------------------------------------------------------------------------
+-- esconder nesta sessão e bloquear (clique direito numa linha)
+------------------------------------------------------------------------
+NS.dismissed = {}   -- [key] = nome como apareceu, só até o /reload
+
+-- Escondido pelo jogador: bloqueado, dispensado nesta sessão ou na lista de ignorados do jogo.
+function NS.IsHiddenByPlayer(e)
     if not e then return false end
+    if e.ignored then return true end
+    if e.key and (NS.dismissed[e.key] or (GrupoFacilDB.blocked and GrupoFacilDB.blocked[e.key])) then return true end
+    return false
+end
+
+function NS.Dismiss(e)
+    if not e or not e.key then return end
+    NS.dismissed[e.key] = e.name or e.key
+    Trace("ESCONDER", "linha escondida nesta sessão")
+    NS.Refresh("dismiss")
+end
+
+-- Volta a mostrar um escondido nesta sessão (key) ou todos (nil).
+function NS.Undismiss(key)
+    if key then NS.dismissed[key] = nil else wipe(NS.dismissed) end
+    Trace("ESCONDER", key and "linha voltou a aparecer" or "todas as linhas escondidas voltaram")
+    NS.Refresh("undismiss")
+end
+
+-- Escondidos nesta sessão e bloqueados, em ordem de nome: { key, name, kind = "session" | "blocked" }.
+function NS.HiddenList()
+    local list = {}
+    for k, v in pairs(NS.dismissed) do
+        if not (GrupoFacilDB.blocked and GrupoFacilDB.blocked[k]) then
+            list[#list + 1] = { key = k, name = type(v) == "string" and v or k, kind = "session" }
+        end
+    end
+    for k, v in pairs(GrupoFacilDB.blocked or {}) do
+        list[#list + 1] = { key = k, name = v, kind = "blocked" }
+    end
+    table.sort(list, function(a, b) return lower(a.name) < lower(b.name) end)
+    return list
+end
+
+-- Desfaz tudo: escondidos nesta sessão e bloqueados.
+function NS.UnhideAll()
+    wipe(NS.dismissed)
+    NS.Unblock("all")
+end
+
+function NS.Block(e)
+    if not e or not e.key or not e.name then return end
+    GrupoFacilDB.blocked[e.key] = e.name
+    local n = 0
+    for _ in pairs(GrupoFacilDB.blocked) do n = n + 1 end
+    Trace("BLOQUEIO_LISTA", "jogador bloqueado (total %d)", n)
+    NS.Print(format(L["%s blocked. Undo it in the options or with /gf unblock."], e.name))
+    NS.Refresh("block")
+    if NS.RefreshOptions then NS.RefreshOptions() end
+end
+
+function NS.BlockedCount()
+    local n = 0
+    for _ in pairs(GrupoFacilDB.blocked or {}) do n = n + 1 end
+    return n
+end
+
+-- Desbloqueia um nome (como aparece ou em minúsculas) ou "all". Devolve o nome ou nil.
+function NS.Unblock(name)
+    local b = GrupoFacilDB.blocked
+    if name == "all" then
+        wipe(b)
+        Trace("BLOQUEIO_LISTA", "lista de bloqueados limpa")
+        NS.Refresh("unblock")
+        if NS.RefreshOptions then NS.RefreshOptions() end
+        return "all"
+    end
+    local key = normName(name)
+    local shown = key and b[key]
+    if not shown then
+        -- aceita o começo do nome (sem o sobrenome), mas só se for um jogador só
+        local prefix = "^" .. lower(name):gsub("%p", "%%%0")
+        local found = {}
+        for k, v in pairs(b) do
+            if lower(v):find(prefix) then found[#found + 1] = k end
+        end
+        if #found > 1 then
+            local names = {}
+            for i, k in ipairs(found) do names[i] = b[k] end
+            table.sort(names)
+            return nil, names
+        end
+        if found[1] then key, shown = found[1], b[found[1]] end
+    end
+    if not shown then return nil end
+    b[key] = nil
+    Trace("BLOQUEIO_LISTA", "jogador desbloqueado (total %d)", NS.BlockedCount())
+    NS.Refresh("unblock")
+    if NS.RefreshOptions then NS.RefreshOptions() end
+    return shown
+end
+
+-- skipRoles: ignora o filtro de role (usado para contar quantos passariam em cada role).
+-- skipHidden: ignora o que o jogador escondeu (para contar quantos foram escondidos).
+function NS.Matches(e, f, skipRoles, skipHidden)
+    if not e then return false end
+    if not skipHidden and NS.IsHiddenByPlayer(e) then return false end
     if f.hideDelisted and e.delisted then return false end
     if f.mode == "players" and not e.solo then return false end
     if f.mode == "groups" and e.solo then return false end
@@ -689,22 +890,29 @@ function NS.Visible()
     local f = GrupoFacilDB.filters
     local list = {}
     local my = NS.MyRoles()
+    local hidden = 0
     for _, id in ipairs(NS.order) do
         local e = NS.entries[id]
         if NS.Matches(e, f) then
             e.needsMe = NS.NeedsMe(e, my)
             list[#list + 1] = e
+        elseif e and NS.IsHiddenByPlayer(e) and NS.Matches(e, f, false, true) then
+            hidden = hidden + 1 -- só conta quem apareceria com os filtros atuais
         end
     end
+    NS.hiddenCount = hidden
     local sort = f.sort
     table.sort(list, function(a, b)
-        if sort == "name" then
-            return (a.key or "~") < (b.key or "~")
-        elseif sort == "age" then
-            return (a.age or 1e9) < (b.age or 1e9)
+        -- amigos e guilda primeiro, em qualquer ordem
+        if (a.relation ~= nil) ~= (b.relation ~= nil) then return a.relation ~= nil end
+        if sort == "age" then
+            if (a.age or 1e9) ~= (b.age or 1e9) then return (a.age or 1e9) < (b.age or 1e9) end
+        elseif sort ~= "name" then
+            if (a.level or 0) ~= (b.level or 0) then return (a.level or 0) > (b.level or 0) end
         end
-        if (a.level or 0) ~= (b.level or 0) then return (a.level or 0) > (b.level or 0) end
-        return (a.key or "~") < (b.key or "~")
+        if (a.key or "~") ~= (b.key or "~") then return (a.key or "~") < (b.key or "~") end
+        -- desempate fixo: as linhas não trocam de lugar a cada atualização
+        return (a.id or 0) < (b.id or 0)
     end)
     return list
 end
@@ -842,6 +1050,10 @@ ev:RegisterEvent("TRAIT_CONFIG_UPDATED")
 ev:RegisterEvent("PLAYER_LEVEL_UP")
 ev:RegisterEvent("ADDON_ACTION_BLOCKED")
 ev:RegisterEvent("ADDON_ACTION_FORBIDDEN")
+-- listas do jogo mudaram: refaz amigo/guilda/ignorado nas linhas atuais
+for _, evName in ipairs({ "GUILD_ROSTER_UPDATE", "FRIENDLIST_UPDATE", "IGNORELIST_UPDATE", "BN_FRIEND_INFO_CHANGED" }) do
+    pcall(ev.RegisterEvent, ev, evName)
+end
 -- suas roles mudaram: refaz o destaque (se o evento não existir, o destaque só muda no próximo desenho)
 if not pcall(ev.RegisterEvent, ev, "LFG_LIST_ROLE_UPDATE") then Trace("CARGA", "evento LFG_LIST_ROLE_UPDATE indisponível") end
 
@@ -918,6 +1130,9 @@ local function onEvent(_, event, ...)
         end
     elseif event == "LFG_LIST_ROLE_UPDATE" then
         NS.Refresh(event)
+    elseif event == "GUILD_ROSTER_UPDATE" or event == "FRIENDLIST_UPDATE" or event == "IGNORELIST_UPDATE"
+        or event == "BN_FRIEND_INFO_CHANGED" then
+        NS.RefreshRelations()
     elseif event == "TRAIT_CONFIG_UPDATED" or event == "PLAYER_LEVEL_UP" then
         NS.InvalidateSpec()
         NS.Refresh(event)
@@ -957,6 +1172,7 @@ local HELP = {
     "/gf dock - attach the window next to Looking For Group again",
     "/gf minimap on | off - show or hide the minimap button",
     "/gf hook on | off - capture the native search (turn off if the native search gets stuck; applies after /reload)",
+    "/gf blocked - list blocked players; /gf unblock <name> | all - unblock",
     "/gf diag - error and trace summary; /gf diag snap - save a snapshot now; /gf diag clear",
     "/gf debug on | off - show the trace in chat as it happens",
 }
@@ -965,6 +1181,7 @@ local ALIAS = {
     opcoes = "options", ["opções"] = "options", config = "options",
     tutorial = "tour", ajuda = "help",
     classe = "class", modo = "mode", minimapa = "minimap", encaixar = "dock", erros = "diag", idioma = "lang", language = "lang",
+    bloqueados = "blocked", desbloquear = "unblock",
 }
 local ON_OFF = function(v) return v and L["on"] or L["off"] end
 
@@ -1024,6 +1241,24 @@ SlashCmdList.GRUPOFACIL = function(input)
             NS.Print(format(L["search hook %s; applies after /reload."], ON_OFF(db.hookSearch)))
         else
             NS.Print(format(L["search hook: %s"], ON_OFF(db.hookSearch ~= false)))
+        end
+    elseif cmd == "blocked" then
+        local names = {}
+        for _, v in pairs(db.blocked) do names[#names + 1] = v end
+        table.sort(names)
+        if #names == 0 then NS.Print(L["no blocked players."])
+        else NS.Print(format(L["blocked players: %s"], table.concat(names, ", "))) end
+    elseif cmd == "unblock" then
+        if rest == "" then
+            NS.Print(L["/gf blocked - list blocked players; /gf unblock <name> | all - unblock"])
+        elseif l == "all" or l == "todos" then
+            NS.Unblock("all")
+            NS.Print(L["blocked list cleared."])
+        else
+            local who, several = NS.Unblock(rest)
+            if who then NS.Print(format(L["%s unblocked."], who))
+            elseif several then NS.Print(format(L["more than one blocked player matches; type the full name: %s"], table.concat(several, ", ")))
+            else NS.Print(format(L["not in the blocked list: %s"], rest)) end
         end
     elseif cmd == "diag" then
         if l == "limpar" or l == "clear" then

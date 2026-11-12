@@ -17,6 +17,8 @@ The native Looking For Group window lists every player and group with no filters
   - **Compact mode**: hide the filter rows so more of the list fits; the filters keep working.
 - **Needs you**: groups with an open spot for a role you marked in Looking For Group are highlighted.
 - **Group tooltip**: role, class and level of every member, the open spots, the leader's zone and the dungeon's level range.
+- **Friends and guild first**: friends (including Battle.net friends playing Forever) and guild members are marked and listed first.
+- **Hide or block**: right-click a row to hide it for this session or block the player for good. Players on your game ignore list are hidden too.
 - **One-click actions on each row**
   - **Invite** a solo player (when you are solo or the group leader/assistant).
   - **Ask to join** a group: sends the leader a whisper such as *"Hi, I'm a level 29 Beast Mastery Hunter, can I join your group?"* (only when you are solo).
@@ -60,6 +62,8 @@ The first time the window opens, a banner offers a 30-second tour of the window.
 | `/gf spec <name>` / `/gf spec auto` | Set or detect your spec (per character) |
 | `/gf mode direct` / `/gf mode prefill` | Send the whisper, or only open the chat with the text |
 | `/gf minimap on` / `/gf minimap off` | Show or hide the minimap button |
+| `/gf blocked` | List the players you blocked |
+| `/gf unblock <name>` / `/gf unblock all` | Unblock one player or everyone |
 | `/gf diag` | Show the diagnostic summary (for bug reports) |
 
 ## Bug reports

@@ -89,6 +89,12 @@ local ROLE_KEY = { tank = "Tank", healer = "Healer", dps = "DPS" }
 local ASSIGNED = { TANK = "tank", HEALER = "healer", DAMAGER = "dps" }
 local function roleWithIcon(role) return roleIcon(role) .. " " .. ROLE_COLOR[role] .. L[ROLE_KEY[role]] .. "|r" end
 
+-- amigo / guilda ao lado do nome
+local RELATION_ICON = {
+    friend = "|TInterface\\FriendsFrame\\UI-Toast-FriendOnlineIcon:14:14:0:0|t",
+    guild = "|TInterface\\GossipFrame\\TabardGossipIcon:14:14:0:0|t",
+}
+
 local function levelRange(minL, maxL)
     if minL and maxL then return format("%d-%d", minL, maxL) end
     if minL then return format("%d+", minL) end
@@ -159,13 +165,14 @@ end
 ------------------------------------------------------------------------
 local modeButtons, classButtons, roleChecks, roleLabels, rows = {}, {}, {}, {}, {}
 local minBox, maxBox, sortBtn, statusFS, searchBtn, pageFS, previewFS, hideDelistedCheck, roleLabel
-local dungeonBtn, compactBtn
+local dungeonBtn, compactBtn, hiddenBtn
 local filterWidgets = {} -- tudo que some no modo compacto
 
 local function filters() return GrupoFacilDB.filters end
 
 local function onFilterChanged()
     NS.offset = 0
+    if NS.CloseRowMenu then NS.CloseRowMenu() end
     NS.Refresh("filter")
 end
 
@@ -242,11 +249,19 @@ local function makeRow(parent, i)
     end)
     tooltip(r.b2, L["Whisper"], L["Opens the chat so you can write to the player."])
 
+    -- clique direito: esconder nesta sessão ou bloquear
+    r:RegisterForClicks("LeftButtonUp", "RightButtonUp")
+    r:SetScript("OnClick", function(self, mouse)
+        if mouse == "RightButton" and self.entry then NS.ShowRowMenu(self) end
+    end)
+
     r:SetScript("OnEnter", function(self)
         local e = self.entry
         if not e then return end
         GameTooltip:SetOwner(self, "ANCHOR_LEFT")
         GameTooltip:SetText(e.name or RETRIEVING_DATA or "...", classColor(e.class))
+        if e.relation == "friend" then GameTooltip:AddLine(RELATION_ICON.friend .. " " .. L["Friend"], 0.4, 0.8, 1)
+        elseif e.relation == "guild" then GameTooltip:AddLine(RELATION_ICON.guild .. " " .. L["Guild member"], 0.25, 1, 0.25) end
         if e.level or e.className then
             GameTooltip:AddLine(format(L["Level %s %s %s"], tostring(e.level or "?"), e.specName or "", e.className or className(e.class) or ""), 1, 1, 1)
         end
@@ -281,6 +296,7 @@ local function makeRow(parent, i)
             end
         end
         if e.delisted then GameTooltip:AddLine(L["Left the list"], 1, 0.3, 0.3) end
+        if e.key then GameTooltip:AddLine(L["Right-click: hide or block"], 0.5, 0.5, 0.5) end
         GameTooltip:Show()
     end)
     r:SetScript("OnLeave", function() GameTooltip:Hide() end)
@@ -476,10 +492,19 @@ function NS.BuildUI()
     statusFS:SetJustifyH("LEFT")
     statusFS:SetWordWrap(false)
 
+    -- escondidos nesta sessão e bloqueados: só aparece quando há algum
+    hiddenBtn = button(frame, format(L["Hidden (%d)"], 0), 100)
+    hiddenBtn:SetPoint("RIGHT", searchBtn, "LEFT", -6, 0)
+    fitWidth(hiddenBtn, 100, { format(L["Hidden (%d)"], 99) })
+    hiddenBtn:SetScript("OnClick", function(self) NS.ToggleHiddenMenu(self) end)
+    tooltip(hiddenBtn, L["Hidden players"], L["Players and groups you hid or blocked. Click to show them again. Players on your game ignore list stay hidden; change that in the game's ignore list."])
+    hiddenBtn:Hide()
+
     -- lista (as âncoras de cima ficam em NS.ApplyCompact)
     local list = CF("Frame", nil, frame)
     list:EnableMouseWheel(true)
     list:SetScript("OnMouseWheel", function(_, delta)
+        NS.CloseRowMenu()
         NS.offset = NS.offset - delta * 3
         NS.Refresh("scroll")
     end)
@@ -488,10 +513,10 @@ function NS.BuildUI()
     -- rodapé
     local up = button(frame, "<", 26, 20)
     up:SetPoint("BOTTOMLEFT", 12, 38)
-    up:SetScript("OnClick", function() NS.offset = NS.offset - NS.rowsVisible; NS.Refresh("page") end)
+    up:SetScript("OnClick", function() NS.CloseRowMenu(); NS.offset = NS.offset - NS.rowsVisible; NS.Refresh("page") end)
     local down = button(frame, ">", 26, 20)
     down:SetPoint("LEFT", up, "RIGHT", 2, 0)
-    down:SetScript("OnClick", function() NS.offset = NS.offset + NS.rowsVisible; NS.Refresh("page") end)
+    down:SetScript("OnClick", function() NS.CloseRowMenu(); NS.offset = NS.offset + NS.rowsVisible; NS.Refresh("page") end)
     pageFS = label(frame, "", "GameFontHighlightSmall")
     pageFS:SetPoint("LEFT", down, "RIGHT", 8, 0)
     pageFS:SetJustifyH("LEFT")
@@ -553,12 +578,15 @@ function NS.BuildUI()
     NS.ApplyCompact()
 
     frame:SetScript("OnShow", function()
+        NS.RequestGuildRoster() -- a guilda só é reconhecida depois que o roster chega
         if not NS.searching then NS.RebuildAll("janela aberta") end
         NS.Refresh("show")
         if NS.OnPanelShown then NS.OnPanelShown() end -- primeiro uso (Onboarding.lua)
     end)
     frame:SetScript("OnHide", function()
         NS.CloseDungeonMenu()
+        if NS.CloseRowMenu then NS.CloseRowMenu() end
+        NS.CloseHiddenMenu()
         if NS.OnPanelHidden then NS.OnPanelHidden() end
     end)
 end
@@ -566,6 +594,106 @@ end
 ------------------------------------------------------------------------
 -- modo compacto
 ------------------------------------------------------------------------
+-- O status termina antes do botão Escondidos (quando ele aparece) ou de Buscar de novo.
+local statusAnchoredTo
+function NS.AnchorStatus()
+    local target = hiddenBtn:IsShown() and hiddenBtn or searchBtn
+    if statusAnchoredTo == target and NS.statusAnchoredY == NS.statusY then return end
+    statusAnchoredTo, NS.statusAnchoredY = target, NS.statusY
+    statusFS:ClearAllPoints()
+    statusFS:SetPoint("LEFT", frame, "TOPLEFT", 14, (NS.statusY or STATUS_Y) - 11)
+    statusFS:SetPoint("RIGHT", target, "LEFT", -8, 0)
+end
+
+------------------------------------------------------------------------
+-- lista de escondidos (botão Escondidos)
+------------------------------------------------------------------------
+local hiddenMenu
+function NS.CloseHiddenMenu()
+    if hiddenMenu then hiddenMenu:Hide() end
+end
+
+local HIDDEN_MAX = 30
+local function fillHiddenMenu()
+    local m = hiddenMenu
+    local list = NS.HiddenList()
+    if #list == 0 then m:Hide() return end
+    local shown = math.min(#list, HIDDEN_MAX)
+    local width = 260
+    for i = 1, shown do
+        local it = m.items[i]
+        if not it then
+            it = CF("Frame", nil, m)
+            it:SetSize(240, 22)
+            it:SetPoint("TOPLEFT", 8, -34 - (i - 1) * 24)
+            it:SetPoint("RIGHT", m, "RIGHT", -8, 0)
+            it.btn = button(it, L["Show"], 90, 20)
+            it.btn:SetPoint("RIGHT", 0, 0)
+            fitWidth(it.btn, 90, { L["Show"], L["Unblock"] })
+            it.text = label(it, "", "GameFontHighlightSmall")
+            it.text:SetPoint("LEFT", 4, 0)
+            it.text:SetPoint("RIGHT", it.btn, "LEFT", -6, 0)
+            it.text:SetJustifyH("LEFT")
+            it.text:SetWordWrap(false)
+            it.btn:SetScript("OnClick", function(self)
+                local x = self:GetParent().data
+                if not x then return end
+                if x.kind == "blocked" then NS.Unblock(x.name) else NS.Undismiss(x.key) end
+                fillHiddenMenu()
+            end)
+            m.items[i] = it
+        end
+        local x = list[i]
+        it.data = x
+        local tag = x.kind == "blocked" and ("|cffff6060" .. L["blocked"] .. "|r") or ("|cff999999" .. L["this session"] .. "|r")
+        it.text:SetText(x.name .. "  " .. tag)
+        it.btn:SetText(x.kind == "blocked" and L["Unblock"] or L["Show"])
+        it:Show()
+        local tw = (it.text.GetUnboundedStringWidth and it.text:GetUnboundedStringWidth()) or it.text:GetStringWidth() or 0
+        width = max(width, tw + it.btn:GetWidth() + 36)
+    end
+    for i = shown + 1, #m.items do m.items[i]:Hide() end
+    m.more:SetShown(#list > shown)
+    if #list > shown then m.more:SetText(format(L["+%d more: use /gf blocked and /gf unblock."], #list - shown)) end
+    m:SetSize(min(width, 420), 44 + shown * 24 + (#list > shown and 18 or 0))
+end
+
+function NS.ToggleHiddenMenu(owner)
+    if not hiddenMenu then
+        local m = CF("Frame", "GrupoFacilHiddenMenu", UIParent, "BackdropTemplate")
+        hiddenMenu = m
+        m:SetFrameStrata("FULLSCREEN_DIALOG")
+        m:EnableMouse(true)
+        m:SetClampedToScreen(true)
+        if m.SetBackdrop then
+            m:SetBackdrop({ bgFile = "Interface\\Tooltips\\UI-Tooltip-Background", edgeFile = "Interface\\Tooltips\\UI-Tooltip-Border",
+                tile = true, tileSize = 16, edgeSize = 16, insets = { left = 4, right = 4, top = 4, bottom = 4 } })
+            m:SetBackdropColor(0.05, 0.05, 0.08, 0.97)
+        end
+        m.all = button(m, L["Show all"], 120, 20)
+        m.all:SetPoint("TOPLEFT", 8, -8)
+        m.all:SetScript("OnClick", function()
+            NS.UnhideAll()
+            m:Hide()
+        end)
+        tooltip(m.all, L["Show all"], L["Shows everyone you hid this session and unblocks everyone you blocked."])
+        m.more = label(m, "", "GameFontDisableSmall")
+        m.more:SetPoint("BOTTOMLEFT", 12, 10)
+        m.more:SetPoint("BOTTOMRIGHT", -10, 10)
+        m.more:SetJustifyH("LEFT")
+        m.more:SetWordWrap(false)
+        m.items = {}
+        if UISpecialFrames then tinsert(UISpecialFrames, "GrupoFacilHiddenMenu") end
+        m:Hide()
+    end
+    if hiddenMenu:IsShown() then hiddenMenu:Hide() return end
+    hiddenMenu:ClearAllPoints()
+    hiddenMenu:SetPoint("TOPRIGHT", owner, "BOTTOMRIGHT", 0, -2)
+    hiddenMenu:Show()
+    fillHiddenMenu()
+end
+NS.FillHiddenMenu = function() if hiddenMenu and hiddenMenu:IsShown() then fillHiddenMenu() end end
+
 -- Durante o tour os filtros aparecem sem mudar a preferência salva.
 NS.forceFilters = false
 function NS.ApplyCompact()
@@ -575,9 +703,8 @@ function NS.ApplyCompact()
     local y = compact and STATUS_Y_COMPACT or STATUS_Y
     searchBtn:ClearAllPoints()
     searchBtn:SetPoint("TOPRIGHT", -12, y)
-    statusFS:ClearAllPoints()
-    statusFS:SetPoint("LEFT", frame, "TOPLEFT", 14, y - 11)
-    statusFS:SetPoint("RIGHT", searchBtn, "LEFT", -8, 0)
+    NS.statusY = y
+    NS.AnchorStatus()
     frame.list:ClearAllPoints()
     frame.list:SetPoint("TOPLEFT", 10, -(compact and LIST_TOP_COMPACT or LIST_TOP))
     frame.list:SetPoint("BOTTOMRIGHT", -10, LIST_BOTTOM)
@@ -708,6 +835,58 @@ function NS.ToggleDungeonMenu(owner)
 end
 
 ------------------------------------------------------------------------
+-- menu do clique direito numa linha
+------------------------------------------------------------------------
+local rowMenu
+function NS.CloseRowMenu()
+    if rowMenu then rowMenu:Hide() end
+end
+
+function NS.ShowRowMenu(row)
+    local e = row.entry
+    if not e or not e.key then return end
+    if not rowMenu then
+        local m = CF("Frame", "GrupoFacilRowMenu", UIParent, "BackdropTemplate")
+        rowMenu = m
+        m:SetFrameStrata("FULLSCREEN_DIALOG")
+        m:EnableMouse(true)
+        m:SetClampedToScreen(true)
+        if m.SetBackdrop then
+            m:SetBackdrop({ bgFile = "Interface\\Tooltips\\UI-Tooltip-Background", edgeFile = "Interface\\Tooltips\\UI-Tooltip-Border",
+                tile = true, tileSize = 16, edgeSize = 16, insets = { left = 4, right = 4, top = 4, bottom = 4 } })
+            m:SetBackdropColor(0.05, 0.05, 0.08, 0.97)
+        end
+        m.title = label(m, "", "GameFontNormal")
+        m.title:SetPoint("TOPLEFT", 12, -10)
+        m.title:SetPoint("TOPRIGHT", -12, -10)
+        m.title:SetJustifyH("LEFT")
+        m.title:SetWordWrap(false)
+        m.dismiss = button(m, L["Hide for this session"], 200, 22)
+        m.dismiss:SetPoint("TOPLEFT", 8, -28)
+        m.dismiss:SetScript("OnClick", function() m:Hide(); NS.Dismiss(m.entry) end)
+        tooltip(m.dismiss, L["Hide for this session"], L["Hidden until you reload the interface."])
+        m.block = button(m, L["Block this player"], 200, 22)
+        m.block:SetPoint("TOPLEFT", m.dismiss, "BOTTOMLEFT", 0, -4)
+        m.block:SetScript("OnClick", function() m:Hide(); NS.Block(m.entry) end)
+        tooltip(m.block, L["Block this player"], L["Their listings stay hidden, even after a reload. Undo it in the options or with /gf unblock."])
+        m.cancel = button(m, L["Cancel"], 200, 22)
+        m.cancel:SetPoint("TOPLEFT", m.block, "BOTTOMLEFT", 0, -4)
+        m.cancel:SetScript("OnClick", function() m:Hide() end)
+        local w = max(m.dismiss:GetWidth(), m.block:GetWidth(), m.cancel:GetWidth())
+        for _, b in ipairs({ m.dismiss, m.block, m.cancel }) do b:SetWidth(w) end
+        m:SetSize(w + 16, 36 + 3 * 26)
+        if UISpecialFrames then tinsert(UISpecialFrames, "GrupoFacilRowMenu") end
+        m:Hide()
+    end
+    rowMenu.entry = e
+    rowMenu.title:SetText(e.name or "")
+    rowMenu.block:SetEnabled(e.name ~= nil)
+    rowMenu:ClearAllPoints()
+    rowMenu:SetPoint("TOPLEFT", row.name, "BOTTOMLEFT", 0, -2)
+    rowMenu:Show()
+end
+
+------------------------------------------------------------------------
 -- tamanho: quantas linhas cabem e a largura do texto de cada linha
 ------------------------------------------------------------------------
 function NS.Layout()
@@ -817,7 +996,8 @@ function NS.Render()
             local lvl = e.level and ("  |cffaaaaaa" .. format(L["Lvl %d"], e.level) .. "|r") or ""
             local need = (e.needsMe and not IsInGroup()) and e.needsMe or nil
             local needTxt = need and ("  " .. roleIcon(need, 12) .. " |cff55ff55" .. L["needs you"] .. "|r") or ""
-            local base = (e.name or RETRIEVING_DATA or "...") .. lvl
+            local rel = e.relation and (RELATION_ICON[e.relation] .. " ") or ""
+            local base = rel .. (e.name or RETRIEVING_DATA or "...") .. lvl
             r.name:SetText(base .. needTxt)
             -- sem espaço para o rótulo inteiro: fica só o ícone da role (a faixa verde continua)
             if need and r.name.IsTruncated and r.name:IsTruncated() then
@@ -850,6 +1030,12 @@ function NS.Render()
     if NS.searching then status = L["Searching..."] end
     if NS.stale then status = "|cffff8800" .. status .. "|r" end
     if GrupoFacilDB.compact and filtersActive() then status = status .. "  |cffffd200" .. L["(filters on)"] .. "|r" end
+    -- botão Escondidos: escondidos nesta sessão + bloqueados (os ignorados do jogo não entram)
+    local nHidden = #NS.HiddenList()
+    hiddenBtn:SetShown(nHidden > 0)
+    if nHidden > 0 then hiddenBtn:SetText(format(L["Hidden (%d)"], nHidden)) else NS.CloseHiddenMenu() end
+    NS.AnchorStatus()
+    NS.FillHiddenMenu()
     statusFS:SetText(status .. (total > 0 and ("  |cffffffff" .. format(L["Showing %d."], total) .. "|r") or ""))
     searchBtn:SetEnabled(GetTime() >= NS.searchReadyAt and not NS.searching and not NS.InLockdown())
     if total == 0 then
