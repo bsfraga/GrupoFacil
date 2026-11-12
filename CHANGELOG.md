@@ -1,5 +1,8 @@
 # Changelog
 
+## 0.9.1
+- Now also published on Wago Addons (addons.wago.io/addons/grupofacil), so WowUp and the Wago app can install and update it.
+
 ## 0.9.0
 - New languages: Spanish (Spain), Spanish (Latin America), German and French. The language now follows your game client until you pick one; the options have a language list.
 - The window can be resized: drag the corner. More rows fit in a taller window and long names or activities are no longer cut short as soon.

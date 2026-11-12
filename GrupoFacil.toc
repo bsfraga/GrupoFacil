@@ -7,6 +7,7 @@
 ## X-License: MIT
 ## X-Website: https://github.com/bsfraga/GrupoFacil
 ## X-Curse-Project-ID: 1799922
+## X-Wago-ID: rN4rdxKD
 ## IconTexture: Interface\Icons\INV_Misc_GroupNeedMore
 ## AddonCompartmentFunc: GrupoFacil_OnAddonCompartmentClick
 ## AddonCompartmentFuncOnEnter: GrupoFacil_OnAddonCompartmentEnter
