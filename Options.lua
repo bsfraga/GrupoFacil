@@ -62,6 +62,10 @@ local function button(parent, label, w)
     local b = CF("Button", nil, parent, "UIPanelButtonTemplate")
     b:SetSize(w, 22)
     b:SetText(label)
+    -- traduções podem ser mais longas: cresce para caber o texto
+    local fs = b.GetFontString and b:GetFontString()
+    local tw = fs and fs:GetStringWidth()
+    if tw and tw + 22 > w then b:SetWidth(tw + 22) end
     return b
 end
 
@@ -109,6 +113,97 @@ function NS.ShowDonate()
 end
 
 ------------------------------------------------------------------------
+-- pedido de /reload depois de trocar o idioma: o botão é seguro (macro /reload),
+-- porque o jogo pode bloquear ReloadUI() chamado direto pelo addon
+------------------------------------------------------------------------
+local reloadPrompt
+function NS.ShowReloadPrompt()
+    if InCombatLockdown() then
+        NS.Print(L["Language changed. Reload the interface to apply it."] .. " (/reload)")
+        return
+    end
+    if not reloadPrompt then
+        local f = CF("Frame", "GrupoFacilReloadPrompt", UIParent, "BackdropTemplate")
+        reloadPrompt = f
+        f:SetSize(340, 96)
+        f:SetPoint("CENTER", 0, 160)
+        f:SetFrameStrata("FULLSCREEN_DIALOG")
+        f:EnableMouse(true)
+        if f.SetBackdrop then
+            f:SetBackdrop({ bgFile = "Interface\\Tooltips\\UI-Tooltip-Background", edgeFile = "Interface\\Tooltips\\UI-Tooltip-Border",
+                tile = true, tileSize = 16, edgeSize = 16, insets = { left = 4, right = 4, top = 4, bottom = 4 } })
+            f:SetBackdropColor(0.05, 0.05, 0.08, 0.97)
+            f:SetBackdropBorderColor(1, 0.82, 0, 1)
+        end
+        f.msg = text(f, "", "GameFontHighlight")
+        f.msg:SetPoint("TOPLEFT", 16, -16)
+        f.msg:SetPoint("TOPRIGHT", -16, -16)
+        f.msg:SetJustifyH("CENTER")
+        -- botão seguro: o clique roda a macro /reload pelo caminho do próprio jogo
+        local go = CreateFrame("Button", "GrupoFacilReloadButton", f, "SecureActionButtonTemplate,UIPanelButtonTemplate")
+        go:SetSize(150, 24)
+        go:SetPoint("BOTTOMRIGHT", f, "BOTTOM", -4, 14)
+        go:RegisterForClicks("AnyUp", "AnyDown")
+        go:SetAttribute("type", "macro")
+        go:SetAttribute("macrotext", "/reload")
+        f.go = go
+        local later = button(f, "", 150)
+        later:SetPoint("BOTTOMLEFT", f, "BOTTOM", 4, 14)
+        later:SetScript("OnClick", function() f:Hide() end)
+        f.later = later
+        f:Hide()
+    end
+    local f = reloadPrompt
+    f.msg:SetText(L["Language changed. Reload the interface to apply it."])
+    f.go:SetText(L["Reload now"])
+    f.later:SetText(L["Later"])
+    f:Show()
+end
+
+------------------------------------------------------------------------
+-- lista de idiomas (uma só, aberta debaixo do botão que foi clicado)
+------------------------------------------------------------------------
+local langMenu
+function NS.ToggleLanguageMenu(owner)
+    if not langMenu then
+        local m = CF("Frame", "GrupoFacilLanguageMenu", UIParent, "BackdropTemplate")
+        langMenu = m
+        m:SetFrameStrata("FULLSCREEN_DIALOG")
+        m:EnableMouse(true)
+        m:SetClampedToScreen(true)
+        if m.SetBackdrop then
+            m:SetBackdrop({ bgFile = "Interface\\Tooltips\\UI-Tooltip-Background", edgeFile = "Interface\\Tooltips\\UI-Tooltip-Border",
+                tile = true, tileSize = 16, edgeSize = 16, insets = { left = 4, right = 4, top = 4, bottom = 4 } })
+            m:SetBackdropColor(0.05, 0.05, 0.08, 0.97)
+        end
+        m.items = {}
+        for i, lang in ipairs(NS.LANGUAGES) do
+            local b = CF("Button", nil, m, "UIPanelButtonTemplate")
+            b:SetSize(200, 22)
+            b:SetPoint("TOP", 0, -8 - (i - 1) * 24)
+            b:SetText(lang.name)
+            b:SetScript("OnClick", function()
+                m:Hide()
+                if lang.code ~= NS.Language() or GrupoFacilDB.language ~= lang.code then NS.SetLanguage(lang.code) end
+            end)
+            m.items[i] = { button = b, code = lang.code }
+        end
+        m:SetSize(216, 16 + #NS.LANGUAGES * 24)
+        -- Esc fecha a lista (frame do próprio addon)
+        if UISpecialFrames then tinsert(UISpecialFrames, "GrupoFacilLanguageMenu") end
+        m:Hide()
+    end
+    if langMenu:IsShown() and langMenu.owner == owner then langMenu:Hide() return end
+    langMenu.owner = owner
+    for _, it in ipairs(langMenu.items) do
+        if it.code == NS.Language() then it.button:LockHighlight() else it.button:UnlockHighlight() end
+    end
+    langMenu:ClearAllPoints()
+    langMenu:SetPoint("TOPRIGHT", owner, "BOTTOMRIGHT", 0, -2)
+    langMenu:Show()
+end
+
+------------------------------------------------------------------------
 -- conteúdo das opções (montado uma vez por lugar)
 ------------------------------------------------------------------------
 local instances = {}
@@ -128,8 +223,7 @@ local function refreshOne(w)
     w.minimap:SetChecked(NS.IsMinimapButtonShown and NS.IsMinimapButtonShown())
     w.hook:SetChecked(db.hookSearch ~= false)
     w.debug:SetChecked(db.debug)
-    w.langEN:SetChecked(NS.Language() == "en")
-    w.langPT:SetChecked(NS.Language() == "pt")
+    w.lang:SetText(NS.LanguageName(NS.Language()) .. "  |cffffd200v|r")
     w.donate:SetShown(NS.DONATE_URL ~= nil and NS.DONATE_URL ~= "")
 end
 
@@ -150,21 +244,19 @@ local function buildContent(root)
     -- embaixo do título: na mesma linha encostava no seletor de idioma
     ver:SetPoint("TOPLEFT", title, "BOTTOMLEFT", 0, -4)
 
-    -- idioma (na linha do título): trocar recarrega a interface
-    w.langPT = check(root, "Português (Brasil)", L["Changing the language reloads the interface."])
-    w.langPT:SetPoint("TOPRIGHT", -170, -10)
-    w.langEN = check(root, "English", L["Changing the language reloads the interface."])
-    w.langEN:SetPoint("RIGHT", w.langPT, "LEFT", -80, 0)
+    -- idioma (na linha do título): uma lista com as línguas; trocar recarrega a interface
+    w.lang = button(root, "", 200)
+    w.lang:SetPoint("TOPRIGHT", -16, -14)
+    w.lang:SetScript("OnClick", function(self) NS.ToggleLanguageMenu(self) end)
+    w.lang:SetScript("OnEnter", function(self)
+        GameTooltip:SetOwner(self, "ANCHOR_BOTTOM")
+        GameTooltip:SetText(L["Language"])
+        GameTooltip:AddLine(L["Changing the language reloads the interface."], 1, 1, 1, true)
+        GameTooltip:Show()
+    end)
+    w.lang:SetScript("OnLeave", function() GameTooltip:Hide() end)
     local langL = text(root, L["Language"] .. ":", "GameFontNormal")
-    langL:SetPoint("RIGHT", w.langEN, "LEFT", -4, 0)
-    w.langEN:SetScript("OnClick", function(self)
-        if NS.Language() == "en" then self:SetChecked(true) return end
-        NS.SetLanguage("en")
-    end)
-    w.langPT:SetScript("OnClick", function(self)
-        if NS.Language() == "pt" then self:SetChecked(true) return end
-        NS.SetLanguage("pt")
-    end)
+    langL:SetPoint("RIGHT", w.lang, "LEFT", -6, 0)
 
     -- mensagem
     local h1 = text(root, L["Join request message"], "GameFontNormal")
@@ -191,7 +283,7 @@ local function buildContent(root)
     -- spec e classe (por personagem)
     local h2 = text(root, L["How you introduce yourself (this character only)"], "GameFontNormal")
     h2:SetPoint("TOPLEFT", w.preview, "BOTTOMLEFT", 0, -20)
-    local specL = text(root, "Spec", "GameFontHighlight")
+    local specL = text(root, L["Spec"], "GameFontHighlight")
     specL:SetPoint("TOPLEFT", h2, "BOTTOMLEFT", 0, -12)
     w.spec = editBox(root, 180)
     w.spec:SetPoint("LEFT", specL, "LEFT", 120, 0)

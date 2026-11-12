@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.9.0
+- New languages: Spanish (Spain), Spanish (Latin America), German and French. The language now follows your game client until you pick one; the options have a language list.
+- The window can be resized: drag the corner. More rows fit in a taller window and long names or activities are no longer cut short as soon.
+- Role icons instead of T/H/D letters in the list, the tooltips and the role filters.
+- Changing the language now asks you to reload with a **Reload now** button, because the game can block add-ons from reloading the interface on their own.
+
 ## 0.8.1
 - Options: the version line no longer overlaps the language selector.
 

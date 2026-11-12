@@ -36,6 +36,10 @@ local function button(parent, text, w)
     local b = CF("Button", nil, parent, "UIPanelButtonTemplate")
     b:SetSize(w, 22)
     b:SetText(text)
+    -- traduções podem ser mais longas: cresce para caber o texto
+    local fs = b.GetFontString and b:GetFontString()
+    local tw = fs and fs:GetStringWidth()
+    if tw and tw + 22 > w then b:SetWidth(tw + 22) end
     return b
 end
 
@@ -55,26 +59,26 @@ local function box(parent, alpha)
 end
 
 ------------------------------------------------------------------------
--- passos: área destacada e posição do balão, em coordenadas da janela (440x600)
+-- passos: a moldura se prende aos controles reais (NS.UIRefs), então acompanha o tamanho da janela
 ------------------------------------------------------------------------
 local STEPS = {
     {   title = "Pick what to list",
         body = function() return L["Players lists people looking for a group: use it when you lead. Groups lists groups looking for players: use it when you are solo. All shows both."] end,
-        top = { 8, -24, 278, -58 }, callout = -64 },
+        from = { "modeFirst", "TOPLEFT", -6, 6 }, to = { "modeLast", "BOTTOMRIGHT", 6, -6 }, below = "LEFT" },
     {   title = "Filter the list",
         body = function() return L["Type a level range or click Near me. Click the class icons to pick classes (none = all). Role filters by tank, healer or DPS; in Groups mode it becomes Needs: groups missing that role."] end,
-        top = { 8, -52, 432, -150 }, callout = -156 },
+        from = { "level", "TOPLEFT", -8, 8 }, to = { "clear", "BOTTOMRIGHT", 6, -6 }, below = "LEFT" },
     {   title = "Act on a row",
         body = function()
             return format(L["Invite asks a solo player into your group. Ask to join whispers the group leader your message:\n|cffffffff%s|r\nWhisper opens the chat to write your own."], NS.BuildMessage())
         end,
-        top = { 8, -188, 432, -234 }, callout = -240, sampleRow = true },
+        from = { "sample", "TOPLEFT", -2, 2 }, to = { "sample", "BOTTOMRIGHT", 2, -2 }, below = "LEFT", sampleRow = true },
     {   title = "Refresh the list",
         body = function() return L["GrupoFacil reads your Looking For Group search. Search again repeats the last one. The game only allows it from your click and refuses searches that come too fast."] end,
-        top = { 302, -156, 432, -186 }, callout = -192 },
+        from = { "search", "TOPLEFT", -6, 6 }, to = { "search", "BOTTOMRIGHT", 6, -6 }, below = "RIGHT" },
     {   title = "Your message and settings",
         body = function() return L["The bottom line shows the message leaders receive. Options changes it ({level}, {spec}, {class}, {name}), the send mode, the language and the minimap button. /gf tour shows this tour again."] end,
-        bottom = { 8, 8, 432, 64 }, callout = 70 },
+        from = { "pageUp", "TOPLEFT", -6, 6 }, to = { "panel", "BOTTOMRIGHT", -8, 8 }, above = "LEFT" },
 }
 NS.TOUR_STEPS = STEPS -- para teste
 
@@ -87,8 +91,10 @@ local step -- passo atual (nil = tour parado)
 local function buildSampleRow(parent, level)
     local r = CF("Frame", nil, parent)
     r:SetFrameLevel(level)
-    r:SetPoint("TOPLEFT", panel, "TOPLEFT", 10, -192)
-    r:SetSize(420, 38)
+    local list = NS.UIRefs and NS.UIRefs.list or panel
+    r:SetPoint("TOPLEFT", list, "TOPLEFT", 0, 0)
+    r:SetPoint("TOPRIGHT", list, "TOPRIGHT", 0, 0)
+    r:SetHeight(38)
     local bg = r:CreateTexture(nil, "BACKGROUND")
     bg:SetAllPoints()
     bg:SetColorTexture(0.08, 0.09, 0.12, 1)
@@ -98,10 +104,11 @@ local function buildSampleRow(parent, level)
     icon:SetTexture("Interface\\Icons\\INV_Misc_GroupNeedMore")
     local name = r:CreateFontString(nil, "OVERLAY", "GameFontNormal")
     name:SetPoint("TOPLEFT", icon, "TOPRIGHT", 8, 2)
-    name:SetText(L["Example group"] .. "  |cffaaaaaaLvl 30|r")
+    name:SetText(L["Example group"] .. "  |cffaaaaaa" .. format(L["Lvl %d"], 30) .. "|r")
     local info = r:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
     info:SetPoint("TOPLEFT", name, "BOTTOMLEFT", 0, -3)
-    info:SetText("3/5  T1 H0 D2")
+    local ri = NS.RoleIcon or function() return "" end
+    info:SetText(format("3/5  %s1 %s0 %s2", ri("tank"), ri("healer"), ri("dps")))
     local b2 = button(r, L["Whisper"], 74)
     b2:SetHeight(20)
     b2:SetPoint("RIGHT", -4, 0)
@@ -124,12 +131,12 @@ local function build()
     -- faixa de convite (cobre o topo da lista enquanto está à mostra)
     banner = box(panel, 0.97)
     banner:SetFrameLevel(base)
-    banner:SetPoint("TOPLEFT", panel, "TOPLEFT", 10, -192)
-    banner:SetSize(420, 46)
+    local list = NS.UIRefs and NS.UIRefs.list or panel
+    banner:SetPoint("TOPLEFT", list, "TOPLEFT", 0, 0)
+    banner:SetPoint("TOPRIGHT", list, "TOPRIGHT", 0, 0)
+    banner:SetHeight(50)
     banner:EnableMouse(true)
     local bt = banner:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
-    bt:SetPoint("LEFT", 12, 0)
-    bt:SetWidth(196)
     bt:SetJustifyH("LEFT")
     bt:SetText(L["New to GrupoFacil? Take a 30-second tour."])
     local no = button(banner, L["No thanks"], 90)
@@ -142,6 +149,8 @@ local function build()
     local go = button(banner, L["Start tour"], 100)
     go:SetPoint("RIGHT", no, "LEFT", -6, 0)
     go:SetScript("OnClick", function() NS.StartTour() end)
+    bt:SetPoint("LEFT", 12, 0)
+    bt:SetPoint("RIGHT", go, "LEFT", -8, 0)
     banner:Hide()
 
     highlight = box(panel, 0)
@@ -182,19 +191,22 @@ end
 ------------------------------------------------------------------------
 -- tour
 ------------------------------------------------------------------------
+local function ref(name)
+    if name == "panel" then return panel end
+    if name == "sample" then return sample end
+    return NS.UIRefs and NS.UIRefs[name] or panel
+end
+
 local function place(s)
     highlight:ClearAllPoints()
     callout:ClearAllPoints()
-    if s.top then
-        local x1, y1, x2, y2 = unpack(s.top)
-        highlight:SetPoint("TOPLEFT", panel, "TOPLEFT", x1, y1)
-        highlight:SetPoint("BOTTOMRIGHT", panel, "TOPLEFT", x2, y2)
-        callout:SetPoint("TOP", panel, "TOP", 0, s.callout)
+    local f, t = s.from, s.to
+    highlight:SetPoint("TOPLEFT", ref(f[1]), f[2], f[3], f[4])
+    highlight:SetPoint("BOTTOMRIGHT", ref(t[1]), t[2], t[3], t[4])
+    if s.below then
+        callout:SetPoint("TOP" .. s.below, highlight, "BOTTOM" .. s.below, 0, -4)
     else
-        local x1, y1, x2, y2 = unpack(s.bottom)
-        highlight:SetPoint("BOTTOMLEFT", panel, "BOTTOMLEFT", x1, y1)
-        highlight:SetPoint("TOPRIGHT", panel, "BOTTOMLEFT", x2, y2)
-        callout:SetPoint("BOTTOM", panel, "BOTTOM", 0, s.callout)
+        callout:SetPoint("BOTTOM" .. s.above, highlight, "TOP" .. s.above, 0, 4)
     end
 end
 

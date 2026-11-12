@@ -1,0 +1,218 @@
+-- GrupoFacil: Deutsch (deDE). Schlüssel = englischer Text (siehe Locale.lua).
+local ADDON, NS = ...
+
+NS.LOCALES.de = {
+    -- troca de idioma (botão seguro de /reload)
+    ["Language changed. Reload the interface to apply it."] = "Sprache geändert. Lade die Oberfläche neu, um sie zu übernehmen.",
+    ["Reload now"] = "Jetzt neu laden",
+    ["Later"] = "Später",
+    -- Fenster
+    ["Players"] = "Spieler",
+    ["Groups"] = "Gruppen",
+    ["All"] = "Alle",
+    ["Level"] = "Stufe",
+    ["Level %s %s %s"] = "Stufe %s %s %s",
+    ["Lvl %d"] = "Stufe %d",
+    ["Spec"] = "Skillung",
+    ["Tank"] = "Tank",
+    ["Healer"] = "Heiler",
+    ["DPS"] = "DPS",
+    ["Drag to resize the window."] = "Ziehen, um die Fenstergröße zu ändern.",
+    ["Name"] = "Name",
+    ["Newest"] = "Neueste",
+    ["Sort: "] = "Sort.: ",
+    ["to"] = "bis",
+    ["Near me"] = "Meine Stufe",
+    ["Your level, 3 below to 3 above."] = "Deine Stufe, 3 darunter bis 3 darüber.",
+    ["Hide delisted"] = "Ohne Abgemeldete",
+    ["Class"] = "Klasse",
+    ["Click to toggle. None selected = all."] = "Klicken zum Umschalten. Keine ausgewählt = alle.",
+    ["Role"] = "Rolle",
+    ["Needs"] = "Gesucht",
+    ["Clear filters"] = "Filter löschen",
+    ["Search again"] = "Erneut suchen",
+    ["Repeats the last Looking For Group search (same category and activities)."] =
+        "Wiederholt die letzte Suche in \"Suche nach Gruppe\" (gleiche Kategorie und Aktivitäten).",
+    ["Options"] = "Optionen",
+    ["Join request message, spec, send mode, window and language. Also in Options > AddOns > GrupoFacil."] =
+        "Beitrittsanfrage, Skillung, Sendemodus, Fenster und Sprache. Auch unter Optionen > Addons > GrupoFacil.",
+    ["now"] = "jetzt",
+    ["%d members"] = "%d Mitglieder",
+    ["Whisper"] = "Flüstern",
+    ["Invite"] = "Einladen",
+    ["Invite to group"] = "In die Gruppe einladen",
+    ["Ask the leader to join"] = "Den Anführer um Beitritt bitten",
+    ["Ask to join"] = "Anfragen",
+    ["Sent"] = "Gesendet",
+    ["You can only invite when you are solo or the leader/assistant."] =
+        "Einladen geht nur, wenn du allein oder Anführer/Assistent bist.",
+    ["(prefill mode: opens the chat, you press Enter)"] = "(Vorausfüllen: öffnet den Chat, du drückst Enter)",
+    ["Sends: "] = "Sendet: ",
+    ["Unavailable: "] = "Nicht verfügbar: ",
+    ["Opens the chat so you can write to the player."] = "Öffnet den Chat, damit du dem Spieler schreiben kannst.",
+    ["Members: "] = "Mitglieder: ",
+    ["Left the list"] = "Von der Liste abgemeldet",
+    ["Search in the Looking For Group window."] = "Starte eine Suche in \"Suche nach Gruppe\".",
+    ["Searching..."] = "Suche...",
+    ["Showing %d."] = "%d angezeigt.",
+    ["No results. Search in Looking For Group."] = "Keine Ergebnisse. Nutze \"Suche nach Gruppe\".",
+    ["No result passes the filters."] = "Kein Ergebnis passt zu den Filtern.",
+    ["%d-%d of %d"] = "%d-%d von %d",
+    ["Join request: "] = "Beitrittsanfrage: ",
+    ["The search got no answer. Try again."] = "Suche ohne Antwort. Versuche es erneut.",
+    ["wait %d s (the game limits back-to-back searches)"] = "warte %d s (das Spiel begrenzt aufeinanderfolgende Suchen)",
+    ["the game's chat restriction is active"] = "die Chat-Beschränkung des Spiels ist aktiv",
+    ["search in the Looking For Group window first"] = "starte zuerst eine Suche im Fenster \"Suche nach Gruppe\"",
+    ["the search failed (see /gf diag)"] = "die Suche ist fehlgeschlagen (siehe /gf diag)",
+    ["Game chat restriction active: list frozen."] = "Chat-Beschränkung aktiv: Liste eingefroren.",
+    ["Could not read the results."] = "Ergebnisse nicht lesbar.",
+    ["%d results in total."] = "%d Ergebnisse insgesamt.",
+    ["game chat restriction active; invite blocked."] = "Chat-Beschränkung des Spiels aktiv; Einladung blockiert.",
+    ["no leader data yet"] = "noch keine Daten zum Anführer",
+    ["you are already in a group"] = "du bist bereits in einer Gruppe",
+    ["already sent recently"] = "kürzlich schon gesendet",
+    ["not sent: %s."] = "nicht gesendet: %s.",
+    ["wait a few seconds between requests."] = "warte ein paar Sekunden zwischen den Anfragen.",
+    ["the game did not confirm the request was sent. See /gf diag."] =
+        "das Spiel hat das Senden der Anfrage nicht bestätigt. Siehe /gf diag.",
+    ["request sent to %s."] = "Anfrage an %s gesendet.",
+    ["Too many searches in a row; the game refused. Wait %d s."] =
+        "Zu viele Suchen, vom Spiel abgelehnt. Warte %d s.",
+    ["The search failed"] = "Suche fehlgeschlagen",
+    ["logged an error."] = "hat einen Fehler protokolliert.",
+    ["Use /gf diag to see it; then /reload to save the report."] =
+        "Mit /gf diag ansehen; danach /reload, um den Bericht zu speichern.",
+    ["session %d, %d distinct errors, %d trace lines."] = "Sitzung %d, %d verschiedene Fehler, %d Protokollzeilen.",
+    ["latest events:"] = "letzte Ereignisse:",
+    ["To have it analyzed: /reload (writes the file)."] = "Zur Analyse: /reload (schreibt die Datei).",
+
+    -- Optionen
+    ["version %s  ·  /gf opens the window"] = "Version %s  ·  /gf öffnet das Fenster",
+    ["Language"] = "Sprache",
+    ["Changing the language reloads the interface."] = "Ein Sprachwechsel lädt das Interface neu.",
+    ["Join request message"] = "Text der Beitrittsanfrage",
+    ["Default"] = "Standard",
+    ["Use {class}, {spec}, {level} and {name}. Empty = English default: "] =
+        "Nutze {class}, {spec}, {level} und {name}. Leer = englischer Standardtext: ",
+    ["Goes out as: "] = "Wird gesendet als: ",
+    ["How you introduce yourself (this character only)"] = "Wie du dich vorstellst (nur dieser Charakter)",
+    ["Class name"] = "Klassenname",
+    ["Empty = detect from talents (now: %s)"] = "Leer = aus den Talenten erkennen (jetzt: %s)",
+    ["no points"] = "keine Punkte",
+    ["Empty = game name (%s)"] = "Leer = Name im Spiel (%s)",
+    ["Ask to join button"] = "Schaltfläche \"Anfragen\"",
+    ["Send the whisper straight to the leader"] = "Flüsternachricht direkt an den Anführer senden",
+    ["Only open the chat with the text (you press Enter)"] = "Nur den Chat mit dem Text öffnen (du drückst Enter)",
+    ["Window"] = "Fenster",
+    ["Open together with Looking For Group"] = "Zusammen mit \"Suche nach Gruppe\" öffnen",
+    ["Dock next to Looking For Group"] = "Neben \"Suche nach Gruppe\" andocken",
+    ["Unchecked, the window stays where you drag it."] = "Ohne Haken bleibt das Fenster dort, wohin du es ziehst.",
+    ["Advanced"] = "Erweitert",
+    ["Capture the native search (applies after /reload)"] = "Die Suche des Spiels mitlesen (gilt nach /reload)",
+    ["Keeps the category and activities of the last search for the Search again button. Turn off if the native search gets stuck on Searching... with the addon on."] =
+        "Merkt sich Kategorie und Aktivitäten der letzten Suche für \"Erneut suchen\". Deaktiviere es, wenn die Suche des Spiels bei aktivem Addon bei \"Suche...\" hängen bleibt.",
+    ["Show the diagnostic trace in chat"] = "Diagnoseprotokoll im Chat anzeigen",
+    ["Open GrupoFacil"] = "GrupoFacil öffnen",
+    ["Diagnostics in chat"] = "Diagnose im Chat",
+    ["Clear diagnostics"] = "Diagnose löschen",
+    ["diagnostics cleared."] = "Diagnose gelöscht.",
+    ["open the options after combat."] = "öffne die Optionen nach dem Kampf.",
+    ["could not find the options screen; use the /gf commands."] =
+        "Optionsfenster nicht gefunden; nutze die /gf-Befehle.",
+
+    -- Minikarte
+    ["Click: open or close the window"] = "Klick: Fenster öffnen oder schließen",
+    ["Right-click: options"] = "Rechtsklick: Optionen",
+    ["Donate"] = "Spenden",
+    ["Support the addon"] = "Unterstütze das Addon",
+    ["Press Ctrl+C to copy the link, then paste it in your browser."] =
+        "Drücke Ctrl+C, um den Link zu kopieren, und füge ihn im Browser ein.",
+    ["Drag: move the button"] = "Ziehen: Symbol verschieben",
+    ["Show minimap button"] = "Minikartensymbol anzeigen",
+    ["Left-click opens the window, right-click opens these options. Drag it around the minimap."] =
+        "Linksklick öffnet das Fenster, Rechtsklick diese Optionen. Zum Verschieben am Rand der Minikarte ziehen.",
+    ["minimap button: %s"] = "Minikartensymbol: %s",
+
+    -- Befehle
+    ["/gf minimap on | off - show or hide the minimap button"] = "/gf minimap on | off - Minikartensymbol ein- oder ausblenden",
+    ["/gf - open or close the window"] = "/gf - Fenster öffnen oder schließen",
+    ["/gf options - open the options (also in Options > AddOns > GrupoFacil)"] =
+        "/gf options - Optionen öffnen (auch unter Optionen > Addons > GrupoFacil)",
+    ["/gf lang en | pt | es | mx | de | fr - addon language (reloads the UI)"] =
+        "/gf lang en | pt | es | mx | de | fr - Sprache des Addons (lädt das Interface neu)",
+    ["/gf msg - show the join request text and how it goes out now"] =
+        "/gf msg - Text der Beitrittsanfrage zeigen und wie er jetzt gesendet wird",
+    ["/gf msg <text> - change the text; use {class} {spec} {level} {name}"] =
+        "/gf msg <Text> - Text ändern; nutze {class} {spec} {level} {name}",
+    ["/gf msg default - back to the default text (English)"] = "/gf msg default - zurück zum Standardtext (Englisch)",
+    ["/gf spec <name> | /gf spec auto - set or detect this character's spec"] =
+        "/gf spec <Name> | /gf spec auto - Skillung dieses Charakters festlegen oder erkennen",
+    ["/gf class <name> | /gf class auto - set or detect the class name"] =
+        "/gf class <Name> | /gf class auto - Klassennamen festlegen oder erkennen",
+    ["/gf mode direct | prefill - send the whisper or only open the chat with the text"] =
+        "/gf mode direct | prefill - Flüsternachricht senden oder nur den Chat mit dem Text öffnen",
+    ["/gf auto on | off - open together with Looking For Group"] =
+        "/gf auto on | off - zusammen mit \"Suche nach Gruppe\" öffnen",
+    ["/gf dock - attach the window next to Looking For Group again"] =
+        "/gf dock - Fenster wieder neben \"Suche nach Gruppe\" andocken",
+    ["/gf hook on | off - capture the native search (turn off if the native search gets stuck; applies after /reload)"] =
+        "/gf hook on | off - Suche des Spiels mitlesen (ausschalten, wenn die Suche hängt; gilt nach /reload)",
+    ["/gf diag - error and trace summary; /gf diag snap - save a snapshot now; /gf diag clear"] =
+        "/gf diag - Übersicht über Fehler und Protokoll; /gf diag snap - jetzt einen Schnappschuss speichern; /gf diag clear - löschen",
+    ["/gf debug on | off - show the trace in chat as it happens"] =
+        "/gf debug on | off - Protokoll live im Chat anzeigen",
+    ["language: %s (use /gf lang followed by en, pt, es, mx, de or fr)"] =
+        "Sprache: %s (nutze /gf lang gefolgt von en, pt, es, mx, de oder fr)",
+    ["text (custom): %s"] = "Text (angepasst): %s",
+    ["text (English default): %s"] = "Text (englischer Standard): %s",
+    ["goes out as: %s"] = "wird gesendet als: %s",
+    ["default text (English): %s"] = "Standardtext (Englisch): %s",
+    ["new text: %s"] = "neuer Text: %s",
+    ["(no talent points)"] = "(keine Talentpunkte)",
+
+    -- Tour
+    ["/gf tour - show the quick tour of the window"] = "/gf tour - kurze Tour durch das Fenster zeigen",
+    ["Show the tour"] = "Tour zeigen",
+    ["Close the game options to see the tour."] = "Schließe die Spieloptionen, um die Tour zu sehen.",
+    ["New to GrupoFacil? Take a 30-second tour."] = "Neu bei GrupoFacil? Starte die 30-Sekunden-Tour.",
+    ["Start tour"] = "Tour starten",
+    ["No thanks"] = "Nein, danke",
+    ["You can see the tour any time with /gf tour."] = "Die Tour kannst du jederzeit mit /gf tour ansehen.",
+    ["Tour finished. /gf tour shows it again."] = "Tour beendet. /gf tour zeigt sie erneut.",
+    ["The tour is not available in combat."] = "Die Tour ist im Kampf nicht verfügbar.",
+    ["ready. Open Looking For Group or type /gf. New here? /gf tour shows a quick tour."] =
+        "bereit. Öffne \"Suche nach Gruppe\" oder gib /gf ein. Neu hier? /gf tour zeigt eine kurze Tour.",
+    ["Next"] = "Weiter",
+    ["Back"] = "Zurück",
+    ["Finish"] = "Fertig",
+    ["Skip tour"] = "Überspringen",
+    ["Example group"] = "Beispielgruppe",
+    ["Pick what to list"] = "Wähle, was angezeigt wird",
+    ["Filter the list"] = "Filtere die Liste",
+    ["Act on a row"] = "Nutze die Schaltflächen",
+    ["Refresh the list"] = "Aktualisiere die Liste",
+    ["Your message and settings"] = "Nachricht und Einstellungen",
+    ["Players lists people looking for a group: use it when you lead. Groups lists groups looking for players: use it when you are solo. All shows both."] =
+        "Spieler zeigt Leute, die eine Gruppe suchen: nützlich, wenn du eine Gruppe leitest. Gruppen zeigt Gruppen, die Spieler suchen: nützlich, wenn du allein unterwegs bist. Alle zeigt beides.",
+    ["Type a level range or click Near me. Click the class icons to pick classes (none = all). Role filters by tank, healer or DPS; in Groups mode it becomes Needs: groups missing that role."] =
+        "Gib einen Stufenbereich ein oder klicke auf Meine Stufe. Klicke auf die Klassensymbole, um Klassen zu wählen (keine = alle). Rolle filtert nach Tank, Heiler oder DPS; im Modus Gruppen wird daraus Gesucht: Gruppen, denen diese Rolle fehlt.",
+    ["Invite asks a solo player into your group. Ask to join whispers the group leader your message:\n|cffffffff%s|r\nWhisper opens the chat to write your own."] =
+        "Einladen lädt einen Spieler ohne Gruppe in deine Gruppe ein. Anfragen flüstert dem Gruppenanführer deine Nachricht:\n|cffffffff%s|r\nFlüstern öffnet den Chat für eine eigene Nachricht.",
+    ["GrupoFacil reads your Looking For Group search. Search again repeats the last one. The game only allows it from your click and refuses searches that come too fast."] =
+        "GrupoFacil liest deine Suche in \"Suche nach Gruppe\" mit. Erneut suchen wiederholt die letzte. Das Spiel erlaubt das nur durch deinen Klick und lehnt zu schnell aufeinanderfolgende Suchen ab.",
+    ["The bottom line shows the message leaders receive. Options changes it ({level}, {spec}, {class}, {name}), the send mode, the language and the minimap button. /gf tour shows this tour again."] =
+        "Die untere Zeile zeigt die Nachricht, die Anführer erhalten. Unter Optionen änderst du sie ({level}, {spec}, {class}, {name}), den Sendemodus, die Sprache und das Minikartensymbol. /gf tour zeigt diese Tour erneut.",
+
+    -- Status
+    ["send mode: %s"] = "Sendemodus: %s",
+    ["direct"] = "direkt",
+    ["prefill"] = "vorausfüllen",
+    ["open together with Looking For Group: %s"] = "zusammen mit \"Suche nach Gruppe\" öffnen: %s",
+    ["search hook %s; applies after /reload."] = "Such-Hook %s; gilt nach /reload.",
+    ["search hook: %s"] = "Such-Hook: %s",
+    ["snapshot saved. /reload to write it to disk."] = "Schnappschuss gespeichert. /reload schreibt ihn auf die Festplatte.",
+    ["debug: %s"] = "Debug: %s",
+    ["on"] = "an",
+    ["off"] = "aus",
+    ["on (trace in chat)"] = "an (Protokoll im Chat)",
+}

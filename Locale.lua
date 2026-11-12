@@ -1,14 +1,26 @@
 -- GrupoFacil: idiomas. O texto em inglês é a própria chave (e o fallback).
--- O idioma escolhido fica em GrupoFacilDB.language ("en" padrão, "pt"); trocar recarrega a interface.
+-- O idioma escolhido fica em GrupoFacilDB.language; sem escolha, segue o idioma do cliente (enUS = inglês).
+-- As outras línguas ficam em Locale_<código>.lua e se registram em NS.LOCALES. Trocar recarrega a interface.
 
 local ADDON, NS = ...
 
 local PT = {
+    -- troca de idioma (botão seguro de /reload)
+    ["Language changed. Reload the interface to apply it."] = "Idioma alterado. Recarregue a interface para aplicar.",
+    ["Reload now"] = "Recarregar agora",
+    ["Later"] = "Depois",
     -- janela
     ["Players"] = "Jogadores",
     ["Groups"] = "Grupos",
     ["All"] = "Todos",
     ["Level"] = "Level",
+    ["Level %s %s %s"] = "Level %s %s %s",
+    ["Lvl %d"] = "Lvl %d",
+    ["Spec"] = "Spec",
+    ["Tank"] = "Tank",
+    ["Healer"] = "Healer",
+    ["DPS"] = "DPS",
+    ["Drag to resize the window."] = "Arraste para mudar o tamanho da janela.",
     ["Name"] = "Nome",
     ["Newest"] = "Mais novos",
     ["Sort: "] = "Ordem: ",
@@ -126,7 +138,7 @@ local PT = {
     ["/gf - open or close the window"] = "/gf - abre ou fecha a janela",
     ["/gf options - open the options (also in Options > AddOns > GrupoFacil)"] =
         "/gf options - abre as opções (também em Options > AddOns > GrupoFacil)",
-    ["/gf lang en | pt - addon language (reloads the UI)"] = "/gf lang en | pt - idioma do addon (recarrega a interface)",
+    ["/gf lang en | pt | es | mx | de | fr - addon language (reloads the UI)"] = "/gf lang en | pt | es | mx | de | fr - idioma do addon (recarrega a interface)",
     ["/gf msg - show the join request text and how it goes out now"] = "/gf msg - mostra o texto do pedido de vaga e como ele sai agora",
     ["/gf msg <text> - change the text; use {class} {spec} {level} {name}"] = "/gf msg <texto> - troca o texto; use {class} {spec} {level} {name}",
     ["/gf msg default - back to the default text (English)"] = "/gf msg default - volta ao texto padrão (inglês)",
@@ -141,7 +153,7 @@ local PT = {
     ["/gf diag - error and trace summary; /gf diag snap - save a snapshot now; /gf diag clear"] =
         "/gf diag - resumo dos erros e do rastro; /gf diag snap - grava um retrato agora; /gf diag clear - limpa",
     ["/gf debug on | off - show the trace in chat as it happens"] = "/gf debug on | off - mostra o rastro no chat enquanto acontece",
-    ["language: %s (use /gf lang en or /gf lang pt)"] = "idioma: %s (use /gf lang en ou /gf lang pt)",
+    ["language: %s (use /gf lang followed by en, pt, es, mx, de or fr)"] = "idioma: %s (use /gf lang seguido de en, pt, es, mx, de ou fr)",
     ["text (custom): %s"] = "texto (personalizado): %s",
     ["text (English default): %s"] = "texto (padrão em inglês): %s",
     ["goes out as: %s"] = "sai assim: %s",
@@ -194,25 +206,57 @@ local PT = {
 }
 NS.PT_STRINGS = PT
 
+-- Outras línguas: Locale_es.lua, Locale_mx.lua, Locale_de.lua, Locale_fr.lua preenchem esta tabela.
+NS.LOCALES = { pt = PT }
+-- Ordem do seletor; o nome fica na própria língua.
+NS.LANGUAGES = {
+    { code = "en", name = "English" },
+    { code = "pt", name = "Português (Brasil)" },
+    { code = "es", name = "Español (España)" },
+    { code = "mx", name = "Español (Latinoamérica)" },
+    { code = "de", name = "Deutsch" },
+    { code = "fr", name = "Français" },
+}
+-- Idioma do cliente -> idioma do addon, quando o jogador nunca escolheu.
+local CLIENT = { ptBR = "pt", ptPT = "pt", esES = "es", esMX = "mx", deDE = "de", frFR = "fr" }
+-- Apelidos aceitos em /gf lang.
+NS.LANGUAGE_ALIAS = { enus = "en", engb = "en", ptbr = "pt", eses = "es", esmx = "mx", dede = "de", frfr = "fr",
+    english = "en", portugues = "pt", ["português"] = "pt", espanol = "es", ["español"] = "es", latam = "mx",
+    deutsch = "de", francais = "fr", ["français"] = "fr" }
+
+local function known(code) return code == "en" or NS.LOCALES[code] ~= nil end
+
 function NS.Language()
     local lang = GrupoFacilDB and GrupoFacilDB.language
-    if lang == "pt" then return "pt" end
+    if lang and known(lang) then return lang end
+    local c = CLIENT[GetLocale and GetLocale() or ""]
+    if c and known(c) then return c end
     return "en"
+end
+
+function NS.LanguageName(code)
+    for _, l in ipairs(NS.LANGUAGES) do if l.code == code then return l.name end end
+    return code
 end
 
 -- Busca na hora: o idioma só é conhecido depois que o SavedVariables carrega.
 NS.L = setmetatable({}, {
     __index = function(_, key)
-        if NS.Language() == "pt" then return PT[key] or key end
-        return key
+        local t = NS.LOCALES[NS.Language()]
+        return t and t[key] or key
     end,
 })
 
--- Troca o idioma e recarrega a interface (chamada a partir de um clique ou comando).
+-- Troca o idioma e pede o /reload. ReloadUI() chamado pelo addon pode ser bloqueado pelo jogo
+-- (ADDON_ACTION_BLOCKED visto em 12/11/2026), então o recarregamento sai de um botão seguro
+-- com a macro /reload (NS.ShowReloadPrompt, em Options.lua).
 function NS.SetLanguage(lang)
-    if lang ~= "en" and lang ~= "pt" then return end
-    if not GrupoFacilDB or NS.Language() == lang then return end
+    lang = NS.LANGUAGE_ALIAS[lang] or lang
+    if not known(lang) then return false end
+    if not GrupoFacilDB then return false end
+    if NS.Language() == lang and GrupoFacilDB.language == lang then return true end
     GrupoFacilDB.language = lang
-    if NS.D then NS.D.Trace("CONFIG", "idioma trocado para %s; recarregando", lang) end
-    ReloadUI()
+    if NS.D then NS.D.Trace("CONFIG", "idioma trocado para %s; pedindo /reload", lang) end
+    if NS.ShowReloadPrompt then NS.ShowReloadPrompt() end
+    return true
 end

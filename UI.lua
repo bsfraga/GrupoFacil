@@ -4,7 +4,10 @@ local ADDON, NS = ...
 local L = NS.L
 local format, lower, floor, max, min = string.format, string.lower, math.floor, math.max, math.min
 
-local ROW_H, ROWS = 38, 9
+local ROW_H, MAX_ROWS = 38, 30
+local MIN_W, MIN_H, MAX_W, MAX_H = 440, 420, 1000, 1200
+local LIST_TOP, LIST_BOTTOM = 192, 66 -- distância da lista ao topo e ao pé da janela
+NS.rowsVisible = 9
 local CLASSES = { "WARRIOR", "PALADIN", "HUNTER", "ROGUE", "PRIEST", "SHAMAN", "MAGE", "WARLOCK", "DRUID" }
 -- Rótulos resolvidos na hora (o idioma só é conhecido depois do SavedVariables carregar).
 local MODE_LABEL = setmetatable({}, { __index = function(_, k) return L[({ players = "Players", groups = "Groups", all = "All" })[k] or k] end })
@@ -60,24 +63,41 @@ local function ageText(sec)
     return format("%dh", floor(sec / 3600))
 end
 
-local ROLE_TXT = {
-    tank = "|cff4fa3ffTank|r",
-    healer = "|cff55ff55Healer|r",
-    dps = "|cffff6060DPS|r",
-}
+-- Ícones de role: atlas do cliente quando existe; senão a textura clássica do LFG.
+local ROLE_ATLAS = { tank = "roleicon-tiny-tank", healer = "roleicon-tiny-healer", dps = "roleicon-tiny-dps" }
+local ROLE_COORDS = { tank = "0:19:22:41", healer = "20:39:1:20", dps = "20:39:22:41" }
+local roleIconCache = {}
+local function roleIcon(role, size)
+    size = size or 14
+    local key = role .. size
+    if roleIconCache[key] then return roleIconCache[key] end
+    local s
+    local atlas = ROLE_ATLAS[role]
+    if CreateAtlasMarkup and C_Texture and C_Texture.GetAtlasInfo and C_Texture.GetAtlasInfo(atlas) then
+        s = CreateAtlasMarkup(atlas, size, size)
+    else
+        s = format("|TInterface\\LFGFrame\\UI-LFG-ICON-PORTRAITROLES:%d:%d:0:0:64:64:%s|t", size, size, ROLE_COORDS[role])
+    end
+    roleIconCache[key] = s
+    return s
+end
+NS.RoleIcon = roleIcon
+local ROLE_COLOR = { tank = "|cff4fa3ff", healer = "|cff55ff55", dps = "|cffff6060" }
+local ROLE_KEY = { tank = "Tank", healer = "Healer", dps = "DPS" }
+local function roleWithIcon(role) return roleIcon(role) .. " " .. ROLE_COLOR[role] .. L[ROLE_KEY[role]] .. "|r" end
 
 local function rolesText(e)
     if e.solo then
         if not e.roles then return "" end
         local t = {}
         for _, r in ipairs({ "tank", "healer", "dps" }) do
-            if e.roles[r] then t[#t + 1] = ROLE_TXT[r] end
+            if e.roles[r] then t[#t + 1] = roleIcon(r) end
         end
         return table.concat(t, " ")
     end
     local s = e.maxPlayers and format("%d/%d", e.numMembers, e.maxPlayers) or format(L["%d members"], e.numMembers)
     if e.counts then
-        s = s .. format("  T%d H%d D%d", e.counts.tank, e.counts.healer, e.counts.dps)
+        s = s .. format("  %s%d %s%d %s%d", roleIcon("tank"), e.counts.tank, roleIcon("healer"), e.counts.healer, roleIcon("dps"), e.counts.dps)
     end
     return s
 end
@@ -94,10 +114,28 @@ local function tooltip(owner, title, line)
     if owner.SetMotionScriptsWhileDisabled then owner:SetMotionScriptsWhileDisabled(true) end
 end
 
+-- Largura que cabe o texto (as traduções podem ser mais longas que o inglês).
+local function textWidth(b, text)
+    local fs = b.GetFontString and b:GetFontString()
+    if not fs then return 0 end
+    local old = fs:GetText()
+    fs:SetText(text)
+    local w = fs:GetStringWidth() or 0
+    fs:SetText(old)
+    return w
+end
+
+local function fitWidth(b, minW, texts)
+    local w = minW
+    for _, t in ipairs(texts) do w = max(w, textWidth(b, t) + 22) end
+    b:SetWidth(w)
+end
+
 local function button(parent, text, w, h)
     local b = CF("Button", nil, parent, "UIPanelButtonTemplate")
     b:SetSize(w, h or 22)
     b:SetText(text)
+    fitWidth(b, w, { text })
     return b
 end
 
@@ -128,8 +166,9 @@ end
 
 local function makeRow(parent, i)
     local r = CF("Button", nil, parent)
-    r:SetSize(parent:GetWidth(), ROW_H)
+    r:SetHeight(ROW_H)
     r:SetPoint("TOPLEFT", 0, -(i - 1) * ROW_H)
+    r:SetPoint("TOPRIGHT", 0, -(i - 1) * ROW_H)
     r:SetHighlightTexture("Interface\\QuestFrame\\UI-QuestTitleHighlight", "ADD")
 
     r.bg = r:CreateTexture(nil, "BACKGROUND")
@@ -156,6 +195,7 @@ local function makeRow(parent, i)
     r.b2:SetPoint("RIGHT", -4, 0)
     r.b1 = button(r, L["Invite"], 82, 20)
     r.b1:SetPoint("RIGHT", r.b2, "LEFT", -3, 0)
+    fitWidth(r.b1, 82, { L["Invite"], L["Ask to join"], L["Sent"] })
 
     r.b1:SetScript("OnClick", function(self)
         local e = r.entry
@@ -189,7 +229,7 @@ local function makeRow(parent, i)
         GameTooltip:SetOwner(self, "ANCHOR_LEFT")
         GameTooltip:SetText(e.name or RETRIEVING_DATA or "...", classColor(e.class))
         if e.level or e.className then
-            GameTooltip:AddLine(format("Level %s %s %s", tostring(e.level or "?"), e.specName or "", e.className or className(e.class) or ""), 1, 1, 1)
+            GameTooltip:AddLine(format(L["Level %s %s %s"], tostring(e.level or "?"), e.specName or "", e.className or className(e.class) or ""), 1, 1, 1)
         end
         if e.activity ~= "" then GameTooltip:AddLine(e.activity, 0.8, 0.8, 0.8, true) end
         if not e.solo then GameTooltip:AddLine(L["Members: "] .. rolesText(e), 0.8, 0.8, 0.8) end
@@ -205,7 +245,15 @@ function NS.BuildUI()
     if frame then return end
     local db = GrupoFacilDB
     frame = CF("Frame", "GrupoFacilFrame", UIParent, "BasicFrameTemplateWithInset")
-    frame:SetSize(440, 600)
+    local size = type(db.size) == "table" and db.size or {}
+    frame:SetSize(min(MAX_W, max(MIN_W, size[1] or MIN_W)), min(MAX_H, max(MIN_H, size[2] or 600)))
+    frame:SetResizable(true)
+    if frame.SetResizeBounds then
+        frame:SetResizeBounds(MIN_W, MIN_H, MAX_W, MAX_H)
+    elseif frame.SetMinResize then
+        frame:SetMinResize(MIN_W, MIN_H)
+        frame:SetMaxResize(MAX_W, MAX_H)
+    end
     frame:SetFrameStrata("HIGH")
     frame:SetClampedToScreen(true)
     frame:SetMovable(true)
@@ -230,26 +278,27 @@ function NS.BuildUI()
     by:SetPoint("TOPRIGHT", -30, -6)
 
     -- linha 1: modo e ordem
-    local x = 12
+    local prevMode
     for _, mode in ipairs({ "players", "groups", "all" }) do
         local b = button(frame, MODE_LABEL[mode], 84)
-        b:SetPoint("TOPLEFT", x, -30)
+        if prevMode then b:SetPoint("LEFT", prevMode, "RIGHT", 2, 0) else b:SetPoint("TOPLEFT", 12, -30) end
         b:SetScript("OnClick", function()
             filters().mode = mode
             onFilterChanged()
         end)
         modeButtons[mode] = b
-        x = x + 86
+        prevMode = b
     end
     sortBtn = button(frame, "", 140)
     sortBtn:SetPoint("TOPRIGHT", -12, -30)
+    fitWidth(sortBtn, 120, { L["Sort: "] .. L["Level"], L["Sort: "] .. L["Name"], L["Sort: "] .. L["Newest"] })
     sortBtn:SetScript("OnClick", function()
         filters().sort = SORT_NEXT[filters().sort] or "level"
         onFilterChanged()
     end)
 
     -- linha 2: level
-    local lvl = label(frame, "Level", "GameFontNormal")
+    local lvl = label(frame, L["Level"], "GameFontNormal")
     lvl:SetPoint("TOPLEFT", 14, -64)
     minBox = CF("EditBox", nil, frame, "InputBoxTemplate")
     minBox:SetSize(32, 20)
@@ -328,7 +377,7 @@ function NS.BuildUI()
         local c = CF("CheckButton", nil, frame, "UICheckButtonTemplate")
         c:SetSize(24, 24)
         c:SetPoint("LEFT", prev, "RIGHT", prev == roleLabel and 6 or 2, 0)
-        local l = label(frame, ROLE_TXT[role], "GameFontHighlightSmall")
+        local l = label(frame, roleWithIcon(role), "GameFontHighlightSmall")
         l:SetPoint("LEFT", c, "RIGHT", 0, 0)
         c:SetScript("OnClick", function(self)
             filters().roles[role] = self:GetChecked() and true or nil
@@ -364,27 +413,27 @@ function NS.BuildUI()
 
     -- lista
     local list = CF("Frame", nil, frame)
-    list:SetPoint("TOPLEFT", 10, -192)
-    list:SetSize(420, ROW_H * ROWS)
+    list:SetPoint("TOPLEFT", 10, -LIST_TOP)
+    list:SetPoint("BOTTOMRIGHT", -10, LIST_BOTTOM)
     list:EnableMouseWheel(true)
     list:SetScript("OnMouseWheel", function(_, delta)
         NS.offset = NS.offset - delta * 3
         NS.Refresh("scroll")
     end)
-    for i = 1, ROWS do rows[i] = makeRow(list, i) end
+    frame.list = list
 
     -- rodapé
     local up = button(frame, "<", 26, 20)
     up:SetPoint("BOTTOMLEFT", 12, 38)
-    up:SetScript("OnClick", function() NS.offset = NS.offset - ROWS; NS.Refresh("page") end)
+    up:SetScript("OnClick", function() NS.offset = NS.offset - NS.rowsVisible; NS.Refresh("page") end)
     local down = button(frame, ">", 26, 20)
     down:SetPoint("LEFT", up, "RIGHT", 2, 0)
-    down:SetScript("OnClick", function() NS.offset = NS.offset + ROWS; NS.Refresh("page") end)
+    down:SetScript("OnClick", function() NS.offset = NS.offset + NS.rowsVisible; NS.Refresh("page") end)
     pageFS = label(frame, "", "GameFontHighlightSmall")
     pageFS:SetPoint("LEFT", down, "RIGHT", 8, 0)
     previewFS = label(frame, "", "GameFontDisableSmall")
     previewFS:SetPoint("BOTTOMLEFT", 14, 14)
-    previewFS:SetPoint("BOTTOMRIGHT", -14, 14)
+    previewFS:SetPoint("BOTTOMRIGHT", -26, 14) -- deixa o canto livre para a alça de tamanho
     previewFS:SetJustifyH("LEFT")
     previewFS:SetWordWrap(false)
 
@@ -394,6 +443,37 @@ function NS.BuildUI()
     opts:SetScript("OnClick", function() if NS.OpenOptions then NS.OpenOptions() end end)
     tooltip(opts, L["Options"], L["Join request message, spec, send mode, window and language. Also in Options > AddOns > GrupoFacil."])
 
+    -- alça de tamanho no canto inferior direito
+    local grip = CF("Button", nil, frame)
+    grip:SetSize(16, 16)
+    grip:SetPoint("BOTTOMRIGHT", -4, 4)
+    grip:SetNormalTexture("Interface\\ChatFrame\\UI-ChatIM-SizeGrabber-Up")
+    grip:SetHighlightTexture("Interface\\ChatFrame\\UI-ChatIM-SizeGrabber-Highlight")
+    grip:SetPushedTexture("Interface\\ChatFrame\\UI-ChatIM-SizeGrabber-Down")
+    grip:SetScript("OnMouseDown", function(_, mouse)
+        if mouse == "LeftButton" then frame:StartSizing("BOTTOMRIGHT") end
+    end)
+    grip:SetScript("OnMouseUp", function()
+        frame:StopMovingOrSizing()
+        GrupoFacilDB.size = { floor((frame:GetWidth() or MIN_W) + 0.5), floor((frame:GetHeight() or 600) + 0.5) }
+        -- StopMovingOrSizing pode soltar a âncora do encaixe; refaz a posição
+        if GrupoFacilDB.docked then
+            NS.Dock()
+        else
+            local p, _, rp, x, y = frame:GetPoint(1)
+            GrupoFacilDB.pos = { p, rp, x, y }
+        end
+        NS.Layout()
+    end)
+    tooltip(grip, L["Drag to resize the window."])
+    frame:SetScript("OnSizeChanged", function() NS.Layout() end)
+
+    -- referências para o tour (Onboarding.lua)
+    NS.UIRefs = { modeFirst = modeButtons.players, modeLast = modeButtons.all, level = lvl, clear = clear,
+        search = searchBtn, list = list, pageUp = up, preview = previewFS, options = opts }
+
+    NS.Layout()
+
     frame:SetScript("OnShow", function()
         if not NS.searching then NS.RebuildAll("janela aberta") end
         NS.Refresh("show")
@@ -402,6 +482,30 @@ function NS.BuildUI()
     frame:SetScript("OnHide", function()
         if NS.OnPanelHidden then NS.OnPanelHidden() end
     end)
+end
+
+------------------------------------------------------------------------
+-- tamanho: quantas linhas cabem e a largura do texto de cada linha
+------------------------------------------------------------------------
+function NS.Layout()
+    if not frame or not frame.list then return end
+    local list = frame.list
+    local h = list:GetHeight() or (ROW_H * 9)
+    local w = list:GetWidth() or 420
+    local n = max(3, min(MAX_ROWS, floor(h / ROW_H)))
+    NS.rowsVisible = n
+    for i = 1, n do
+        if not rows[i] then rows[i] = makeRow(list, i) end
+    end
+    for i = n + 1, #rows do rows[i]:Hide() end
+    for i = 1, #rows do
+        local r = rows[i]
+        local bw = (r.b1:GetWidth() or 82) + (r.b2:GetWidth() or 74) + 7
+        local tw = max(120, w - 40 - bw - 10)
+        r.name:SetWidth(tw)
+        r.info:SetWidth(tw)
+    end
+    NS.Render()
 end
 
 ------------------------------------------------------------------------
@@ -467,6 +571,7 @@ function NS.Render()
 
     local list = NS.Visible()
     local total = #list
+    local ROWS = NS.rowsVisible
     NS.offset = max(0, min(NS.offset, max(0, total - ROWS)))
 
     for i = 1, ROWS do
@@ -479,7 +584,7 @@ function NS.Render()
             r:Show()
             setClassIcon(r.icon, e.class)
             if e.solo then r.icon:SetDesaturated(e.delisted) else r.icon:SetDesaturated(true) end
-            local lvl = e.level and format("  |cffaaaaaaLvl %d|r", e.level) or ""
+            local lvl = e.level and ("  |cffaaaaaa" .. format(L["Lvl %d"], e.level) .. "|r") or ""
             r.name:SetText((e.name or RETRIEVING_DATA or "...") .. lvl)
             if e.delisted then r.name:SetTextColor(0.5, 0.5, 0.5) else r.name:SetTextColor(classColor(e.class)) end
             local parts = {}

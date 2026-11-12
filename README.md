@@ -19,7 +19,9 @@ The native Looking For Group window lists every player and group with no filters
   - **Whisper**: opens the chat to write your own message.
 - **Search again** repeats your last Looking For Group search.
 - **Your own message**: use `{class}`, `{spec}`, `{level}` and `{name}`. Your spec is detected from your talents, or you can set it yourself.
-- **English and Brazilian Portuguese** interface (switch in the options; the UI reloads).
+- **Six languages**: English, Brazilian Portuguese, Spanish (Spain), Spanish (Latin America), German and French. It follows your game client until you pick one in the options (the UI reloads).
+- **Resizable window**: drag the bottom-right corner; a taller window shows more rows.
+- **Role icons** for tank, healer and DPS in the list and the filters.
 - **Minimap button** and an entry in the AddOns menu: left-click opens the window, right-click opens the options.
 - **Options** in their own window and in *Options > AddOns > GrupoFacil*.
 
@@ -47,7 +49,7 @@ The first time the window opens, a banner offers a 30-second tour of the window.
 | `/gf` | Open or close the window |
 | `/gf options` | Open the options |
 | `/gf tour` | Show the quick tour of the window again |
-| `/gf lang en` / `/gf lang pt` | Interface language (reloads the UI) |
+| `/gf lang en` / `pt` / `es` / `mx` / `de` / `fr` | Interface language (reloads the UI) |
 | `/gf msg` | Show the join request text and how it goes out |
 | `/gf msg <text>` | Set your own text (`{class}`, `{spec}`, `{level}`, `{name}`) |
 | `/gf msg default` | Back to the default English text |

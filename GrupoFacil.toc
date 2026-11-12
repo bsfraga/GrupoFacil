@@ -17,6 +17,10 @@
 ## Category-ptBR: Social
 
 Locale.lua
+Locale_es.lua
+Locale_mx.lua
+Locale_de.lua
+Locale_fr.lua
 Diag.lua
 Core.lua
 UI.lua

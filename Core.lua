@@ -769,7 +769,7 @@ local HELP = {
     "/gf - open or close the window",
     "/gf options - open the options (also in Options > AddOns > GrupoFacil)",
     "/gf tour - show the quick tour of the window",
-    "/gf lang en | pt - addon language (reloads the UI)",
+    "/gf lang en | pt | es | mx | de | fr - addon language (reloads the UI)",
     "/gf msg - show the join request text and how it goes out now",
     "/gf msg <text> - change the text; use {class} {spec} {level} {name}",
     "/gf msg default - back to the default text (English)",
@@ -807,10 +807,8 @@ SlashCmdList.GRUPOFACIL = function(input)
     elseif cmd == "tour" then
         if NS.StartTour then NS.StartTour() end
     elseif cmd == "lang" then
-        if l == "en" or l == "pt" then
-            NS.SetLanguage(l) -- recarrega a interface
-        else
-            NS.Print(format(L["language: %s (use /gf lang en or /gf lang pt)"], NS.Language()))
+        if l == "" or not NS.SetLanguage(l) then -- recarrega a interface quando troca
+            NS.Print(format(L["language: %s (use /gf lang followed by en, pt, es, mx, de or fr)"], NS.LanguageName(NS.Language())))
         end
     elseif cmd == "msg" then
         if rest == "" then
