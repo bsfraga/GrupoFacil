@@ -1,0 +1,29 @@
+# Publica uma versão quando uma tag é enviada (git tag -a v0.8.0 -m "v0.8.0" && git push --tags).
+# Tag com "alpha" ou "beta" no nome sai como Alpha/Beta; qualquer outra sai como Release.
+# Segredos (Settings > Secrets and variables > Actions):
+#   CF_API_TOKEN   - token do CurseForge (authors.curseforge.com/account/api-tokens)
+#   WAGO_API_TOKEN - token do Wago (opcional; sem ele, o envio ao Wago é pulado)
+name: Package and release
+
+on:
+  push:
+    tags:
+      - "**"
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    env:
+      CF_API_TOKEN: ${{ secrets.CF_API_TOKEN }}
+      WAGO_API_TOKEN: ${{ secrets.WAGO_API_TOKEN }}
+      GH_API_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    steps:
+      - name: Checkout (histórico completo para o changelog)
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Package and upload
+        uses: BigWigsMods/packager@v2

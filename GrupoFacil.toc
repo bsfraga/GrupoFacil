@@ -1,0 +1,23 @@
+## Interface: 16001
+## Title: GrupoFacil
+## Notes: Filters the Looking For Group list by level, class and role, and asks group leaders to join with a ready-made message.
+## Notes-ptBR: Filtra a lista do Looking For Group por level, classe e role, e pede vaga ao líder com uma mensagem pronta.
+## Author: Bael (Bagael Bagacera)
+## Version: @project-version@
+## X-License: MIT
+## X-Website: https://github.com/bsfraga/GrupoFacil
+## IconTexture: Interface\Icons\INV_Misc_GroupNeedMore
+## AddonCompartmentFunc: GrupoFacil_OnAddonCompartmentClick
+## AddonCompartmentFuncOnEnter: GrupoFacil_OnAddonCompartmentEnter
+## AddonCompartmentFuncOnLeave: GrupoFacil_OnAddonCompartmentLeave
+## SavedVariables: GrupoFacilDB
+## SavedVariablesPerCharacter: GrupoFacilCharDB
+## Category-enUS: Social
+## Category-ptBR: Social
+
+Locale.lua
+Diag.lua
+Core.lua
+UI.lua
+Options.lua
+Minimap.lua
