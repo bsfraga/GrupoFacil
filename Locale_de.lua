@@ -2,6 +2,28 @@
 local ADDON, NS = ...
 
 NS.LOCALES.de = {
+    ["+%d more: pick a level range to narrow the list."] = "+%d weitere: grenze die Liste mit einem Stufenbereich ein.",
+    -- v0.10: dungeon, modo compacto, vagas, zona, composição, {role}/{activity}
+    ["dungeon"] = "Dungeon",
+    ["Dungeon"] = "Dungeon",
+    ["All dungeons"] = "Alle Dungeons",
+    ["%d dungeons"] = "%d Dungeons",
+    ["Show only these dungeons. The list has the dungeons in the current results, with their suggested level."] = "Nur diese Dungeons anzeigen. Die Liste enthält die Dungeons aus den aktuellen Ergebnissen mit ihrer empfohlenen Stufe.",
+    ["No dungeons in the results yet. Search first."] = "Noch keine Dungeons in den Ergebnissen. Suche zuerst.",
+    ["Hide filters"] = "Filter ausblenden",
+    ["Show filters"] = "Filter einblenden",
+    ["Compact mode: hides the filter rows so more of the list fits. The filters keep working."] = "Kompaktmodus: blendet die Filterzeilen aus, damit mehr von der Liste passt. Die Filter gelten weiter.",
+    ["(filters on)"] = "(Filter aktiv)",
+    ["needs you"] = "sucht dich",
+    ["Needs your role: %s"] = "Platz für deine Rolle: %s",
+    ["Zone: %s"] = "Zone: %s",
+    ["Leader's zone: %s"] = "Zone des Anführers: %s",
+    ["Open spots: "] = "Freie Plätze: ",
+    ["none"] = "keine",
+    ["leader"] = "Anführer",
+    ["Dungeon picks which dungeons to show, and Hide filters gives the list more room."] = "Dungeon legt fest, welche Dungeons angezeigt werden, und Filter ausblenden gibt der Liste mehr Platz.",
+    ["Use {class}, {spec}, {level}, {name}, {role} (your Looking For Group roles) and {activity} (the group's dungeon). Empty = English default: "] = "Nutze {class}, {spec}, {level}, {name}, {role} (deine Rollen in der Suche nach Gruppe) und {activity} (der Dungeon der Gruppe). Leer = englischer Standardtext: ",
+    ["/gf msg <text> - change the text; use {class} {spec} {level} {name} {role} {activity}"] = "/gf msg <Text> - Text ändern; nutze {class} {spec} {level} {name} {role} {activity}",
     -- troca de idioma (botão seguro de /reload)
     ["Language changed. Reload the interface to apply it."] = "Sprache geändert. Lade die Oberfläche neu, um sie zu übernehmen.",
     ["Reload now"] = "Jetzt neu laden",
@@ -92,8 +114,6 @@ NS.LOCALES.de = {
     ["Changing the language reloads the interface."] = "Ein Sprachwechsel lädt das Interface neu.",
     ["Join request message"] = "Text der Beitrittsanfrage",
     ["Default"] = "Standard",
-    ["Use {class}, {spec}, {level} and {name}. Empty = English default: "] =
-        "Nutze {class}, {spec}, {level} und {name}. Leer = englischer Standardtext: ",
     ["Goes out as: "] = "Wird gesendet als: ",
     ["How you introduce yourself (this character only)"] = "Wie du dich vorstellst (nur dieser Charakter)",
     ["Class name"] = "Klassenname",
@@ -142,8 +162,6 @@ NS.LOCALES.de = {
         "/gf lang en | pt | es | mx | de | fr - Sprache des Addons (lädt das Interface neu)",
     ["/gf msg - show the join request text and how it goes out now"] =
         "/gf msg - Text der Beitrittsanfrage zeigen und wie er jetzt gesendet wird",
-    ["/gf msg <text> - change the text; use {class} {spec} {level} {name}"] =
-        "/gf msg <Text> - Text ändern; nutze {class} {spec} {level} {name}",
     ["/gf msg default - back to the default text (English)"] = "/gf msg default - zurück zum Standardtext (Englisch)",
     ["/gf spec <name> | /gf spec auto - set or detect this character's spec"] =
         "/gf spec <Name> | /gf spec auto - Skillung dieses Charakters festlegen oder erkennen",

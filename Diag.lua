@@ -14,7 +14,7 @@ local L = NS.L
 
 local MAX_TRACE = 500
 local MAX_ERRORS = 60
-local MAX_SAMPLES = 8
+local MAX_SAMPLES = 16
 local floor, format, tostring, type, pairs, ipairs, select = math.floor, string.format, tostring, type, pairs, ipairs, select
 
 local pending = {}      -- registros feitos antes do SavedVariables carregar
@@ -248,10 +248,18 @@ end
 ------------------------------------------------------------------------
 -- forma dos dados recebidos (tipos, nil e SECRET; sem nomes)
 ------------------------------------------------------------------------
-local INFO_FIELDS = { "numMembers", "hasSelf", "isDelisted", "leaderName", "age", "activityIDs", "generalPlaystyle", "newPlayerFriendly" }
+local INFO_FIELDS = { "numMembers", "hasSelf", "isDelisted", "leaderName", "age", "activityIDs", "generalPlaystyle",
+    "newPlayerFriendly", "name", "comment", "voiceChat", "requiredItemLevel", "isWarMode", "autoAccept" }
 local PLAYER_FIELDS = { "name", "level", "classFilename", "className", "specName", "assignedRole", "lfgRoles", "areaName", "isLeader" }
+local ACTIVITY_FIELDS = { "fullName", "shortName", "categoryID", "groupFinderActivityGroupID", "minLevel", "maxLevel",
+    "minLevelSuggestion", "maxLevelSuggestion", "maxNumPlayers", "useDungeonRoleExpectations", "isHeroicActivity", "difficultyID" }
 local SHOW_VALUE = { numMembers = true, hasSelf = true, isDelisted = true, age = true, level = true,
-    classFilename = true, specName = true, assignedRole = true, generalPlaystyle = true, newPlayerFriendly = true, isLeader = true }
+    classFilename = true, specName = true, assignedRole = true, generalPlaystyle = true, newPlayerFriendly = true, isLeader = true,
+    fullName = true, shortName = true, requiredItemLevel = true, isWarMode = true, autoAccept = true,
+    categoryID = true, groupFinderActivityGroupID = true, minLevel = true, maxLevel = true, minLevelSuggestion = true,
+    maxLevelSuggestion = true, maxNumPlayers = true, useDungeonRoleExpectations = true, isHeroicActivity = true, difficultyID = true }
+-- Texto livre escrito por jogadores: grava só se veio e o tamanho, nunca o conteúdo.
+local LENGTH_ONLY = { name = true, comment = true, voiceChat = true, areaName = true }
 
 local function shape(t, fields)
     if t == nil then return "nil" end
@@ -263,6 +271,7 @@ local function shape(t, fields)
         local v = t[k]
         if isSecret(v) then out[#out + 1] = k .. "=SECRET"
         elseif v == nil then out[#out + 1] = k .. "=nil"
+        elseif LENGTH_ONLY[k] and type(v) == "string" then out[#out + 1] = k .. "=string(" .. #v .. ")"
         elseif SHOW_VALUE[k] then out[#out + 1] = k .. "=" .. str(v)
         elseif type(v) == "table" then out[#out + 1] = k .. "=" .. ((k == "lfgRoles" or k == "activityIDs") and str(v) or "table")
         else out[#out + 1] = k .. "=" .. type(v) end
@@ -270,16 +279,41 @@ local function shape(t, fields)
     return table.concat(out, " ")
 end
 
+-- Todas as chaves de uma tabela de números (contagens), em ordem, sem limite de itens.
+local function allKeys(t)
+    if t == nil then return "nil" end
+    if isSecret(t) then return "SECRET(tabela)" end
+    if type(t) ~= "table" then return type(t) end
+    if canaccesstable and not canaccesstable(t) then return "inacessível" end
+    local keys = {}
+    for k in pairs(t) do keys[#keys + 1] = tostring(k) end
+    table.sort(keys)
+    local out = {}
+    for _, k in ipairs(keys) do out[#out + 1] = k .. "=" .. str(t[k]) end
+    return "{" .. table.concat(out, ",") .. "}"
+end
+
 -- Guarda a forma dos primeiros resultados de cada busca.
-function D.Sample(id, info, player, counts)
+-- extra (opcional): members = { tabelas de jogador }, activity = tabela da atividade, roles = suas roles no LFG.
+function D.Sample(id, info, player, counts, extra)
     local d = store()
     if not d then return end
-    push(d.samples, {
+    local s = {
         when = date("%H:%M:%S"), session = D.session, id = str(id),
         info = shape(info, INFO_FIELDS),
         player = shape(player, PLAYER_FIELDS),
-        counts = counts == nil and "nil" or str(counts),
-    }, MAX_SAMPLES)
+        counts = allKeys(counts),
+    }
+    if type(extra) == "table" then
+        if extra.members then
+            local m = {}
+            for i, p in ipairs(extra.members) do m[i] = shape(p, PLAYER_FIELDS) end
+            s.members = m
+        end
+        if extra.activity ~= nil then s.activity = shape(extra.activity, ACTIVITY_FIELDS) end
+        if extra.roles ~= nil then s.roles = str(extra.roles) end
+    end
+    push(d.samples, s, MAX_SAMPLES)
 end
 
 ------------------------------------------------------------------------

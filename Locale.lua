@@ -5,6 +5,28 @@
 local ADDON, NS = ...
 
 local PT = {
+    ["+%d more: pick a level range to narrow the list."] = "+%d outras: use uma faixa de level para reduzir a lista.",
+    -- v0.10: dungeon, modo compacto, vagas, zona, composição, {role}/{activity}
+    ["dungeon"] = "masmorra",
+    ["Dungeon"] = "Masmorra",
+    ["All dungeons"] = "Todas as masmorras",
+    ["%d dungeons"] = "%d masmorras",
+    ["Show only these dungeons. The list has the dungeons in the current results, with their suggested level."] = "Mostra só estas masmorras. A lista traz as masmorras dos resultados atuais, com o level sugerido.",
+    ["No dungeons in the results yet. Search first."] = "Ainda não há masmorras nos resultados. Faça uma busca primeiro.",
+    ["Hide filters"] = "Esconder filtros",
+    ["Show filters"] = "Mostrar filtros",
+    ["Compact mode: hides the filter rows so more of the list fits. The filters keep working."] = "Modo compacto: esconde as linhas de filtro para caber mais da lista. Os filtros continuam valendo.",
+    ["(filters on)"] = "(filtros ativos)",
+    ["needs you"] = "precisa de você",
+    ["Needs your role: %s"] = "Tem vaga para você: %s",
+    ["Zone: %s"] = "Zona: %s",
+    ["Leader's zone: %s"] = "Zona do líder: %s",
+    ["Open spots: "] = "Vagas: ",
+    ["none"] = "nenhuma",
+    ["leader"] = "líder",
+    ["Dungeon picks which dungeons to show, and Hide filters gives the list more room."] = "Masmorra escolhe quais masmorras mostrar, e Esconder filtros dá mais espaço à lista.",
+    ["Use {class}, {spec}, {level}, {name}, {role} (your Looking For Group roles) and {activity} (the group's dungeon). Empty = English default: "] = "Use {class}, {spec}, {level}, {name}, {role} (suas roles no Looking For Group) e {activity} (a masmorra do grupo). Vazio = padrão em inglês: ",
+    ["/gf msg <text> - change the text; use {class} {spec} {level} {name} {role} {activity}"] = "/gf msg <texto> - troca o texto; use {class} {spec} {level} {name} {role} {activity}",
     -- troca de idioma (botão seguro de /reload)
     ["Language changed. Reload the interface to apply it."] = "Idioma alterado. Recarregue a interface para aplicar.",
     ["Reload now"] = "Recarregar agora",
@@ -96,8 +118,6 @@ local PT = {
     ["Changing the language reloads the interface."] = "Trocar o idioma recarrega a interface.",
     ["Join request message"] = "Mensagem do pedido de vaga",
     ["Default"] = "Padrão",
-    ["Use {class}, {spec}, {level} and {name}. Empty = English default: "] =
-        "Use {class}, {spec}, {level} e {name}. Vazio = padrão em inglês: ",
     ["Goes out as: "] = "Sai assim: ",
     ["How you introduce yourself (this character only)"] = "Como você se apresenta (só este personagem)",
     ["Class name"] = "Nome da classe",
@@ -140,7 +160,6 @@ local PT = {
         "/gf options - abre as opções (também em Options > AddOns > GrupoFacil)",
     ["/gf lang en | pt | es | mx | de | fr - addon language (reloads the UI)"] = "/gf lang en | pt | es | mx | de | fr - idioma do addon (recarrega a interface)",
     ["/gf msg - show the join request text and how it goes out now"] = "/gf msg - mostra o texto do pedido de vaga e como ele sai agora",
-    ["/gf msg <text> - change the text; use {class} {spec} {level} {name}"] = "/gf msg <texto> - troca o texto; use {class} {spec} {level} {name}",
     ["/gf msg default - back to the default text (English)"] = "/gf msg default - volta ao texto padrão (inglês)",
     ["/gf spec <name> | /gf spec auto - set or detect this character's spec"] = "/gf spec <nome> | /gf spec auto - fixa ou detecta a spec deste personagem",
     ["/gf class <name> | /gf class auto - set or detect the class name"] = "/gf class <nome> | /gf class auto - fixa ou detecta o nome da classe",

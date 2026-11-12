@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.10.0
+- **Needs you**: groups with an open spot for a role you marked in Looking For Group get a green bar and a "needs you" tag.
+- The Needs filter uses the open spots the game reports for each group (tank, healer, DPS) instead of guessing from the members.
+- Each role filter shows how many results fit it.
+- **Dungeon filter**: pick one or more dungeons from the ones in the current results, each with its suggested level.
+- **Group tooltip**: every member's role, class and level, the open spots, the leader's zone and the dungeon's level range. A solo player's tooltip shows their zone.
+- **Compact mode**: Hide filters folds the filter rows so more of the list fits. The filters keep working and the status line tells you they are on.
+- New message variables: `{role}` (your roles in Looking For Group) and `{activity}` (the group's dungeon).
+
 ## 0.9.1
 - Now also published on Wago Addons (addons.wago.io/addons/grupofacil), so WowUp and the Wago app can install and update it.
 

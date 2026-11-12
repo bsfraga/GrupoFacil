@@ -4,6 +4,28 @@
 local ADDON, NS = ...
 
 NS.LOCALES.fr = {
+    ["+%d more: pick a level range to narrow the list."] = "+%d autres : choisissez une plage de niveaux pour réduire la liste.",
+    -- v0.10: dungeon, modo compacto, vagas, zona, composição, {role}/{activity}
+    ["dungeon"] = "donjon",
+    ["Dungeon"] = "Donjon",
+    ["All dungeons"] = "Tous les donjons",
+    ["%d dungeons"] = "%d donjons",
+    ["Show only these dungeons. The list has the dungeons in the current results, with their suggested level."] = "Affiche uniquement ces donjons. La liste reprend les donjons des résultats actuels, avec leur niveau conseillé.",
+    ["No dungeons in the results yet. Search first."] = "Aucun donjon dans les résultats pour l’instant. Lancez d’abord une recherche.",
+    ["Hide filters"] = "Masquer les filtres",
+    ["Show filters"] = "Afficher les filtres",
+    ["Compact mode: hides the filter rows so more of the list fits. The filters keep working."] = "Mode compact : masque les lignes de filtres pour afficher plus de résultats. Les filtres restent actifs.",
+    ["(filters on)"] = "(filtres actifs)",
+    ["needs you"] = "vous cherche",
+    ["Needs your role: %s"] = "Place pour votre rôle : %s",
+    ["Zone: %s"] = "Zone : %s",
+    ["Leader's zone: %s"] = "Zone du chef : %s",
+    ["Open spots: "] = "Places libres : ",
+    ["none"] = "aucune",
+    ["leader"] = "chef",
+    ["Dungeon picks which dungeons to show, and Hide filters gives the list more room."] = "Donjon choisit les donjons à afficher, et Masquer les filtres donne plus de place à la liste.",
+    ["Use {class}, {spec}, {level}, {name}, {role} (your Looking For Group roles) and {activity} (the group's dungeon). Empty = English default: "] = "Utilisez {class}, {spec}, {level}, {name}, {role} (vos rôles dans Recherche de groupe) et {activity} (le donjon du groupe). Vide = message par défaut en anglais : ",
+    ["/gf msg <text> - change the text; use {class} {spec} {level} {name} {role} {activity}"] = "/gf msg <texte> - change le texte ; utilisez {class} {spec} {level} {name} {role} {activity}",
     -- troca de idioma (botão seguro de /reload)
     ["Language changed. Reload the interface to apply it."] = "Langue modifiée. Rechargez l'interface pour l'appliquer.",
     ["Reload now"] = "Recharger",
@@ -95,8 +117,6 @@ NS.LOCALES.fr = {
     ["Changing the language reloads the interface."] = "Changer de langue recharge l’interface.",
     ["Join request message"] = "Message de demande",
     ["Default"] = "Par défaut",
-    ["Use {class}, {spec}, {level} and {name}. Empty = English default: "] =
-        "Utilisez {class}, {spec}, {level} et {name}. Vide = message par défaut en anglais : ",
     ["Goes out as: "] = "Envoyé ainsi : ",
     ["How you introduce yourself (this character only)"] = "Votre présentation (ce personnage uniquement)",
     ["Class name"] = "Nom de la classe",
@@ -139,7 +159,6 @@ NS.LOCALES.fr = {
         "/gf options - ouvre les options (aussi dans Options > Add-ons > GrupoFacil)",
     ["/gf lang en | pt | es | mx | de | fr - addon language (reloads the UI)"] = "/gf lang en | pt | es | mx | de | fr - langue de l’add-on (recharge l’interface)",
     ["/gf msg - show the join request text and how it goes out now"] = "/gf msg - affiche le texte de la demande et la façon dont il est envoyé",
-    ["/gf msg <text> - change the text; use {class} {spec} {level} {name}"] = "/gf msg <texte> - change le texte ; utilisez {class} {spec} {level} {name}",
     ["/gf msg default - back to the default text (English)"] = "/gf msg default - revient au texte par défaut (en anglais)",
     ["/gf spec <name> | /gf spec auto - set or detect this character's spec"] = "/gf spec <nom> | /gf spec auto - définit ou détecte la spé de ce personnage",
     ["/gf class <name> | /gf class auto - set or detect the class name"] = "/gf class <nom> | /gf class auto - définit ou détecte le nom de la classe",

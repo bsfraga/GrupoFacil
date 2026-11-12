@@ -10,15 +10,19 @@ The native Looking For Group window lists every player and group with no filters
   - **Players** (solo listings), **Groups** or **All**.
   - **Level range**, or **Near me** (your level, 3 below to 3 above).
   - **Class**: click the class icons; none selected means all classes.
-  - **Role**: tank, healer or DPS. In Groups mode it becomes **Needs**: groups missing a tank, a healer, or with room for DPS.
+  - **Role**: tank, healer or DPS, with how many results fit each one. In Groups mode it becomes **Needs**: groups with an open spot for that role, as the game reports it.
+  - **Dungeon**: pick one or more dungeons from the current results, each with its suggested level.
   - Hide players and groups that left the list.
   - Sort by level, name or newest.
+  - **Compact mode**: hide the filter rows so more of the list fits; the filters keep working.
+- **Needs you**: groups with an open spot for a role you marked in Looking For Group are highlighted.
+- **Group tooltip**: role, class and level of every member, the open spots, the leader's zone and the dungeon's level range.
 - **One-click actions on each row**
   - **Invite** a solo player (when you are solo or the group leader/assistant).
   - **Ask to join** a group: sends the leader a whisper such as *"Hi, I'm a level 29 Beast Mastery Hunter, can I join your group?"* (only when you are solo).
   - **Whisper**: opens the chat to write your own message.
 - **Search again** repeats your last Looking For Group search.
-- **Your own message**: use `{class}`, `{spec}`, `{level}` and `{name}`. Your spec is detected from your talents, or you can set it yourself.
+- **Your own message**: use `{class}`, `{spec}`, `{level}`, `{name}`, `{role}` (your Looking For Group roles) and `{activity}` (the group's dungeon). Your spec is detected from your talents, or you can set it yourself.
 - **Six languages**: English, Brazilian Portuguese, Spanish (Spain), Spanish (Latin America), German and French. It follows your game client until you pick one in the options (the UI reloads).
 - **Resizable window**: drag the bottom-right corner; a taller window shows more rows.
 - **Role icons** for tank, healer and DPS in the list and the filters.
@@ -51,7 +55,7 @@ The first time the window opens, a banner offers a 30-second tour of the window.
 | `/gf tour` | Show the quick tour of the window again |
 | `/gf lang en` / `pt` / `es` / `mx` / `de` / `fr` | Interface language (reloads the UI) |
 | `/gf msg` | Show the join request text and how it goes out |
-| `/gf msg <text>` | Set your own text (`{class}`, `{spec}`, `{level}`, `{name}`) |
+| `/gf msg <text>` | Set your own text (`{class}`, `{spec}`, `{level}`, `{name}`, `{role}`, `{activity}`) |
 | `/gf msg default` | Back to the default English text |
 | `/gf spec <name>` / `/gf spec auto` | Set or detect your spec (per character) |
 | `/gf mode direct` / `/gf mode prefill` | Send the whisper, or only open the chat with the text |

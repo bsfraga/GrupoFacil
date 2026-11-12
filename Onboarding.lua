@@ -66,7 +66,8 @@ local STEPS = {
         body = function() return L["Players lists people looking for a group: use it when you lead. Groups lists groups looking for players: use it when you are solo. All shows both."] end,
         from = { "modeFirst", "TOPLEFT", -6, 6 }, to = { "modeLast", "BOTTOMRIGHT", 6, -6 }, below = "LEFT" },
     {   title = "Filter the list",
-        body = function() return L["Type a level range or click Near me. Click the class icons to pick classes (none = all). Role filters by tank, healer or DPS; in Groups mode it becomes Needs: groups missing that role."] end,
+        body = function() return L["Type a level range or click Near me. Click the class icons to pick classes (none = all). Role filters by tank, healer or DPS; in Groups mode it becomes Needs: groups missing that role."]
+            .. " " .. L["Dungeon picks which dungeons to show, and Hide filters gives the list more room."] end,
         from = { "level", "TOPLEFT", -8, 8 }, to = { "clear", "BOTTOMRIGHT", 6, -6 }, below = "LEFT" },
     {   title = "Act on a row",
         body = function()
@@ -242,6 +243,8 @@ function NS.StartTour()
     if not (_G.GrupoFacilFrame and _G.GrupoFacilFrame:IsShown()) then
         if NS.ShowPanel then NS.ShowPanel(false) end
     end
+    -- o tour aponta para os filtros: no modo compacto eles aparecem só durante o tour
+    if GrupoFacilDB.compact and NS.ApplyCompact then NS.forceFilters = true; NS.ApplyCompact() end
     NS.TourGo(1)
 end
 
@@ -256,6 +259,11 @@ function NS.StopTour(done, why)
     end
     if done then markDone(why or "?")
     elseif was then NS.D.Trace("TOUR", "tour interrompido (%s)", why or "?") end
+    -- volta ao modo compacto, se era a preferência
+    if NS.forceFilters then
+        NS.forceFilters = false
+        if NS.ApplyCompact then NS.ApplyCompact() end
+    end
 end
 
 function NS.TourRunning() return step ~= nil end

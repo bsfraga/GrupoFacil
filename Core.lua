@@ -41,6 +41,7 @@ local DEFAULTS = {
         maxLevel = nil,
         classes = {},         -- [classFilename] = true; vazio = todas
         roles = {},           -- tank/healer/dps = true; vazio = todas
+        activities = {},      -- [activityID] = true; vazio = todas as dungeons
         hideDelisted = true,
         sort = "level",       -- "level", "name" ou "age"
     },
@@ -174,15 +175,49 @@ function NS.SetTemplate(text)
     if NS.Refresh then NS.Refresh("template") end
 end
 
-function NS.BuildMessage()
+-- Roles marcadas pelo jogador no Looking For Group (C_LFGListRoles, confirmado no 1.60.1).
+function NS.MyRoles()
+    if not (C_LFGListRoles and C_LFGListRoles.GetRoles) then return nil end
+    local ok, r = pcall(C_LFGListRoles.GetRoles)
+    if not ok or type(r) ~= "table" or isSecret(r) then return nil end
+    return {
+        tank = (not isSecret(r.tank)) and r.tank == true,
+        healer = (not isSecret(r.healer)) and r.healer == true,
+        dps = (not isSecret(r.dps)) and r.dps == true,
+    }
+end
+
+-- Texto de {role}: em inglês, como o resto da mensagem padrão ("Tank", "Healer/DPS").
+local ROLE_WORD = { tank = "Tank", healer = "Healer", dps = "DPS" }
+function NS.MyRolesText()
+    local r = NS.MyRoles()
+    if not r then return "" end
+    local t = {}
+    for _, k in ipairs({ "tank", "healer", "dps" }) do
+        if r[k] then t[#t + 1] = ROLE_WORD[k] end
+    end
+    return table.concat(t, "/")
+end
+
+-- e (opcional) = o grupo que vai receber a mensagem; dá o nome da dungeon em {activity}.
+function NS.BuildMessage(e)
     local text = NS.GetTemplate()
     local class = NS.PlayerClass() or ""
     local name = UnitName("player") or ""
+    local act
+    if e then
+        act = e.activityName or ""
+    else
+        act = "[" .. L["dungeon"] .. "]" -- só na prévia, sem grupo escolhido
+    end
+    local role = NS.MyRolesText()
     local vars = {
         class = class, classe = class,
         spec = NS.PlayerSpec() or "",
         level = tostring(UnitLevel("player") or ""),
         name = name, nome = name,
+        role = role, funcao = role,
+        activity = act, dungeon = act, masmorra = act,
     }
     text = gsub(text, "{(%a+)}", function(k) return vars[k] or ("{" .. k .. "}") end)
     text = gsub(text, "%s+([,%.!%?])", "%1") -- "sou Hunter  , posso" -> "sou Hunter, posso"
@@ -304,19 +339,23 @@ NS.order = {}          -- resultIDs na ordem que o jogo devolveu
 NS.status = nil -- a janela mostra a dica inicial
 NS.stale = false
 
-local activityCache = {}   -- [activityID] = { name, maxPlayers }
+local activityCache = {}   -- [activityID] = { name, maxPlayers, minLevel, maxLevel }
+local function num(v)
+    if type(v) ~= "number" or isSecret(v) or v <= 0 then return nil end
+    return v
+end
 local function activityInfo(activityID)
     if not activityID or isSecret(activityID) then return "", nil end
     local cached = activityCache[activityID]
-    if cached then return cached[1], cached[2] end
+    if cached then return cached[1], cached[2], cached[3], cached[4] end
     local info = C_LFGList.GetActivityInfoTable(activityID)
     local name = info and (info.fullName or info.shortName)
     if type(name) ~= "string" or isSecret(name) then return "", nil end
-    local maxPlayers = info.maxNumPlayers
-    if type(maxPlayers) ~= "number" or isSecret(maxPlayers) or maxPlayers <= 0 then maxPlayers = nil end
-    activityCache[activityID] = { name, maxPlayers }
-    return name, maxPlayers
+    -- faixa sugerida (no Forever minLevel vem 0; a sugestão é o que a janela mostra)
+    activityCache[activityID] = { name, num(info.maxNumPlayers), num(info.minLevelSuggestion), num(info.maxLevelSuggestion) }
+    return activityInfo(activityID)
 end
+NS.ActivityInfo = activityInfo
 local function activityName(activityID) return (activityInfo(activityID)) end
 
 local function readPlayer(p, e)
@@ -331,6 +370,8 @@ local function readPlayer(p, e)
         e.specName = p.specName
     end
     if not isSecret(p.assignedRole) and type(p.assignedRole) == "string" then e.assignedRole = p.assignedRole end
+    -- zona: no 1.60.1 só vem para o líder ou o jogador solo
+    if not isSecret(p.areaName) and type(p.areaName) == "string" and p.areaName ~= "" then e.zone = p.areaName end
     local r = p.lfgRoles
     if type(r) == "table" and not isSecret(r) then
         e.roles = {
@@ -360,17 +401,22 @@ local function readResult(id)
     e.solo = e.numMembers <= 1
 
     local acts = info.activityIDs
+    e.activityIDs = {}
     if type(acts) == "table" and #acts > 0 then
-        local _, maxPlayers = activityInfo(acts[1])
-        e.maxPlayers = maxPlayers
+        for i, a in ipairs(acts) do
+            if not isSecret(a) and type(a) == "number" then e.activityIDs[#e.activityIDs + 1] = a end
+        end
+        local first, maxPlayers, minL, maxL = activityInfo(acts[1])
+        e.maxPlayers, e.actMin, e.actMax = maxPlayers, minL, maxL
+        e.activityName = first
         if #acts == 1 then
-            e.activity = activityName(acts[1])
+            e.activity = first
         else
-            local first = activityName(acts[1])
             e.activity = first ~= "" and format("%s +%d", first, #acts - 1) or format("%d atividades", #acts)
         end
     else
         e.activity = ""
+        e.activityName = ""
     end
 
     if e.solo then
@@ -381,8 +427,29 @@ local function readResult(id)
             local c = C_LFGList.GetSearchResultMemberCounts(id)
             if type(c) == "table" and not isSecret(c) and not anySecret(c, "TANK", "HEALER", "DAMAGER") then
                 e.counts = { tank = c.TANK or 0, healer = c.HEALER or 0, dps = c.DAMAGER or 0 }
+                -- vagas reais por role, quando o jogo manda (confirmado no 1.60.1)
+                local t, h, d = c.TANK_REMAINING, c.HEALER_REMAINING, c.DAMAGER_REMAINING
+                if type(t) == "number" and type(h) == "number" and type(d) == "number"
+                    and not isSecret(t) and not isSecret(h) and not isSecret(d) then
+                    e.remaining = { tank = t, healer = h, dps = d }
+                end
             end
         end
+        -- composição: classe, level e role de cada membro
+        local members = {}
+        for m = 1, math.min(e.numMembers, 40) do
+            -- um membro que falha não derruba o grupo (o resto da linha continua válido)
+            local okP, p = pcall(C_LFGList.GetSearchResultPlayerInfo, id, m)
+            if okP and type(p) == "table" and not isSecret(p) and (not canaccesstable or canaccesstable(p)) then
+                local x = {}
+                readPlayer(p, x)
+                if x.class or x.level then
+                    members[#members + 1] = { class = x.class, className = x.className, level = x.level,
+                        role = x.assignedRole, leader = (not isSecret(p.isLeader)) and p.isLeader == true }
+                end
+            end
+        end
+        if #members > 0 then e.members = members end
     end
     return e
 end
@@ -401,7 +468,28 @@ local function sampleRaw(id)
     local player
     if solo then player = C_LFGList.GetSearchResultPlayerInfo(id, 1) else player = C_LFGList.GetSearchResultLeaderInfo(id) end
     local counts = (not solo and C_LFGList.GetSearchResultMemberCounts) and C_LFGList.GetSearchResultMemberCounts(id) or nil
-    D.Sample(id, info, player, counts)
+    local extra = {}
+    -- cada membro do grupo (zona, role, level), para saber se dá para mostrar onde estão
+    if not solo and type(info) == "table" and not isSecret(info) and type(info.numMembers) == "number"
+        and not isSecret(info.numMembers) then
+        extra.members = {}
+        for m = 1, math.min(info.numMembers, 5) do
+            extra.members[m] = C_LFGList.GetSearchResultPlayerInfo(id, m)
+        end
+    end
+    -- a primeira atividade (faixa de level, expectativa de roles)
+    local acts = type(info) == "table" and not isSecret(info) and info.activityIDs
+    if type(acts) == "table" and not isSecret(acts) and acts[1] and not isSecret(acts[1])
+        and C_LFGList.GetActivityInfoTable then
+        extra.activity = C_LFGList.GetActivityInfoTable(acts[1])
+    end
+    if C_LFGListRoles and C_LFGListRoles.GetRoles then
+        extra.roles = C_LFGListRoles.GetRoles()
+    else
+        extra.roles = "C_LFGListRoles ausente"
+    end
+    D.Sample(id, info, player, counts, extra)
+    return solo
 end
 
 local wasLockdown = false
@@ -434,6 +522,7 @@ function NS.RebuildAll(reason)
     wipe(NS.entries)
     wipe(NS.order)
     local read, skipped, secretIds, players, groups = 0, {}, 0, 0, 0
+    local sampledSolo, sampledGroups, sampledBad = 0, 0, 0
     for i, id in ipairs(results) do
         if isSecret(id) then
             secretIds = secretIds + 1
@@ -447,7 +536,14 @@ function NS.RebuildAll(reason)
             else
                 skipped[why or "?"] = (skipped[why or "?"] or 0) + 1
             end
-            if i <= 3 and reason == "LFG_LIST_SEARCH_RESULTS_RECEIVED" then NS.GuardTag("sampleRaw", sampleRaw, id) end
+            -- amostra até 2 jogadores solo, 3 grupos e 2 resultados que não deu para ler, por busca
+            if reason == "LFG_LIST_SEARCH_RESULTS_RECEIVED" then
+                local take = false
+                if not e then take = sampledBad < 2; if take then sampledBad = sampledBad + 1 end
+                elseif e.solo then take = sampledSolo < 2; if take then sampledSolo = sampledSolo + 1 end
+                else take = sampledGroups < 3; if take then sampledGroups = sampledGroups + 1 end end
+                if take then NS.GuardTag("sampleRaw", sampleRaw, id) end
+            end
         end
     end
     NS.stale = false
@@ -472,19 +568,46 @@ local function hasAny(set)
     return false
 end
 
--- Vaga por role, pelo tamanho da atividade (maxNumPlayers): falta tank se não tem tank;
--- falta healer se não tem healer; cabe dps se há vaga e menos de (tamanho - 2) dps.
--- Sem o tamanho da atividade, não dá para calcular e o grupo não passa no filtro.
+-- Vaga por role. Com as vagas que o jogo manda (TANK_REMAINING etc.), usa elas.
+-- Sem elas, estima pelo tamanho da atividade: falta tank se não tem tank; falta healer
+-- se não tem healer; cabe dps se há vaga e menos de (tamanho - 2) dps.
 local function groupNeeds(e, role)
     local size = e.maxPlayers
-    if not e.counts or not size or e.numMembers >= size then return false end
+    if size and e.numMembers >= size then return false end
+    if e.remaining then return (e.remaining[role] or 0) > 0 end
+    if not e.counts or not size then return false end
     if role == "tank" then return e.counts.tank == 0 end
     if role == "healer" then return e.counts.healer == 0 end
     if role == "dps" then return e.counts.dps < math.max(1, size - 2) end
     return false
 end
+NS.GroupNeeds = groupNeeds
 
-function NS.Matches(e, f)
+-- Um grupo "precisa de você" quando tem vaga para alguma role que você marcou no LFG.
+-- Devolve a primeira role que serve (para o texto) ou nil.
+function NS.NeedsMe(e, my)
+    if not e or e.solo or e.delisted or not my then return nil end
+    for _, role in ipairs({ "tank", "healer", "dps" }) do
+        if my[role] and groupNeeds(e, role) then return role end
+    end
+    return nil
+end
+
+local function matchesRole(e, role)
+    if e.solo then return e.roles and e.roles[role] or false end
+    return groupNeeds(e, role)
+end
+
+local function matchesActivity(e, set)
+    if not e.activityIDs then return false end
+    for _, a in ipairs(e.activityIDs) do
+        if set[a] then return true end
+    end
+    return false
+end
+
+-- skipRoles: ignora o filtro de role (usado para contar quantos passariam em cada role).
+function NS.Matches(e, f, skipRoles)
     if not e then return false end
     if f.hideDelisted and e.delisted then return false end
     if f.mode == "players" and not e.solo then return false end
@@ -500,28 +623,78 @@ function NS.Matches(e, f)
         if not e.class or not f.classes[e.class] then return false end
     end
 
-    if hasAny(f.roles) then
+    if f.activities and hasAny(f.activities) and not matchesActivity(e, f.activities) then return false end
+
+    if not skipRoles and hasAny(f.roles) then
         local ok = false
         for role, on in pairs(f.roles) do
-            if on then
-                if e.solo then
-                    if e.roles and e.roles[role] then ok = true end
-                elseif groupNeeds(e, role) then
-                    ok = true
-                end
-            end
+            if on and matchesRole(e, role) then ok = true end
         end
         if not ok then return false end
     end
     return true
 end
 
+-- Quantos resultados passam nos outros filtros e servem para cada role.
+function NS.RoleCounts()
+    local f = GrupoFacilDB.filters
+    local c = { tank = 0, healer = 0, dps = 0 }
+    for _, id in ipairs(NS.order) do
+        local e = NS.entries[id]
+        if NS.Matches(e, f, true) then
+            for role in pairs(c) do
+                if matchesRole(e, role) then c[role] = c[role] + 1 end
+            end
+        end
+    end
+    return c
+end
+
+-- Dungeons presentes nos resultados atuais (para a lista do filtro), da mais baixa à mais alta.
+function NS.ActivitiesPresent()
+    local seen, list = {}, {}
+    for _, id in ipairs(NS.order) do
+        local e = NS.entries[id]
+        if e and e.activityIDs then
+            for _, a in ipairs(e.activityIDs) do
+                if not seen[a] then
+                    local name, _, minL, maxL = activityInfo(a)
+                    if name and name ~= "" then
+                        seen[a] = { id = a, name = name, min = minL, max = maxL, count = 0 }
+                        list[#list + 1] = seen[a]
+                    end
+                end
+                if seen[a] then seen[a].count = seen[a].count + 1 end
+            end
+        end
+    end
+    -- filtros já marcados continuam na lista mesmo sem resultados agora
+    for a, on in pairs(GrupoFacilDB.filters.activities or {}) do
+        if on and not seen[a] then
+            local name, _, minL, maxL = activityInfo(a)
+            if name and name ~= "" then
+                seen[a] = { id = a, name = name, min = minL, max = maxL, count = 0 }
+                list[#list + 1] = seen[a]
+            end
+        end
+    end
+    table.sort(list, function(x, y)
+        if (x.min or 99) ~= (y.min or 99) then return (x.min or 99) < (y.min or 99) end
+        return x.name < y.name
+    end)
+    return list
+end
+
 function NS.Visible()
     local f = GrupoFacilDB.filters
     local list = {}
+    local my = NS.MyRoles()
     for _, id in ipairs(NS.order) do
         local e = NS.entries[id]
-        if NS.Matches(e, f) then list[#list + 1] = e end
+        if NS.Matches(e, f) then
+            e.needsMe = NS.NeedsMe(e, my)
+            list[#list + 1] = e
+        end
     end
     local sort = f.sort
     table.sort(list, function(a, b)
@@ -594,7 +767,7 @@ function NS.AskToJoin(e)
         return
     end
     if GetTime() < NS.sendReadyAt then NS.Print(L["wait a few seconds between requests."]) return end
-    local text = NS.BuildMessage()
+    local text = NS.BuildMessage(e)
     NS.sendReadyAt = GetTime() + SEND_INTERVAL
     if GrupoFacilDB.sendMode == "preencher" then
         Trace("PEDIDO", "modo preencher, grupo de %d", e.numMembers)
@@ -669,6 +842,8 @@ ev:RegisterEvent("TRAIT_CONFIG_UPDATED")
 ev:RegisterEvent("PLAYER_LEVEL_UP")
 ev:RegisterEvent("ADDON_ACTION_BLOCKED")
 ev:RegisterEvent("ADDON_ACTION_FORBIDDEN")
+-- suas roles mudaram: refaz o destaque (se o evento não existir, o destaque só muda no próximo desenho)
+if not pcall(ev.RegisterEvent, ev, "LFG_LIST_ROLE_UPDATE") then Trace("CARGA", "evento LFG_LIST_ROLE_UPDATE indisponível") end
 
 local function onEvent(_, event, ...)
     if event == "ADDON_LOADED" then
@@ -741,6 +916,8 @@ local function onEvent(_, event, ...)
                 Trace("PEDIDO", "jogo respondeu que o jogador não está online")
             end
         end
+    elseif event == "LFG_LIST_ROLE_UPDATE" then
+        NS.Refresh(event)
     elseif event == "TRAIT_CONFIG_UPDATED" or event == "PLAYER_LEVEL_UP" then
         NS.InvalidateSpec()
         NS.Refresh(event)
@@ -771,7 +948,7 @@ local HELP = {
     "/gf tour - show the quick tour of the window",
     "/gf lang en | pt | es | mx | de | fr - addon language (reloads the UI)",
     "/gf msg - show the join request text and how it goes out now",
-    "/gf msg <text> - change the text; use {class} {spec} {level} {name}",
+    "/gf msg <text> - change the text; use {class} {spec} {level} {name} {role} {activity}",
     "/gf msg default - back to the default text (English)",
     "/gf spec <name> | /gf spec auto - set or detect this character's spec",
     "/gf class <name> | /gf class auto - set or detect the class name",
