@@ -147,7 +147,8 @@ local function buildContent(root)
     local title = text(root, "GrupoFacil", "GameFontNormalLarge")
     title:SetPoint("TOPLEFT", 16, -16)
     local ver = text(root, format(L["version %s  ·  /gf opens the window"], NS.VERSION), "GameFontDisableSmall")
-    ver:SetPoint("LEFT", title, "RIGHT", 10, 0)
+    -- embaixo do título: na mesma linha encostava no seletor de idioma
+    ver:SetPoint("TOPLEFT", title, "BOTTOMLEFT", 0, -4)
 
     -- idioma (na linha do título): trocar recarrega a interface
     w.langPT = check(root, "Português (Brasil)", L["Changing the language reloads the interface."])

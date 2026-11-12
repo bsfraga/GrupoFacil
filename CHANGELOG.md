@@ -1,5 +1,8 @@
 # Changelog
 
+## 0.8.1
+- Options: the version line no longer overlaps the language selector.
+
 ## 0.8.0
 - Quick tour for new users: the first time the window opens, a banner offers a 30-second tour that points at each part of the window (modes, filters, row buttons, Search again, message and options). It never starts on its own.
 - One-time chat tip after installing: open Looking For Group or type `/gf`.
