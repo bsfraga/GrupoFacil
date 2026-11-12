@@ -5,6 +5,13 @@
 local ADDON, NS = ...
 
 local PT = {
+    -- v0.12: /who
+    ["Who is this? (/who)"] = "Quem é? (/who)",
+    ["Opens the chat with /who and the name typed in; press Enter. The game only allows /who from your own chat. The answer (guild, zone, level) then shows in the row's tooltip."] = "Abre o chat com /who e o nome já digitado; aperte Enter. O jogo só aceita /who vindo do seu chat. A resposta (guilda, zona, level) aparece depois no tooltip da linha.",
+    ["Guild: %s"] = "Guilda: %s",
+    ["No guild"] = "Sem guilda",
+    ["/who %d min ago: %s"] = "/who há %d min: %s",
+    ["Right-click: hide, block or /who"] = "Clique direito: esconder, bloquear ou /who",
     ["Hidden (%d)"] = "Escondidos (%d)",
     ["Hidden players"] = "Jogadores escondidos",
     ["Players and groups you hid or blocked. Click to show them again. Players on your game ignore list stay hidden; change that in the game's ignore list."] = "Jogadores e grupos que você escondeu ou bloqueou. Clique para mostrá-los de novo. Quem está na sua lista de ignorados do jogo continua escondido; isso se muda na lista de ignorados do jogo.",
@@ -19,7 +26,6 @@ local PT = {
     -- v0.11: amigos/guilda, esconder e bloquear
     ["Friend"] = "Amigo",
     ["Guild member"] = "Membro da guilda",
-    ["Right-click: hide or block"] = "Clique direito: esconder ou bloquear",
     ["Hide for this session"] = "Esconder nesta sessão",
     ["Hidden until you reload the interface."] = "Fica escondido até você recarregar a interface.",
     ["Block this player"] = "Bloquear este jogador",

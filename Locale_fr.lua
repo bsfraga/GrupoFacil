@@ -4,6 +4,13 @@
 local ADDON, NS = ...
 
 NS.LOCALES.fr = {
+    -- v0.12: /who
+    ["Who is this? (/who)"] = "Qui est-ce ? (/who)",
+    ["Opens the chat with /who and the name typed in; press Enter. The game only allows /who from your own chat. The answer (guild, zone, level) then shows in the row's tooltip."] = "Ouvre la discussion avec /who et le nom déjà saisi ; appuyez sur Entrée. Le jeu n’accepte /who que depuis votre propre discussion. La réponse (guilde, zone, niveau) s’affiche ensuite dans l’infobulle de la ligne.",
+    ["Guild: %s"] = "Guilde : %s",
+    ["No guild"] = "Sans guilde",
+    ["/who %d min ago: %s"] = "/who il y a %d min : %s",
+    ["Right-click: hide, block or /who"] = "Clic droit : masquer, bloquer ou /who",
     ["Hidden (%d)"] = "Masqués (%d)",
     ["Hidden players"] = "Joueurs masqués",
     ["Players and groups you hid or blocked. Click to show them again. Players on your game ignore list stay hidden; change that in the game's ignore list."] = "Joueurs et groupes que vous avez masqués ou bloqués. Cliquez pour les afficher de nouveau. Les joueurs de votre liste d’ignorés du jeu restent masqués ; cela se change dans la liste d’ignorés du jeu.",
@@ -18,7 +25,6 @@ NS.LOCALES.fr = {
     -- v0.11: amigos/guilda, esconder e bloquear
     ["Friend"] = "Ami",
     ["Guild member"] = "Membre de la guilde",
-    ["Right-click: hide or block"] = "Clic droit : masquer ou bloquer",
     ["Hide for this session"] = "Masquer pour cette session",
     ["Hidden until you reload the interface."] = "Reste masqué jusqu’au rechargement de l’interface.",
     ["Block this player"] = "Bloquer ce joueur",

@@ -19,6 +19,7 @@ The native Looking For Group window lists every player and group with no filters
 - **Group tooltip**: role, class and level of every member, the open spots, the leader's zone and the dungeon's level range.
 - **Friends and guild first**: friends (including Battle.net friends playing Forever) and guild members are marked and listed first.
 - **Hide or block**: right-click a row to hide it for this session or block the player for good. Players on your game ignore list are hidden too.
+- **Who is this?**: right-click a row to run `/who` on the player (you press Enter); their guild and exact zone then show in the tooltip.
 - **One-click actions on each row**
   - **Invite** a solo player (when you are solo or the group leader/assistant).
   - **Ask to join** a group: sends the leader a whisper such as *"Hi, I'm a level 29 Beast Mastery Hunter, can I join your group?"* (only when you are solo).

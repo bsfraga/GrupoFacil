@@ -2,6 +2,13 @@
 local ADDON, NS = ...
 
 NS.LOCALES.es = {
+    -- v0.12: /who
+    ["Who is this? (/who)"] = "¿Quién es? (/who)",
+    ["Opens the chat with /who and the name typed in; press Enter. The game only allows /who from your own chat. The answer (guild, zone, level) then shows in the row's tooltip."] = "Abre el chat con /who y el nombre ya escrito; pulsa Enter. El juego solo acepta /who desde tu propio chat. La respuesta (hermandad, zona, nivel) aparece luego en el tooltip de la fila.",
+    ["Guild: %s"] = "Hermandad: %s",
+    ["No guild"] = "Sin hermandad",
+    ["/who %d min ago: %s"] = "/who hace %d min: %s",
+    ["Right-click: hide, block or /who"] = "Clic derecho: ocultar, bloquear o /who",
     ["Hidden (%d)"] = "Ocultos (%d)",
     ["Hidden players"] = "Jugadores ocultos",
     ["Players and groups you hid or blocked. Click to show them again. Players on your game ignore list stay hidden; change that in the game's ignore list."] = "Jugadores y grupos que ocultaste o bloqueaste. Haz clic para volver a mostrarlos. Quien está en tu lista de ignorados del juego sigue oculto; eso se cambia en la lista de ignorados del juego.",
@@ -16,7 +23,6 @@ NS.LOCALES.es = {
     -- v0.11: amigos/guilda, esconder e bloquear
     ["Friend"] = "Amigo",
     ["Guild member"] = "Miembro de la hermandad",
-    ["Right-click: hide or block"] = "Clic derecho: ocultar o bloquear",
     ["Hide for this session"] = "Ocultar en esta sesión",
     ["Hidden until you reload the interface."] = "Queda oculto hasta que recargues la interfaz.",
     ["Block this player"] = "Bloquear a este jugador",

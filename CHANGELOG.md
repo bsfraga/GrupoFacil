@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.12.0
+- **Who is this? (/who)** in the right-click menu: opens the chat with `/who "Name Surname"` typed in; press Enter (the game only allows /who from your own chat). The answer shows in the row's tooltip: the player's guild (the Looking For Group data has none) and their exact zone, kept for 30 minutes.
+- The dungeon list counts only what the list would show with your current filters.
+
 ## 0.11.0
 - **Friends and guild first**: your friends (including Battle.net friends playing Forever) and guild members get an icon next to their name and go to the top of the list.
 - Players on your game ignore list no longer show up.

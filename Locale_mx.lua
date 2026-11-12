@@ -2,6 +2,9 @@
 local ADDON, NS = ...
 
 NS.LOCALES.mx = setmetatable({
+    ["Guild: %s"] = "Clan: %s",
+    ["No guild"] = "Sin clan",
+    ["Opens the chat with /who and the name typed in; press Enter. The game only allows /who from your own chat. The answer (guild, zone, level) then shows in the row's tooltip."] = "Abre el chat con /who y el nombre ya escrito; presiona Enter. El juego solo acepta /who desde tu propio chat. La respuesta (clan, zona, nivel) aparece después en el tooltip de la fila.",
     ["Guild member"] = "Miembro del clan",
     ["Needs your role: %s"] = "Hay lugar para tu función: %s",
     ["Open spots: "] = "Lugares libres: ",

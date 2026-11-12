@@ -272,6 +272,15 @@ local function makeRow(parent, i)
         if e.zone then
             GameTooltip:AddLine(format(e.solo and L["Zone: %s"] or L["Leader's zone: %s"], e.zone), 0.8, 0.8, 0.8, true)
         end
+        -- resposta do /who que você mandou para este jogador
+        local who = NS.WhoInfo(e)
+        if who then
+            GameTooltip:AddLine(who.guild and format(L["Guild: %s"], who.guild) or L["No guild"], 1, 0.82, 0, true)
+            local mins = math.floor((time() - who.t) / 60)
+            if who.zone and who.zone ~= e.zone then
+                GameTooltip:AddLine(format(L["/who %d min ago: %s"], mins, who.zone), 0.8, 0.8, 0.8, true)
+            end
+        end
         if not e.solo then
             GameTooltip:AddLine(L["Members: "] .. rolesText(e), 0.8, 0.8, 0.8)
             -- composição: role, classe e level de cada membro
@@ -296,7 +305,7 @@ local function makeRow(parent, i)
             end
         end
         if e.delisted then GameTooltip:AddLine(L["Left the list"], 1, 0.3, 0.3) end
-        if e.key then GameTooltip:AddLine(L["Right-click: hide or block"], 0.5, 0.5, 0.5) end
+        if e.key then GameTooltip:AddLine(L["Right-click: hide, block or /who"], 0.5, 0.5, 0.5) end
         GameTooltip:Show()
     end)
     r:SetScript("OnLeave", function() GameTooltip:Hide() end)
@@ -869,12 +878,16 @@ function NS.ShowRowMenu(row)
         m.block:SetPoint("TOPLEFT", m.dismiss, "BOTTOMLEFT", 0, -4)
         m.block:SetScript("OnClick", function() m:Hide(); NS.Block(m.entry) end)
         tooltip(m.block, L["Block this player"], L["Their listings stay hidden, even after a reload. Undo it in the options or with /gf unblock."])
+        m.who = button(m, L["Who is this? (/who)"], 200, 22)
+        m.who:SetPoint("TOPLEFT", m.block, "BOTTOMLEFT", 0, -4)
+        m.who:SetScript("OnClick", function() m:Hide(); NS.PrefillWho(m.entry) end)
+        tooltip(m.who, L["Who is this? (/who)"], L["Opens the chat with /who and the name typed in; press Enter. The game only allows /who from your own chat. The answer (guild, zone, level) then shows in the row's tooltip."])
         m.cancel = button(m, L["Cancel"], 200, 22)
-        m.cancel:SetPoint("TOPLEFT", m.block, "BOTTOMLEFT", 0, -4)
+        m.cancel:SetPoint("TOPLEFT", m.who, "BOTTOMLEFT", 0, -4)
         m.cancel:SetScript("OnClick", function() m:Hide() end)
-        local w = max(m.dismiss:GetWidth(), m.block:GetWidth(), m.cancel:GetWidth())
-        for _, b in ipairs({ m.dismiss, m.block, m.cancel }) do b:SetWidth(w) end
-        m:SetSize(w + 16, 36 + 3 * 26)
+        local w = max(m.dismiss:GetWidth(), m.block:GetWidth(), m.who:GetWidth(), m.cancel:GetWidth())
+        for _, b in ipairs({ m.dismiss, m.block, m.who, m.cancel }) do b:SetWidth(w) end
+        m:SetSize(w + 16, 36 + 4 * 26)
         if UISpecialFrames then tinsert(UISpecialFrames, "GrupoFacilRowMenu") end
         m:Hide()
     end

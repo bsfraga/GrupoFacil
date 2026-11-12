@@ -254,8 +254,8 @@ local function rememberSearch(category, filter, preferred, language, crossFactio
         crossFaction = (not isSecret(crossFaction)) and crossFaction or false,
         activities = copyList(activities),
     }
-    Trace("BUSCA", "origem=%s categoria=%s atividades=%s", NS.addonSearching and "addon" or "nativa",
-        tostring(category), D.str(NS.lastSearch.activities))
+    Trace("BUSCA", "origem=%s categoria=%s atividades=%s idioma=%s", NS.addonSearching and "addon" or "nativa",
+        tostring(category), D.str(NS.lastSearch.activities), D.str(language))
 end
 
 -- Fallback: só lê (nunca escreve) os dropdowns da janela nativa.
@@ -647,6 +647,7 @@ function NS.RebuildAll(reason)
     end
     NS.stale = false
     NS.status = format(L["%d results in total."], #NS.order)
+    NS.lastTotal = (type(total) == "number" and not isSecret(total)) and total or nil
     Trace("RESULTADOS", "%s: total=%s ids=%d lidos=%d (jogadores=%d grupos=%d) descartados=%s idsSecretos=%d updatesAntes=%d",
         tostring(reason), D.str(total), #results, read, players, groups, D.str(skipped), secretIds, NS.updatesSinceRebuild)
     NS.updatesSinceRebuild = 0
@@ -805,9 +806,59 @@ function NS.Unblock(name)
     return shown
 end
 
+------------------------------------------------------------------------
+-- /who do jogador: o jogo bloqueia SendWho vindo de addon (testado pelo autor do LFG Forever),
+-- então o addon só abre o chat com o /who escrito; o jogador aperta Enter. A resposta
+-- (WHO_LIST_UPDATE) é lida e guardada para mostrar guilda, zona e level no tooltip.
+------------------------------------------------------------------------
+local WHO_TTL = 30 * 60
+NS.whoCache = {}   -- [key] = { guild, zone, level, t }
+
+function NS.PrefillWho(e)
+    if not e or not e.name then return end
+    local text = '/who "' .. e.name .. '"'
+    local open = (ChatFrameUtil and ChatFrameUtil.OpenChat) or ChatFrame_OpenChat
+    if not open then NS.Print(text) return end
+    local ok = NS.GuardTag("OpenChat(/who)", open, text)
+    Trace("WHO", "chat aberto com /who (o jogador envia): ok=%s", tostring(ok))
+end
+
+function NS.WhoInfo(e)
+    local c = e and e.key and NS.whoCache[e.key]
+    if c and time() - c.t <= WHO_TTL then return c end
+    return nil
+end
+
+function NS.OnWhoList()
+    local fl = C_FriendList
+    if not (fl and fl.GetNumWhoResults and fl.GetWhoInfo) then return end
+    local okN, n = pcall(fl.GetNumWhoResults)
+    if not okN or type(n) ~= "number" or isSecret(n) then return end
+    local got = 0
+    for i = 1, math.min(n, 50) do
+        local ok, info = pcall(fl.GetWhoInfo, i)
+        if ok and type(info) == "table" and not isSecret(info) then
+            local key = normName(info.fullName)
+            if key then
+                local guild = info.fullGuildName
+                if isSecret(guild) or type(guild) ~= "string" then guild = nil end
+                local zone = info.area
+                if isSecret(zone) or type(zone) ~= "string" or zone == "" then zone = nil end
+                local level = info.level
+                if isSecret(level) or type(level) ~= "number" then level = nil end
+                NS.whoCache[key] = { guild = guild, zone = zone, level = level, t = time() }
+                got = got + 1
+            end
+        end
+    end
+    Trace("WHO", "resposta do /who: %d resultado(s), %d guardado(s)", n, got)
+    if got > 0 then NS.Refresh("who") end
+end
+
 -- skipRoles: ignora o filtro de role (usado para contar quantos passariam em cada role).
 -- skipHidden: ignora o que o jogador escondeu (para contar quantos foram escondidos).
-function NS.Matches(e, f, skipRoles, skipHidden)
+-- skipActs: ignora o filtro de masmorra (para contar quantos cada masmorra mostraria).
+function NS.Matches(e, f, skipRoles, skipHidden, skipActs)
     if not e then return false end
     if not skipHidden and NS.IsHiddenByPlayer(e) then return false end
     if f.hideDelisted and e.delisted then return false end
@@ -824,7 +875,7 @@ function NS.Matches(e, f, skipRoles, skipHidden)
         if not e.class or not f.classes[e.class] then return false end
     end
 
-    if f.activities and hasAny(f.activities) and not matchesActivity(e, f.activities) then return false end
+    if not skipActs and f.activities and hasAny(f.activities) and not matchesActivity(e, f.activities) then return false end
 
     if not skipRoles and hasAny(f.roles) then
         local ok = false
@@ -854,9 +905,11 @@ end
 -- Dungeons presentes nos resultados atuais (para a lista do filtro), da mais baixa à mais alta.
 function NS.ActivitiesPresent()
     local seen, list = {}, {}
+    local f = GrupoFacilDB.filters
     for _, id in ipairs(NS.order) do
         local e = NS.entries[id]
-        if e and e.activityIDs then
+        -- a contagem segue os mesmos filtros da lista (menos a própria masmorra)
+        if e and e.activityIDs and NS.Matches(e, f, false, false, true) then
             for _, a in ipairs(e.activityIDs) do
                 if not seen[a] then
                     local name, _, minL, maxL = activityInfo(a)
@@ -1051,7 +1104,7 @@ ev:RegisterEvent("PLAYER_LEVEL_UP")
 ev:RegisterEvent("ADDON_ACTION_BLOCKED")
 ev:RegisterEvent("ADDON_ACTION_FORBIDDEN")
 -- listas do jogo mudaram: refaz amigo/guilda/ignorado nas linhas atuais
-for _, evName in ipairs({ "GUILD_ROSTER_UPDATE", "FRIENDLIST_UPDATE", "IGNORELIST_UPDATE", "BN_FRIEND_INFO_CHANGED" }) do
+for _, evName in ipairs({ "GUILD_ROSTER_UPDATE", "FRIENDLIST_UPDATE", "IGNORELIST_UPDATE", "BN_FRIEND_INFO_CHANGED", "WHO_LIST_UPDATE" }) do
     pcall(ev.RegisterEvent, ev, evName)
 end
 -- suas roles mudaram: refaz o destaque (se o evento não existir, o destaque só muda no próximo desenho)
@@ -1130,6 +1183,8 @@ local function onEvent(_, event, ...)
         end
     elseif event == "LFG_LIST_ROLE_UPDATE" then
         NS.Refresh(event)
+    elseif event == "WHO_LIST_UPDATE" then
+        NS.OnWhoList()
     elseif event == "GUILD_ROSTER_UPDATE" or event == "FRIENDLIST_UPDATE" or event == "IGNORELIST_UPDATE"
         or event == "BN_FRIEND_INFO_CHANGED" then
         NS.RefreshRelations()

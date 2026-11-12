@@ -235,7 +235,22 @@ function D.Snapshot(reason)
             addons[name] = ok and loaded or false
         end
     end
+    -- idiomas que o servidor oferece para a busca e os que ele trava (o do seu cliente)
+    local langs = {}
+    if C_LFGList and C_LFGList.GetAvailableLanguageSearchFilter then
+        local ok, a = pcall(C_LFGList.GetAvailableLanguageSearchFilter)
+        langs.available = ok and str(a) or "erro"
+    else langs.available = "função ausente" end
+    if C_LFGList and C_LFGList.GetDefaultLanguageSearchFilter then
+        local ok, a = pcall(C_LFGList.GetDefaultLanguageSearchFilter)
+        langs.default = ok and str(a) or "erro"
+    else langs.default = "função ausente" end
+    if C_LFGList and C_LFGList.GetLanguageSearchFilter then
+        local ok, a = pcall(C_LFGList.GetLanguageSearchFilter)
+        langs.saved = ok and str(a) or "erro"
+    end
     d.snapshot[reason] = {
+        languages = langs,
         when = date("%Y-%m-%d %H:%M:%S"), session = D.session, addonVersion = NS.VERSION,
         client = format("%s (%s) %s toc=%s", tostring(version), tostring(build), tostring(buildDate), tostring(toc)),
         project = tostring(WOW_PROJECT_ID), locale = GetLocale and GetLocale() or "?",
