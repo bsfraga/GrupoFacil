@@ -243,6 +243,17 @@ local function buildContent(root)
     w.minimap = check(root, L["Show minimap button"], L["Left-click opens the window, right-click opens these options. Drag it around the minimap."])
     w.minimap:SetPoint("LEFT", w.auto, "RIGHT", 300, 0)
     w.minimap:SetScript("OnClick", function(self) NS.SetMinimapButtonShown(self:GetChecked() and true or false); refresh() end)
+    local tour = button(root, L["Show the tour"], 150)
+    tour:SetPoint("TOPLEFT", w.minimap, "BOTTOMLEFT", 4, -2)
+    tour:SetScript("OnClick", function()
+        -- fecha a janela de opções própria para o tour aparecer por cima da janela principal
+        local own = _G.GrupoFacilOptionsFrame
+        if own and own:IsShown() then own:Hide() end
+        if NS.StartTour then NS.StartTour() end
+        -- a janela de Options do jogo fica por cima; fechá-la por código arrisca taint
+        local sp = _G.SettingsPanel
+        if sp and sp:IsShown() then NS.Print(L["Close the game options to see the tour."]) end
+    end)
 
     -- avançado
     local h5 = text(root, L["Advanced"], "GameFontNormal")

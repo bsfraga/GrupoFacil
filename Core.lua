@@ -768,6 +768,7 @@ pcall(ev.RegisterEvent, ev, "LUA_WARNING") -- pode não existir neste cliente
 local HELP = {
     "/gf - open or close the window",
     "/gf options - open the options (also in Options > AddOns > GrupoFacil)",
+    "/gf tour - show the quick tour of the window",
     "/gf lang en | pt - addon language (reloads the UI)",
     "/gf msg - show the join request text and how it goes out now",
     "/gf msg <text> - change the text; use {class} {spec} {level} {name}",
@@ -785,6 +786,7 @@ local HELP = {
 
 local ALIAS = {
     opcoes = "options", ["opções"] = "options", config = "options",
+    tutorial = "tour", ajuda = "help",
     classe = "class", modo = "mode", minimapa = "minimap", encaixar = "dock", erros = "diag", idioma = "lang", language = "lang",
 }
 local ON_OFF = function(v) return v and L["on"] or L["off"] end
@@ -802,6 +804,8 @@ SlashCmdList.GRUPOFACIL = function(input)
         if NS.TogglePanel then NS.TogglePanel() end
     elseif cmd == "options" then
         if NS.OpenOptions then NS.OpenOptions() end
+    elseif cmd == "tour" then
+        if NS.StartTour then NS.StartTour() end
     elseif cmd == "lang" then
         if l == "en" or l == "pt" then
             NS.SetLanguage(l) -- recarrega a interface

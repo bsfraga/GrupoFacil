@@ -397,6 +397,10 @@ function NS.BuildUI()
     frame:SetScript("OnShow", function()
         if not NS.searching then NS.RebuildAll("janela aberta") end
         NS.Refresh("show")
+        if NS.OnPanelShown then NS.OnPanelShown() end -- primeiro uso (Onboarding.lua)
+    end)
+    frame:SetScript("OnHide", function()
+        if NS.OnPanelHidden then NS.OnPanelHidden() end
     end)
 end
 

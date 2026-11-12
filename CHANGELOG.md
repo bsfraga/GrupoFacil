@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.8.0
+- Quick tour for new users: the first time the window opens, a banner offers a 30-second tour that points at each part of the window (modes, filters, row buttons, Search again, message and options). It never starts on its own.
+- One-time chat tip after installing: open Looking For Group or type `/gf`.
+- `/gf tour` (or the **Show the tour** button in the options) shows the tour again.
+
 ## 0.7.0
 - Options button opens the options in the add-on's own window (same content as *Options > AddOns > GrupoFacil*, kept in sync).
 - Author credit in the main window and in both options screens.

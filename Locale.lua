@@ -148,6 +148,38 @@ local PT = {
     ["default text (English): %s"] = "texto padrão (inglês): %s",
     ["new text: %s"] = "novo texto: %s",
     ["(no talent points)"] = "(sem pontos de talento)",
+    -- primeiro uso (Onboarding.lua)
+    ["/gf tour - show the quick tour of the window"] = "/gf tour - mostra o tour rápido da janela",
+    ["Show the tour"] = "Mostrar o tour",
+    ["Close the game options to see the tour."] = "Feche as opções do jogo para ver o tour.",
+    ["New to GrupoFacil? Take a 30-second tour."] = "Primeira vez no GrupoFacil? Faça o tour de 30 segundos.",
+    ["Start tour"] = "Começar",
+    ["No thanks"] = "Agora não",
+    ["You can see the tour any time with /gf tour."] = "Você pode ver o tour quando quiser com /gf tour.",
+    ["Tour finished. /gf tour shows it again."] = "Tour concluído. /gf tour mostra de novo.",
+    ["The tour is not available in combat."] = "O tour não fica disponível em combate.",
+    ["ready. Open Looking For Group or type /gf. New here? /gf tour shows a quick tour."] =
+        "pronto. Abra o Looking For Group ou digite /gf. Primeira vez? /gf tour mostra um tour rápido.",
+    ["Next"] = "Próximo",
+    ["Back"] = "Voltar",
+    ["Finish"] = "Concluir",
+    ["Skip tour"] = "Pular tour",
+    ["Example group"] = "Grupo de exemplo",
+    ["Pick what to list"] = "Escolha o que listar",
+    ["Filter the list"] = "Filtre a lista",
+    ["Act on a row"] = "Use os botões da linha",
+    ["Refresh the list"] = "Atualize a lista",
+    ["Your message and settings"] = "Sua mensagem e as opções",
+    ["Players lists people looking for a group: use it when you lead. Groups lists groups looking for players: use it when you are solo. All shows both."] =
+        "Jogadores lista quem procura grupo: use quando você é o líder. Grupos lista grupos procurando gente: use quando você está solo. Todos mostra os dois.",
+    ["Type a level range or click Near me. Click the class icons to pick classes (none = all). Role filters by tank, healer or DPS; in Groups mode it becomes Needs: groups missing that role."] =
+        "Digite uma faixa de level ou clique em Perto de mim. Clique nos ícones para escolher classes (nenhum = todas). Role filtra por tank, healer ou DPS; no modo Grupos vira Vaga de: grupos que precisam dessa role.",
+    ["Invite asks a solo player into your group. Ask to join whispers the group leader your message:\n|cffffffff%s|r\nWhisper opens the chat to write your own."] =
+        "Convidar chama um jogador solo para o seu grupo. Pedir vaga manda ao líder do grupo a sua mensagem:\n|cffffffff%s|r\nSussurrar abre o chat para você escrever a sua.",
+    ["GrupoFacil reads your Looking For Group search. Search again repeats the last one. The game only allows it from your click and refuses searches that come too fast."] =
+        "O GrupoFacil lê a sua busca do Looking For Group. Buscar de novo repete a última. O jogo só permite a busca pelo seu clique e recusa buscas seguidas demais.",
+    ["The bottom line shows the message leaders receive. Options changes it ({level}, {spec}, {class}, {name}), the send mode, the language and the minimap button. /gf tour shows this tour again."] =
+        "A linha de baixo mostra a mensagem que o líder recebe. Opções muda a mensagem ({level}, {spec}, {class}, {name}), o modo de envio, o idioma e o botão do minimapa. /gf tour mostra este tour de novo.",
     ["send mode: %s"] = "modo de envio: %s",
     ["direct"] = "direto",
     ["prefill"] = "preencher",

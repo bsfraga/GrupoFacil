@@ -38,12 +38,15 @@ WoW: Forever uses the modern add-on security rules (taint and secret values). Gr
 2. Pick Players or Groups, then filter by level, class and role.
 3. Use **Invite**, **Ask to join** or **Whisper** on any row.
 
+The first time the window opens, a banner offers a 30-second tour of the window. You can replay it any time with `/gf tour`.
+
 ## Commands
 
 | Command | What it does |
 |---|---|
 | `/gf` | Open or close the window |
 | `/gf options` | Open the options |
+| `/gf tour` | Show the quick tour of the window again |
 | `/gf lang en` / `/gf lang pt` | Interface language (reloads the UI) |
 | `/gf msg` | Show the join request text and how it goes out |
 | `/gf msg <text>` | Set your own text (`{class}`, `{spec}`, `{level}`, `{name}`) |
