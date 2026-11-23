@@ -51,7 +51,8 @@ local function collect(note)
         "toc=" .. tostring(toc), "build=" .. tostring(build),
         "locale=" .. tostring(GetLocale()),
         "lang=" .. tostring(NS.Language and NS.Language() or "?"),
-        "char=" .. tostring(UnitName("player")) .. "-" .. tostring(GetRealmName()),
+        -- no Forever GetRealmName() vem vazio (visto em 2026-11-23): sem o "-" pendurado
+        "char=" .. tostring(UnitName("player")) .. (((GetRealmName() or "") ~= "") and ("-" .. GetRealmName()) or ""),
         "class=" .. tostring(select(2, UnitClass("player"))), "level=" .. tostring(UnitLevel("player")),
         "zone=" .. tostring(GetZoneText() or "") .. "/" .. tostring(GetSubZoneText() or ""),
         "kind=" .. tostring(note.kind or "bug"),
