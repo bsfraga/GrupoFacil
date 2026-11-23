@@ -78,16 +78,18 @@ describe("diagnóstico", function()
         H.db(c).diag.errors = {}
     end)
 
-    it("busca nativa presa em Searching vira erro com o relatório de taint", function()
+    it("busca nativa presa em Searching só vai para o rastro, com contador (não é erro do addon)", function()
         local w = H.world()
         local c = H.login(w)
         w.lfg.noAnswer = true
         c:nativeSearch(2)
         w:advance(13)
-        local e = H.db(c).diag.errors[1]
-        T.ok(e)
-        T.match(e.msg, "presa em Searching")
-        H.db(c).diag.errors = {}
+        T.eq(#H.db(c).diag.errors, 0)
+        T.eq(H.db(c).diag.nativeStuck, 1)
+        local found
+        for _, t in ipairs(H.db(c).diag.trace) do if t.m:find("presa em Searching") then found = true end end
+        T.ok(found, "no rastro")
+        T.hasnt(c:chatLines(), "logged an error")
     end)
 
     it("amostras dos resultados crus são guardadas (até 16) para análise", function()
