@@ -66,10 +66,19 @@ The first time the window opens, a banner offers a 30-second tour of the window.
 | `/gf blocked` | List the players you blocked |
 | `/gf unblock <name>` / `/gf unblock all` | Unblock one player or everyone |
 | `/gf diag` | Show the diagnostic summary (for bug reports) |
+| `/gf bug` | Open the **Report a problem** window |
+| `/gf bug <text>` / `/gf bug list` | Report right away from the chat / list your reports and their state |
 
 ## Bug reports
 
-If something goes wrong, GrupoFacil logs it on its own. Type `/gf diag`, then `/reload`, and attach `WTF/Account/<your account>/SavedVariables/GrupoFacil.lua` to your report. The file has no other players' names.
+Found something wrong or missing? Click the note icon in the window's title bar, the **Report a problem** button in the options, or type `/gf bug`. Write what happened, pick the kind (something broken, wrong text or translation, idea) and press **Send report**.
+
+- The report is saved on your computer and goes to the author automatically, in the background, the next time you are both online on the same realm and faction. You don't need to keep the window open.
+- It is only deleted on your side after the author's game has written it to disk, so a crash or a disconnect never loses it. **Your reports** shows the state of each one, and you get a chat message when the author receives it and when it is marked (fixed, won't fix, ...).
+- The game only writes saved data to disk when the interface reloads or you log out; the window offers **Save now (/reload)** after you send one.
+- By default the report includes the addon version, your settings and the addon's recent events. It never includes other players' names. Untick the box to send only your text.
+
+GrupoFacil also logs its own errors. `/gf diag` shows the summary.
 
 ## Compatibility
 

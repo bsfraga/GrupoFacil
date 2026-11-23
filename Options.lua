@@ -117,15 +117,17 @@ end
 -- porque o jogo pode bloquear ReloadUI() chamado direto pelo addon
 ------------------------------------------------------------------------
 local reloadPrompt
-function NS.ShowReloadPrompt()
+-- msg (opcional): texto da pergunta; sem ele, o aviso da troca de idioma.
+function NS.ShowReloadPrompt(msg)
+    msg = msg or L["Language changed. Reload the interface to apply it."]
     if InCombatLockdown() then
-        NS.Print(L["Language changed. Reload the interface to apply it."] .. " (/reload)")
+        NS.Print(msg .. " (/reload)")
         return
     end
     if not reloadPrompt then
         local f = CF("Frame", "GrupoFacilReloadPrompt", UIParent, "BackdropTemplate")
         reloadPrompt = f
-        f:SetSize(340, 96)
+        f:SetSize(360, 110)
         f:SetPoint("CENTER", 0, 160)
         f:SetFrameStrata("FULLSCREEN_DIALOG")
         f:EnableMouse(true)
@@ -154,7 +156,7 @@ function NS.ShowReloadPrompt()
         f:Hide()
     end
     local f = reloadPrompt
-    f.msg:SetText(L["Language changed. Reload the interface to apply it."])
+    f.msg:SetText(msg)
     f.go:SetText(L["Reload now"])
     f.later:SetText(L["Later"])
     f:Show()
@@ -228,6 +230,8 @@ local function refreshOne(w)
     local nb = NS.BlockedCount and NS.BlockedCount() or 0
     w.blockedLabel:SetText(format(L["Blocked players: %d"], nb))
     w.unblock:SetEnabled(nb > 0)
+    w.bugInbox:SetShown(NS.bugAdmin == true)
+    if NS.bugAdmin and NS.BugInbox then w.bugInbox:SetText(format(L["Bug reports (%d new)"], #NS.BugInbox("new"))) end
 end
 
 local function refresh()
@@ -392,10 +396,17 @@ local function buildContent(root)
     local clear = button(root, L["Clear diagnostics"], 150)
     clear:SetPoint("LEFT", diag, "RIGHT", 8, 0)
     clear:SetScript("OnClick", function() NS.D.Clear(); NS.Print(L["diagnostics cleared."]) end)
+    -- bug report: todos podem reportar; só o admin vê a caixa de entrada
+    local bug = button(root, L["Report a problem"], 150)
+    bug:SetPoint("TOPLEFT", open, "BOTTOMLEFT", 0, -8)
+    bug:SetScript("OnClick", function() if NS.OpenBugReport then NS.OpenBugReport() end end)
+    w.bugInbox = button(root, L["Bug reports"], 150)
+    w.bugInbox:SetPoint("LEFT", bug, "RIGHT", 8, 0)
+    w.bugInbox:SetScript("OnClick", function() if NS.OpenBugInbox then NS.OpenBugInbox() end end)
 
     -- autoria e doação
     local author = text(root, NS.AUTHOR_LINE, "GameFontNormal")
-    author:SetPoint("TOPLEFT", open, "BOTTOMLEFT", 0, -22)
+    author:SetPoint("TOPLEFT", bug, "BOTTOMLEFT", 0, -18)
     w.donate = button(root, L["Donate"], 110)
     w.donate:SetPoint("LEFT", author, "RIGHT", 16, 0)
     w.donate:SetScript("OnClick", function() NS.ShowDonate() end)
@@ -442,7 +453,7 @@ local optWindow
 local function buildWindow()
     local f = CF("Frame", "GrupoFacilOptionsFrame", UIParent, "BasicFrameTemplateWithInset")
     optWindow = f
-    f:SetSize(640, 600)
+    f:SetSize(640, 640)
     f:SetFrameStrata("DIALOG")
     f:SetClampedToScreen(true)
     f:SetMovable(true)

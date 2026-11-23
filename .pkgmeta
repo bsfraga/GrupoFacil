@@ -10,3 +10,4 @@ ignore:
   - .github
   - .gitignore
   - CHANGELOG.md
+  - tests

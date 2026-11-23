@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.13.0
+- **Report a problem**: a window to send bugs, wrong texts and ideas straight to the author (note icon in the title bar, the options, or `/gf bug`). Reports wait on your computer and go out by themselves when the author is online; you see the state of each one and get a message when it is received and when it is marked.
+- `/gf bug <text>` reports from the chat; `/gf bug list` lists your reports.
+- The list now uses the whole window height the first time it opens.
+- `/gf spec` with no talent points says so instead of showing the class name.
+- A group member the game fails to describe no longer logs an error in `/gf diag`.
+
 ## 0.12.0
 - **Who is this? (/who)** in the right-click menu: opens the chat with `/who "Name Surname"` typed in; press Enter (the game only allows /who from your own chat). The answer shows in the row's tooltip: the player's guild (the Looking For Group data has none) and their exact zone, kept for 30 minutes.
 - The dungeon list counts only what the list would show with your current filters.

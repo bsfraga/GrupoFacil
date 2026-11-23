@@ -348,6 +348,15 @@ function NS.BuildUI()
     -- autoria na barra de título (à direita, antes do X)
     local by = label(frame, NS.AUTHOR_LINE or "", "GameFontDisableSmall")
     by:SetPoint("TOPRIGHT", -30, -6)
+    -- reportar um problema ao autor (BugUI.lua)
+    local bug = CF("Button", nil, frame)
+    bug:SetSize(16, 16)
+    bug:SetPoint("LEFT", title, "RIGHT", 6, 0)
+    bug:SetNormalTexture("Interface\\Icons\\INV_Misc_Note_01")
+    bug:SetHighlightTexture("Interface\\Buttons\\ButtonHilight-Square", "ADD")
+    bug:SetScript("OnClick", function() if NS.OpenBugReport then NS.OpenBugReport() end end)
+    tooltip(bug, L["Report a problem"], L["Something wrong or missing? Send it to the author."])
+    frame.bugButton = bug
 
     -- linha 1: modo e ordem
     local prevMode
@@ -587,6 +596,9 @@ function NS.BuildUI()
     NS.ApplyCompact()
 
     frame:SetScript("OnShow", function()
+        -- Antes do primeiro Dock a janela não tem posição e a lista mede 0 de altura (o BuildUI
+        -- calculou o mínimo de 3 linhas). Recalcula aqui, já posicionada.
+        NS.Layout()
         NS.RequestGuildRoster() -- a guilda só é reconhecida depois que o roster chega
         if not NS.searching then NS.RebuildAll("janela aberta") end
         NS.Refresh("show")
