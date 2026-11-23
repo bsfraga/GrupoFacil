@@ -49,7 +49,16 @@ function M.visibleText(s, keepIcons)
     s = s:gsub("\1", "|")
     return s
 end
-local function textWidth(s)
+-- largura média por caractere, medida em capturas do cliente (UI scale 1):
+-- GameFontNormal/Highlight ~6,5 px, as "Small" ~5,5 px, Large/Huge ~8 px
+local function charWidth(template)
+    template = tostring(template or "")
+    if template:find("Small") then return 5.5 end
+    if template:find("Large") or template:find("Huge") then return 8 end
+    return 6.5
+end
+M.charWidth = charWidth
+local function textWidth(s, cw)
     local v = M.visibleText(s, true)
     local icons = select(2, v:gsub("\2", ""))
     v = v:gsub("\2", "")
@@ -58,7 +67,7 @@ local function textWidth(s)
         local _, n = line:gsub("[^\128-\191]", "")
         if n > longest then longest = n end
     end
-    return longest * 6 + icons * 14
+    return longest * (cw or 6.5) + icons * 14
 end
 M.textWidth = textWidth
 
@@ -137,10 +146,9 @@ function M.new(client)
         guard[f] = nil
         local w = s.width
         local h = s.height
-        if (not w or w == 0) and s.kind == "FontString" then w = textWidth(s.text) end
-        if (not h or h == 0) and s.kind == "FontString" then -- altura de uma linha de fonte (~12 px)
-            local _, nl = tostring(s.text or ""):gsub("\n", "")
-            h = 12 * (nl + 1)
+        if (not w or w == 0) and s.kind == "FontString" then w = textWidth(s.text, charWidth(s.template or s.fontObject)) end
+        if (not h or h == 0) and s.kind == "FontString" then -- linhas de ~12 px, contando a quebra automática
+            h = math.max(12, f:GetStringHeight())
         end
         if not (L and R) then
             if w then
@@ -208,7 +216,7 @@ function M.new(client)
         local r = rectOf(self)
         if r then return r.r - r.l end
         local s = st(self)
-        if s.kind == "FontString" and not s.width then return textWidth(s.text) end
+        if s.kind == "FontString" and not s.width then return textWidth(s.text, charWidth(s.template or s.fontObject)) end
         return s.width or 0
     end
     function regionM:GetHeight()
@@ -324,8 +332,9 @@ function M.new(client)
     function fontM:SetShadowColor() end
     function fontM:SetShadowOffset() end
     function fontM:SetIndentedWordWrap() end
-    function fontM:GetStringWidth() return textWidth(st(self).text) end
-    function fontM:GetUnboundedStringWidth() return textWidth(st(self).text) end
+    local function fw(self) local s = st(self); return textWidth(s.text, charWidth(s.template or s.fontObject)) end
+    function fontM:GetStringWidth() return fw(self) end
+    function fontM:GetUnboundedStringWidth() return fw(self) end
     function fontM:GetStringHeight()
         local s = st(self)
         local text = s.text or ""
@@ -333,7 +342,7 @@ function M.new(client)
         local lines = select(2, text:gsub("\n", "")) + 1
         local w = s.width
         if w and w > 0 and s.wordWrap ~= false then
-            local need = textWidth(text)
+            local need = fw(self)
             lines = math.max(lines, math.ceil(need / w))
         end
         return lines * 12 + (lines - 1) * (s.spacing or 0)
@@ -342,7 +351,7 @@ function M.new(client)
         local s = st(self)
         local w = s.width
         if not w or w <= 0 then return false end
-        return s.wordWrap == false and textWidth(s.text) > w
+        return s.wordWrap == false and fw(self) > w
     end
     methods.FontString = fontM
 

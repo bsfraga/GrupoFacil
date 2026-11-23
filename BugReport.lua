@@ -177,6 +177,23 @@ function NS.BugNoteOf(body)
     local n = tostring(body or ""):match("\nnote=([^\n]*)") or tostring(body or ""):match("^note=([^\n]*)") or ""
     return (n:gsub("\\n", " "))
 end
+-- corta em n caracteres sem partir um caractere acentuado (UTF-8) ao meio
+function NS.Utf8Sub(str, n)
+    str = tostring(str or "")
+    local count, i = 0, 1
+    while i <= #str do
+        count = count + 1
+        if count > n then return str:sub(1, i - 1) end
+        local b = str:byte(i)
+        i = i + (b >= 240 and 4 or b >= 224 and 3 or b >= 192 and 2 or 1)
+    end
+    return str
+end
+-- trecho do texto para as listas: o corpo some depois de entregue, o trecho fica
+function NS.BugSnippetOf(e)
+    if e.snip and e.snip ~= "" then return e.snip end
+    return e.body and NS.BugNoteOf(e.body) or ""
+end
 function NS.BugKindOf(body) return tostring(body or ""):match("\nkind=([^\n]*)") or "bug" end
 
 -- Caixa de entrada do admin. status = nil (todos) ou "new"... Mais novos primeiro.
@@ -225,6 +242,8 @@ function NS.SubmitBug(text, kind, includeDiag)
     if not ok then return nil, L["could not create the report (see /gf diag)"] end
     if not id then return nil, why == "fila cheia" and L["too many reports waiting; wait until the author receives them"] or tostring(why) end
     GrupoFacilDB.bugPendingSave = true
+    local e = GrupoFacilDB.bugs and GrupoFacilDB.bugs[id]
+    if e then e.snip = NS.Utf8Sub((text:gsub("%s+", " ")), 60) end
     if NS.D then NS.D.Trace("BUG", "report criado (%s, %d caracteres)", tostring(kind or "bug"), #text) end
     if NS.RefreshBugUI then NS.RefreshBugUI() end
     return id
@@ -268,16 +287,18 @@ local function printMine()
     NS.Print(format(L["your bug reports (%d):"], #list))
     for i = 1, math.min(#list, 15) do
         local e = list[i]
-        print(format("  %s  %s  %s", e.id, date("%Y-%m-%d", e.ts), NS.BugStateText(e)))
+        local snip = NS.BugSnippetOf(e)
+        print(format("  %s  %s  %s%s", e.id, date("%Y-%m-%d", e.ts), NS.BugStateText(e),
+            snip ~= "" and ("  |cff777777" .. NS.Utf8Sub(snip, 40):gsub("|", "||") .. "|r") or ""))
     end
 end
 
 local function printInbox(status)
     local list = NS.BugInbox(status)
-    NS.Print(format(L["bug reports: %d (%d new). /gf bugs show <id>"], #NS.BugInbox(), #NS.BugInbox("new")))
+    NS.Print(format(L["bug reports: %d (new: %d). /gf bugs show <id>"], #NS.BugInbox(), #NS.BugInbox("new")))
     for i = 1, math.min(#list, 20) do
         local e = list[i]
-        print(format("  %s  %s  %s  %s", e.id:sub(1, 8), tostring(e.from), NS.BugStatusText(e.status), (NS.BugNoteOf(e.body):sub(1, 60):gsub("|", "||"))))
+        print(format("  %s  %s  %s  %s", e.id:sub(1, 8), tostring(e.from), NS.BugStatusText(e.status), (NS.Utf8Sub(NS.BugNoteOf(e.body), 60):gsub("|", "||"))))
     end
 end
 

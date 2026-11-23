@@ -128,10 +128,10 @@ local function refreshReport()
     for i = 1, MY_ROWS do
         local row, e = f.rows[i], list[i]
         if e then
-            local note = e.body and NS.BugNoteOf(e.body) or ""
+            local note = NS.BugSnippetOf(e)
             local color = e.resolved and "|cff55ff55" or (e.state == "done" and "|cff88ccff" or "|cffffd200")
             row:SetText(format("|cff999999%s|r  %s%s|r%s", date("%d/%m %H:%M", e.ts), color, NS.BugStateText(e),
-                note ~= "" and ("  |cff777777" .. escBars(note:sub(1, 40)) .. "|r") or ""))
+                note ~= "" and ("  |cff777777" .. escBars(NS.Utf8Sub(note, 40)) .. "|r") or ""))
             row:Show()
         else
             row:Hide()
@@ -144,58 +144,89 @@ local function refreshReport()
     f.save:SetShown(GrupoFacilDB.bugPendingSave == true)
     -- admin: atalho para a caixa de entrada
     if NS.bugAdmin then
-        f.inbox:SetText(format(L["Inbox (%d new)"], #NS.BugInbox("new")))
+        f.inbox:SetText(format(L["Inbox (new: %d)"], #NS.BugInbox("new")))
+        local fs = f.inbox.GetFontString and f.inbox:GetFontString()
+        local tw = fs and fs:GetStringWidth()
+        if tw then f.inbox:SetWidth(max(140, tw + 22)) end
         f.inbox:Show()
     else
         f.inbox:Hide()
     end
 end
 
+-- Layout: tudo encadeado de cima para baixo e medido pelo texto já traduzido. Rótulos longos
+-- (alemão, francês) quebram em mais linhas e empurram o resto para baixo em vez de se sobrepor;
+-- os tipos passam para a linha de baixo quando não cabem; a janela cresce até caber o conteúdo.
+local W, PAD = 540, 16
+local INNER = W - 2 * PAD
+
+local function heightOf(fs, minH)
+    local h = fs.GetStringHeight and fs:GetStringHeight() or 0
+    return max(minH or 12, h or 0)
+end
+
 local function buildReport()
-    local f = window("GrupoFacilBugFrame", 540, 500, "GrupoFacil · " .. L["Report a problem"])
+    local f = window("GrupoFacilBugFrame", W, 500, "GrupoFacil · " .. L["Report a problem"])
     report = f
     f.kind, f.includeDiag = "bug", true
+    local used = 32 -- barra de título
 
     local intro = text(f, L["Tell the author what went wrong. The report stays saved on your computer and goes to the author the next time you are both online. It is only deleted after the author confirms it was saved."])
-    intro:SetPoint("TOPLEFT", 16, -32)
-    intro:SetWidth(508)
+    intro:SetPoint("TOPLEFT", PAD, -32)
+    intro:SetWidth(INNER)
     intro:SetJustifyV("TOP")
+    local ih = heightOf(intro)
+    used = used + ih
 
+    -- tipo: rótulo e as três opções em fluxo; o que não cabe na linha desce para a próxima
     local kl = text(f, L["What kind?"], "GameFontNormal")
-    kl:SetPoint("TOPLEFT", 16, -86)
-    f.kinds = {}
-    local prev = kl
+    kl:SetPoint("TOPLEFT", intro, "BOTTOMLEFT", 0, -14)
+    used = used + 14
+    f.kinds, f.kindLabels = {}, {}
+    local x, row = (kl:GetStringWidth() or 0) + 8, 0
     for _, k in ipairs(KINDS) do
         local c = CF("CheckButton", nil, f, "UICheckButtonTemplate")
         c:SetSize(24, 24)
-        c:SetPoint("LEFT", prev, "RIGHT", prev == kl and 8 or 4, 0)
         c.key = k.key
         local l = text(f, L[k.label], "GameFontHighlightSmall")
+        local need = 24 + (l:GetStringWidth() or 0)
+        if x > 0 and x + need > INNER then row, x = row + 1, 0 end
+        c:SetPoint("LEFT", kl, "LEFT", x - 4, -row * 24)
         l:SetPoint("LEFT", c, "RIGHT", 0, 0)
         c:SetScript("OnClick", function() f.kind = k.key; refreshReport() end)
         f.kinds[#f.kinds + 1] = c
-        prev = l
+        f.kindLabels[#f.kindLabels + 1] = l
+        x = x + need + 14
     end
+    used = used + 12 + row * 24 + 6
 
     local nl = text(f, L["What happened? What did you expect? Steps help a lot."], "GameFontNormal")
-    nl:SetPoint("TOPLEFT", 16, -118)
-    f.note = multiLine(f, 508, 140)
+    nl:SetPoint("TOPLEFT", kl, "BOTTOMLEFT", 0, -(row * 24 + 6 + 12))
+    nl:SetWidth(INNER)
+    local nh = heightOf(nl)
+    used = used + 12 + nh
+    f.note = multiLine(f, INNER, 140)
     f.note:SetPoint("TOPLEFT", nl, "BOTTOMLEFT", 0, -6)
     f.note.box:SetMaxLetters(NS.BUG_NOTE_MAX)
     f.note.box:SetScript("OnTextChanged", function() refreshReport() end)
     f.counter = text(f, "", "GameFontDisableSmall")
     f.counter:SetPoint("TOPRIGHT", f.note, "BOTTOMRIGHT", 0, -4)
+    used = used + 6 + 140
 
+    -- diagnóstico: o texto pode quebrar em 2 ou 3 linhas; o botão Enviar vem depois da mais baixa
     f.diag = CF("CheckButton", nil, f, "UICheckButtonTemplate")
     f.diag:SetSize(24, 24)
-    f.diag:SetPoint("TOPLEFT", f.note, "BOTTOMLEFT", -4, -20)
     local dl = text(f, L["Include the addon version, settings and recent addon events (no other players' names)"], "GameFontHighlightSmall")
+    dl:SetWidth(INNER - 28)
+    local dh = heightOf(dl)
+    local extra = max(0, (dh - 24) / 2)
+    f.diag:SetPoint("TOPLEFT", f.note, "BOTTOMLEFT", -4, -(20 + extra))
     dl:SetPoint("LEFT", f.diag, "RIGHT", 0, 0)
-    dl:SetWidth(470)
     f.diag:SetScript("OnClick", function(self) f.includeDiag = self:GetChecked() and true or false; refreshReport() end)
+    used = used + 20 + max(24, dh)
 
     f.send = button(f, L["Send report"], 140)
-    f.send:SetPoint("TOPLEFT", f.diag, "BOTTOMLEFT", 4, -10)
+    f.send:SetPoint("TOPLEFT", f.diag, "BOTTOMLEFT", 4, -(10 + extra))
     f.send:SetScript("OnClick", function()
         local id, why = NS.SubmitBug(f.note.box:GetText(), f.kind, f.includeDiag)
         if id then
@@ -210,9 +241,11 @@ local function buildReport()
     end)
     tooltip(f.send, L["Send report"], L["The report is queued and sent automatically when the author is online. You don't need to keep this window open."])
     f.status = text(f, "", "GameFontHighlightSmall")
+    -- um ponto só (LEFT + RIGHT na janela puxava o texto para a altura do meio da janela)
     f.status:SetPoint("LEFT", f.send, "RIGHT", 10, 0)
-    f.status:SetPoint("RIGHT", f, "RIGHT", -16, 0)
+    f.status:SetWidth(INNER - f.send:GetWidth() - 10)
     f.status:SetWordWrap(false)
+    used = used + 10 + 22
 
     f.save = button(f, L["Save now (/reload)"], 150)
     f.save:SetPoint("TOPLEFT", f.send, "BOTTOMLEFT", 0, -6)
@@ -220,27 +253,31 @@ local function buildReport()
         NS.ShowReloadPrompt(L["The game writes your report to disk only when the interface reloads or you log out. Reload now?"])
     end)
     tooltip(f.save, L["Save now (/reload)"], L["If the game crashes before a reload or logout, a new report is lost. Reloading now writes it to disk."])
+    used = used + 6 + 22
 
+    -- "Seus reports"; o admin tem o atalho da caixa de entrada à direita desta mesma linha
     local yl = text(f, L["Your reports"], "GameFontNormal")
-    yl:SetPoint("TOPLEFT", f.save, "BOTTOMLEFT", 0, -12)
+    yl:SetPoint("TOPLEFT", f.save, "BOTTOMLEFT", 0, -16)
+    f.inbox = button(f, format(L["Inbox (new: %d)"], 0), 140, 20)
+    f.inbox:SetPoint("RIGHT", yl, "LEFT", INNER, 0)
+    f.inbox:SetScript("OnClick", function() NS.OpenBugInbox() end)
+    f.inbox:Hide()
+    used = used + 16 + 12
     f.rows = {}
     for i = 1, MY_ROWS do
         local r = text(f, "", "GameFontHighlightSmall")
-        r:SetPoint("TOPLEFT", yl, "BOTTOMLEFT", 4, -4 - (i - 1) * 16)
-        r:SetWidth(500)
+        r:SetPoint("TOPLEFT", yl, "BOTTOMLEFT", 4, -10 - (i - 1) * 16)
+        r:SetWidth(INNER - 8)
         r:SetWordWrap(false)
         f.rows[i] = r
     end
     f.empty = text(f, L["None yet."], "GameFontDisableSmall")
-    f.empty:SetPoint("TOPLEFT", yl, "BOTTOMLEFT", 4, -4)
+    f.empty:SetPoint("TOPLEFT", yl, "BOTTOMLEFT", 4, -10)
     f.more = text(f, "", "GameFontDisableSmall")
     f.more:SetPoint("TOPLEFT", f.rows[MY_ROWS], "BOTTOMLEFT", 0, -2)
+    used = used + 10 + MY_ROWS * 16 + 2 + 12
 
-    f.inbox = button(f, L["Inbox (%d new)"], 140, 20)
-    f.inbox:SetPoint("TOPRIGHT", -12, -82)
-    f.inbox:SetScript("OnClick", function() NS.OpenBugInbox() end)
-    f.inbox:Hide()
-
+    f:SetHeight(max(460, used + 16))
     f:SetScript("OnShow", function() refreshReport() end)
     autoRefresh(f, refreshReport)
 end
@@ -314,7 +351,7 @@ local function refreshInbox()
         if e then
             local note = NS.BugNoteOf(e.body)
             r.label:SetText(format("%s%s|r  %s  |cff999999%s|r\n|cffcccccc%s|r", STATUS_COLOR[e.status] or "", NS.BugStatusText(e.status),
-                escBars(e.from), date("%d/%m %H:%M", e.recvAt), escBars(note ~= "" and note:sub(1, 50) or ("(" .. L["no text"] .. ")"))))
+                escBars(e.from), date("%d/%m %H:%M", e.recvAt), escBars(note ~= "" and NS.Utf8Sub(note, 50) or ("(" .. L["no text"] .. ")"))))
             if e.id == f.selected and not f.exporting then r:LockHighlight() else r:UnlockHighlight() end
             r:Show()
         else

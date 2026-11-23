@@ -3,6 +3,7 @@
 ## 0.13.0
 - **Report a problem**: a window to send bugs, wrong texts and ideas straight to the author (note icon in the title bar, the options, or `/gf bug`). Reports wait on your computer and go out by themselves when the author is online; you see the state of each one and get a message when it is received and when it is marked.
 - `/gf bug <text>` reports from the chat; `/gf bug list` lists your reports.
+- The report window fits its texts in every language: long labels wrap and push the rest down, report types move to a second line when they don't fit, and your reports keep a piece of what you wrote after they are delivered.
 - The list now uses the whole window height the first time it opens.
 - `/gf spec` with no talent points says so instead of showing the class name.
 - A group member the game fails to describe no longer logs an error in `/gf diag`.

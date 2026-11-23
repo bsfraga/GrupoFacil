@@ -231,7 +231,7 @@ local function refreshOne(w)
     w.blockedLabel:SetText(format(L["Blocked players: %d"], nb))
     w.unblock:SetEnabled(nb > 0)
     w.bugInbox:SetShown(NS.bugAdmin == true)
-    if NS.bugAdmin and NS.BugInbox then w.bugInbox:SetText(format(L["Bug reports (%d new)"], #NS.BugInbox("new"))) end
+    if NS.bugAdmin and NS.BugInbox then w.bugInbox:SetText(format(L["Bug reports (new: %d)"], #NS.BugInbox("new"))) end
 end
 
 local function refresh()

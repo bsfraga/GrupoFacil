@@ -62,6 +62,82 @@ local function overflow(c, winName)
     return out
 end
 
+-- widgets e textos visíveis que se sobrepõem dentro da janela (ex.: botão por cima de um rótulo traduzido)
+local function overlaps(c, winName)
+    local win = c.env[winName]
+    if not (win and c.ui.visible(win)) then return {} end
+    local items = {}
+    local function ancestor(a, b)
+        local s = c.ui.state(b)
+        while s and s.parent do
+            if s.parent == a then return true end
+            s = c.ui.state(s.parent)
+        end
+        return false
+    end
+    -- camadas sobrepostas de propósito (faixa do tour, linha de exemplo) ficam bem acima no nível
+    local function lvl(f)
+        local st = c.ui.state(f)
+        if st.level then return st.level end
+        if st.kind == "FontString" or not st.parent then return st.parent and lvl(st.parent) or 1 end
+        return lvl(st.parent) + 1
+    end
+    local function ink(fs)
+        local st = c.ui.state(fs)
+        local r = c.ui.rect(fs)
+        if not r or not st.text or st.text == "" then return nil end
+        local tw = fs:GetStringWidth()
+        local bw = r.r - r.l
+        if tw < bw then
+            local j = st.justifyH or "CENTER"
+            if j == "LEFT" then r = { l = r.l, r = r.l + tw, t = r.t, b = r.b }
+            elseif j == "RIGHT" then r = { l = r.r - tw, r = r.r, t = r.t, b = r.b }
+            else local m = (r.l + r.r) / 2; r = { l = m - tw / 2, r = m + tw / 2, t = r.t, b = r.b } end
+        end
+        local h = fs:GetStringHeight()
+        if h > 0 and h < r.t - r.b then
+            local j = st.justifyV or "MIDDLE"
+            if j == "TOP" then r.b = r.t - h elseif j == "BOTTOM" then r.t = r.b + h
+            else local m = (r.t + r.b) / 2; r.t, r.b = m + h / 2, m - h / 2 end
+        end
+        return r
+    end
+    local function walk(f, inButton)
+        local st = c.ui.state(f)
+        for _, reg in ipairs(st.regions or {}) do
+            local rs = c.ui.state(reg)
+            if rs.kind == "FontString" and not inButton and c.ui.visible(reg) then
+                local r = ink(reg)
+                if r then items[#items + 1] = { o = reg, r = r, label = rs.text } end
+            end
+        end
+        for _, ch in ipairs(st.children or {}) do
+            local cs = c.ui.state(ch)
+            if c.ui.visible(ch) then
+                local btn = cs.kind == "Button" or cs.kind == "CheckButton" or cs.kind == "EditBox"
+                if btn then
+                    local r = c.ui.rect(ch)
+                    if r then items[#items + 1] = { o = ch, r = r, label = tostring(c:text(ch) or cs.name or cs.kind) } end
+                end
+                walk(ch, inButton or (cs.kind == "Button" or cs.kind == "CheckButton"))
+            end
+        end
+    end
+    walk(win, false)
+    local out = {}
+    for i = 1, #items do
+        for j = i + 1, #items do
+            local a, b = items[i], items[j]
+            local ow = math.min(a.r.r, b.r.r) - math.max(a.r.l, b.r.l)
+            local oh = math.min(a.r.t, b.r.t) - math.max(a.r.b, b.r.b)
+            if ow > 1 and oh > 1 and math.abs(lvl(a.o) - lvl(b.o)) < 10 and not ancestor(a.o, b.o) and not ancestor(b.o, a.o) then
+                out[#out + 1] = winName .. ": [" .. a.label .. "] x [" .. b.label .. "]"
+            end
+        end
+    end
+    return out
+end
+
 -- uma sessão que passa por todas as telas, registrando cada chave pedida a L
 local function exercise(lang, admin)
     local seen = {}
@@ -92,7 +168,10 @@ local function exercise(lang, admin)
     for _, cmd in ipairs({ "/gf help", "/gf msg", "/gf mode", "/gf auto on", "/gf minimap", "/gf hook", "/gf blocked", "/gf unblock",
         "/gf unblock x", "/gf diag", "/gf diag snap", "/gf debug off", "/gf lang", "/gf spec", "/gf bug list" }) do c:slash(cmd) end
     local over = {}
-    local function check(name) for _, x in ipairs(overflow(c, name)) do over[#over + 1] = x end end
+    local function check(name)
+        for _, x in ipairs(overflow(c, name)) do over[#over + 1] = x end
+        for _, x in ipairs(overlaps(c, name)) do over[#over + 1] = x end
+    end
     check("GrupoFacilFrame")
     c:slash("/gf options")
     check("GrupoFacilOptionsFrame")
@@ -181,7 +260,7 @@ describe("idiomas", function()
     for _, lang in ipairs(LANGS) do
         it("em " .. lang .. ": todas as telas, comandos e o tour pedem só chaves traduzidas, sem erro", function()
             local seen, c, over = exercise(lang, true)
-            T.eq(#over, 0, lang .. ": botões fora da janela:\n  " .. table.concat(over, "\n  "))
+            T.eq(#over, 0, lang .. ": botões fora da janela ou sobrepostos:\n  " .. table.concat(over, "\n  "))
             local LOC = H.ns(c).LOCALES
             local missing = {}
             for k in pairs(seen) do
@@ -195,7 +274,7 @@ describe("idiomas", function()
 
     it("em inglês nada falta e nada quebra", function()
         local _, c, over = exercise("en", true)
-        T.eq(#over, 0, "en: botões fora da janela:\n  " .. table.concat(over, "\n  "))
+        T.eq(#over, 0, "en: botões fora da janela ou sobrepostos:\n  " .. table.concat(over, "\n  "))
         T.clean(c)
     end)
 end)
