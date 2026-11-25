@@ -171,11 +171,12 @@ end
 ------------------------------------------------------------------------ personagens
 function World:login(opts)
     assert(opts.name, "login sem nome")
-    local key = opts.name:lower()
+    -- Forever: dois "Bagael" convivem se o sobrenome muda; a chave é o nome inteiro
+    local key = (opts.surname and (opts.name .. " " .. opts.surname) or opts.name):lower()
     local c = self.online[key]
     if c then error("personagem já está online: " .. opts.name) end
     for _, old in ipairs(self.clients) do
-        if old.name == opts.name and old.state == "offline" then c = old end
+        if old.name == opts.name and old.surname == opts.surname and old.state == "offline" then c = old end
     end
     if c then
         for k, v in pairs(opts) do c.opts[k] = v end
@@ -189,7 +190,8 @@ function World:login(opts)
 end
 
 function World:setOffline(c)
-    if self.online[c.name:lower()] == c then self.online[c.name:lower()] = nil end
+    local key = (c.surname and (c.name .. " " .. c.surname) or c.name):lower()
+    if self.online[key] == c then self.online[key] = nil end
 end
 
 -- quem recebe mensagens agora (cliente carregado e não recarregando)
@@ -198,13 +200,9 @@ end
 function World:reachable(name)
     local short = tostring(name):match("^[^%-]+") or name
     local first, last = short:match("^(%S+)%s+(.+)$")
-    local c = self.online[(first or short):lower()]
+    local c = self.online[short:lower()] -- "nome sobrenome" casa direto com a chave
+    if c and c.surname and not last then c = nil end
     if not c then return nil, "offline" end
-    if c.surname then
-        if not last or last:lower() ~= c.surname:lower() then return nil, "offline" end
-    elseif last then
-        return nil, "offline"
-    end
     return c, c.state
 end
 

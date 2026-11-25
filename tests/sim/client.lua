@@ -379,9 +379,10 @@ function Client:buildEnv()
     }
 
     -- personagem
-    -- opts.unitNameSurname: hipótese de o Forever devolver o sobrenome no 2º valor (não confirmado)
+    -- Forever devolve o sobrenome no 2º valor (Fraga conferiu em 2026-11-25: "Bagael Bagacera").
+    -- opts.unitNameSurname = false simula um cliente que só dá o primeiro nome.
     env.UnitName = function(u)
-        if u == "player" then return c.name, (c.opts.unitNameSurname and c.surname) or nil end
+        if u == "player" then return c.name, (c.opts.unitNameSurname ~= false and c.surname) or nil end
         return nil
     end
     env.UnitFullName = function(u) if u == "player" then return c.name, c.realm end end

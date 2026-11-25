@@ -67,9 +67,10 @@ local function adler(s)
   for i = 1, #s do a = (a + s:byte(i)) % 65521; b = (b + a) % 65521 end
   return b * 65536 + a
 end
--- [GrupoFacil] Forever: nomes têm sobrenome ("Bael Goldmaker"). O admin é configurado com o nome
--- completo (é para ele que o whisper vai). UnitName("player") devolve só o nome; um remetente sem
--- sobrenome casa com o primeiro nome; um remetente com sobrenome precisa casar inteiro.
+-- [GrupoFacil] Forever: nomes têm sobrenome ("Bagael Bagacera"). O admin é configurado com o nome
+-- completo (é para ele que o whisper vai). UnitName("player") devolve nome e sobrenome em dois
+-- valores (visto em 2026-11-25); um nome sem sobrenome casa com o primeiro nome do admin, um nome
+-- com sobrenome precisa casar inteiro.
 local function isAdmin(n)
   if not n then return false end
   n = n:lower()
@@ -114,6 +115,15 @@ function BC.Reach()
   return { contactAt = r.contactAt, misses = r.misses or 0, missDays = n, firstMiss = r.firstMiss, lastMiss = r.lastMiss,
            online = rt.admin ~= nil and GetTime() - (rt.adminAt or 0) < ADMIN_TTL }
 end
+
+-- [GrupoFacil] o próprio nome como os outros o veem: "Nome Sobrenome" no Forever
+local function myName()
+  local n, r = UnitName("player")
+  if type(n) ~= "string" or isSecret(n) then return nil end
+  if type(r) == "string" and r ~= "" and not isSecret(r) then return n .. " " .. r end
+  return n
+end
+BC.MyName = myName
 
 local function say(m) if cfg.say then cfg.say(m) else print("|cff9d7be0" .. cfg.addon .. ":|r " .. m) end end
 BC._esc, BC._unesc, BC._split, BC._adler = esc, unesc, split, adler   -- p/ testes
@@ -213,7 +223,7 @@ function BC.Report(note)
   local e = { id = id, ts = time(), state = "queued", body = body, tries = 0 }
   db.bugs[id] = e
   if rt.iAmAdmin then   -- admin reportando: vai direto para a própria caixa de entrada
-    db.inbox[id] = { id = id, from = short(UnitName("player")), recvAt = time(), status = "new", body = body, proto = PROTO }
+    db.inbox[id] = { id = id, from = myName(), recvAt = time(), status = "new", body = body, proto = PROTO }
     e.state, e.body, e.doneAt = "done", nil, time()
     say("report " .. id .. " guardado na caixa de entrada (faça /reload para gravar em disco)")
   else
@@ -303,7 +313,9 @@ function BC.Flush() ReloadUI() end      -- grava SavedVariables em disco (torna 
 local function onAddon(prefix, text, channel, sender)
   if prefix ~= cfg.prefix or isSecret(text) or isSecret(sender) then return end
   local from = short(sender)
-  if not from or from:lower() == (short(UnitName("player")) or ""):lower() then return end
+  if not from then return end
+  local me = myName() or ""
+  if from:lower() == me:lower() or from:lower() == (short(UnitName("player")) or ""):lower() then return end
   local v, cmd, a1, a2, a3, a4 = strsplit(SEP, text)
   v = tonumber(v)
   if not v or not cmd then return end
@@ -352,7 +364,7 @@ function BC.Init(c)
   db = sv
   db.bugs, db.inbox = db.bugs or {}, db.inbox or {}
   db.bugSchema = "bugq/1"
-  -- [GrupoFacil] se o jogo der o sobrenome no 2º valor de UnitName, confere o nome inteiro
+  -- [GrupoFacil] com o sobrenome no 2º valor de UnitName, confere o nome inteiro
   local me, rest = UnitName("player")
   if type(rest) == "string" and rest ~= "" and not isSecret(rest) then
     rt.iAmAdmin = isAdmin(me .. " " .. rest) or isAdmin(me .. "-" .. rest)

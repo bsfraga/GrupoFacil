@@ -13,7 +13,7 @@ local format = string.format
 -- Nome entre < > é marcador: enquanto não houver nome real, ninguém é admin e os reports
 -- ficam guardados no cliente de cada jogador até uma versão com os nomes chegar.
 ------------------------------------------------------------------------
-NS.BUG_ADMINS = NS.BUG_ADMINS or { "<ADMIN_1>", "<ADMIN_2>" }
+NS.BUG_ADMINS = NS.BUG_ADMINS or { "Bagael Bagacera" }
 
 -- Onde o autor joga (o jogador de outra regra ou facção não alcança o admin pelo jogo) e o
 -- caminho alternativo: os comentários do addon no CurseForge.
@@ -37,8 +37,8 @@ local function realAdmins()
 end
 NS.BugAdmins = realAdmins
 
--- UnitName("player") vem sem sobrenome no Forever: casa com o primeiro nome do admin
--- Se o jogo der o sobrenome no 2º valor, exige o nome inteiro (evita outro "Bael" virar admin).
+-- No Forever UnitName("player") devolve nome e sobrenome em dois valores: exige o nome inteiro
+-- (outro "Bagael" não vira admin). Sem o 2º valor, casa com o primeiro nome do admin.
 function NS.IsBugAdmin()
     local first, rest = UnitName("player")
     first = (first or ""):lower()
@@ -96,8 +96,8 @@ local function collect(note)
         "toc=" .. tostring(toc), "build=" .. tostring(build),
         "locale=" .. tostring(GetLocale()),
         "lang=" .. tostring(NS.Language and NS.Language() or "?"),
-        -- no Forever GetRealmName() vem vazio (visto em 2026-11-23): sem o "-" pendurado
-        "char=" .. tostring(UnitName("player")) .. (((GetRealmName() or "") ~= "") and ("-" .. GetRealmName()) or ""),
+        -- Forever: "Nome Sobrenome" (o 2º valor de UnitName é o sobrenome); GetRealmName() vem vazio
+        "char=" .. tostring(NS.BugChannel and NS.BugChannel.MyName and NS.BugChannel.MyName() or UnitName("player")) .. (((GetRealmName() or "") ~= "") and ("-" .. GetRealmName()) or ""),
         "class=" .. tostring(select(2, UnitClass("player"))), "level=" .. tostring(UnitLevel("player")),
         "zone=" .. tostring(GetZoneText() or "") .. "/" .. tostring(GetSubZoneText() or ""),
         "kind=" .. tostring(note.kind or "bug"),
