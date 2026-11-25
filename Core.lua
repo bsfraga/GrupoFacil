@@ -570,7 +570,9 @@ local function sampleRaw(id)
         and not isSecret(info.numMembers) then
         extra.members = {}
         for m = 1, math.min(info.numMembers, 5) do
-            extra.members[m] = C_LFGList.GetSearchResultPlayerInfo(id, m)
+            -- como em readResult: um membro que falha não pode virar erro do diagnóstico
+            local okP, p = pcall(C_LFGList.GetSearchResultPlayerInfo, id, m)
+            extra.members[m] = okP and p or ("erro: " .. tostring(p))
         end
     end
     -- a primeira atividade (faixa de level, expectativa de roles)
@@ -1135,6 +1137,8 @@ local function onEvent(_, event, ...)
             if NS.BuildUI then NS.GuardTag("BuildUI", NS.BuildUI) end
             if NS.BuildOptions then NS.GuardTag("BuildOptions", NS.BuildOptions) end
             if NS.BuildMinimapButton then NS.GuardTag("BuildMinimapButton", NS.BuildMinimapButton) end
+            -- canal de bug report (BugReport.lua); db.bugs e db.inbox nunca são apagados aqui
+            if NS.InitBugReports then NS.GuardTag("InitBugReports", NS.InitBugReports) end
         elseif name == "Blizzard_GroupFinder_VanillaStyle" then
             Trace("CARGA", "Blizzard_GroupFinder_VanillaStyle carregado")
             hookBlizzardLFG()
@@ -1229,6 +1233,9 @@ local HELP = {
     "/gf hook on | off - capture the native search (turn off if the native search gets stuck; applies after /reload)",
     "/gf blocked - list blocked players; /gf unblock <name> | all - unblock",
     "/gf diag - error and trace summary; /gf diag snap - save a snapshot now; /gf diag clear",
+    "/gf bug - report a problem to the author (window); /gf bug <text> - report right away; /gf bug list - your reports",
+    "/gf bug link - link to the comments on CurseForge (for other rulesets or factions)",
+    "/gf news - what's new in this version",
     "/gf debug on | off - show the trace in chat as it happens",
 }
 
@@ -1237,6 +1244,8 @@ local ALIAS = {
     tutorial = "tour", ajuda = "help",
     classe = "class", modo = "mode", minimapa = "minimap", encaixar = "dock", erros = "diag", idioma = "lang", language = "lang",
     bloqueados = "blocked", desbloquear = "unblock",
+    report = "bug", reportar = "bug", problema = "bug", reports = "bugs",
+    novidades = "news", whatsnew = "news", notes = "news", changelog = "news", novedades = "news", neuigkeiten = "news", ["nouveautés"] = "news",
 }
 local ON_OFF = function(v) return v and L["on"] or L["off"] end
 
@@ -1255,6 +1264,8 @@ SlashCmdList.GRUPOFACIL = function(input)
         if NS.OpenOptions then NS.OpenOptions() end
     elseif cmd == "tour" then
         if NS.StartTour then NS.StartTour() end
+    elseif cmd == "news" then
+        if NS.OpenNews then NS.OpenNews("/gf news") end
     elseif cmd == "lang" then
         if l == "" or not NS.SetLanguage(l) then -- recarrega a interface quando troca
             NS.Print(format(L["language: %s (use /gf lang followed by en, pt, es, mx, de or fr)"], NS.LanguageName(NS.Language())))
@@ -1275,7 +1286,9 @@ SlashCmdList.GRUPOFACIL = function(input)
         local key = (cmd == "spec") and "spec" or "classe" -- chave salva por personagem
         if rest == "" or l == "auto" then char[key] = nil else char[key] = rest end
         NS.InvalidateSpec()
-        local v = (cmd == "spec") and NS.PlayerSpec() or NS.PlayerClass()
+        -- if/else: com "and/or", spec nil (sem pontos) caía no nome da classe
+        local v
+        if cmd == "spec" then v = NS.PlayerSpec() else v = NS.PlayerClass() end
         NS.Print(format("%s: %s", cmd, tostring(v or L["(no talent points)"])))
     elseif cmd == "mode" then
         if l == "direct" or l == "direto" then db.sendMode = "direto"
@@ -1326,11 +1339,14 @@ SlashCmdList.GRUPOFACIL = function(input)
         else
             D.PrintSummary()
         end
+    elseif cmd == "bug" or cmd == "bugs" then
+        if NS.BugCommand then NS.BugCommand(cmd, rest) end
     elseif cmd == "debug" then
         db.debug = (l == "on")
         NS.Print(format(L["debug: %s"], db.debug and L["on (trace in chat)"] or L["off"]))
     else
         for _, line in ipairs(HELP) do print(L[line]) end
+        if NS.bugAdmin then print(L["/gf bugs - bug report inbox (author only); /gf bugs fix <id> [note]; /gf bugs flush"]) end
     end
 end
 SlashCmdList.GRUPOFACIL = D.Wrap("/gf", SlashCmdList.GRUPOFACIL)

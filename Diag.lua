@@ -345,8 +345,13 @@ function D.ProbeNativeSearch(delay)
         if isSecret(searching) then
             D.Trace("NATIVA", "LFGBrowseFrame.searching é SECRET")
         elseif searching == true then
-            D.Trace("NATIVA", "LFGBrowseFrame presa em Searching há %ds; taint=%s", delay or 12, str(D.TaintReport()))
-            D.OnError("busca nativa presa em Searching (LFGBrowseFrame.searching=true)")
+            -- O servidor não respondeu à busca (nem resultado nem falha). Não é erro do addon,
+            -- então não vai para a lista de erros nem avisa "logged an error" no chat:
+            -- fica no rastro, com contador, para ver se fica frequente ou se aparece taint.
+            local d = store()
+            if d then d.nativeStuck = (d.nativeStuck or 0) + 1 end
+            D.Trace("NATIVA", "LFGBrowseFrame presa em Searching há %ds (servidor sem resposta; total %d); taint=%s",
+                delay or 12, d and d.nativeStuck or 0, str(D.TaintReport()))
         end
     end)
 end

@@ -23,8 +23,13 @@ Locale_mx.lua
 Locale_de.lua
 Locale_fr.lua
 Diag.lua
+BugChannel.lua
+BugResolutions.lua
 Core.lua
 UI.lua
 Options.lua
 Minimap.lua
 Onboarding.lua
+BugReport.lua
+BugUI.lua
+WhatsNew.lua

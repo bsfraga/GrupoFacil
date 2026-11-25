@@ -1,5 +1,7 @@
 # Publica uma versão quando uma tag é enviada (git tag -a v0.8.0 -m "v0.8.0" && git push --tags).
 # Tag com "alpha" ou "beta" no nome sai como Alpha/Beta; qualquer outra sai como Release.
+# Só publica se a suíte de testes passar E o commit da tag já estiver na main
+# (tag em commit de branch ou de PR não aberto/mergeado é recusada sem publicar nada).
 # Segredos (Settings > Secrets and variables > Actions):
 #   CF_API_TOKEN   - token do CurseForge (authors.curseforge.com/account/api-tokens)
 #   WAGO_API_TOKEN - token do Wago (opcional; sem ele, o envio ao Wago é pulado)
@@ -11,7 +13,33 @@ on:
       - "**"
 
 jobs:
+  tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: O commit da tag precisa estar na main
+        run: |
+          git fetch --no-tags origin main
+          if ! git merge-base --is-ancestor "$GITHUB_SHA" FETCH_HEAD; then
+            echo "::error::A tag ${GITHUB_REF_NAME} aponta para um commit que não está na main. Faça o merge na main e crie a tag lá."
+            exit 1
+          fi
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Lua 5.1 (lupa)
+        run: pip install "lupa==2.8"
+
+      - name: Suíte de testes
+        run: python3 tests/run.py
+
   release:
+    needs: tests
     runs-on: ubuntu-latest
     permissions:
       contents: write
