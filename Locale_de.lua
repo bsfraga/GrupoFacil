@@ -363,4 +363,13 @@ NS.LOCALES.de = {
     ["I've read it. Don't show again until the next version."] = "Gelesen. Erst bei der nächsten Version wieder zeigen.",
     ["While this is unchecked, this window opens every time the addon loads."] = "Solange das nicht angehakt ist, öffnet sich dieses Fenster bei jedem Laden des Addons.",
     ["/gf news - what's new in this version"] = "/gf news - Neuigkeiten dieser Version",
+    -- v0.13: bug report fora do alcance (CurseForge)
+    ["Comments on CurseForge"] = "Kommentare auf CurseForge",
+    ["Click the link, then Ctrl+C to copy it and open it in your browser."] = "Klick auf den Link und drück Strg+C, um ihn zu kopieren und im Browser zu öffnen.",
+    ["Playing on another ruleset (PvP, RP...) or faction? The game can't deliver reports there. Leave a comment on CurseForge:"] = "Spielst du mit anderen Regeln (PvP, RP...) oder in der anderen Fraktion? Von dort stellt das Spiel keine Meldungen zu. Schreib einen Kommentar auf CurseForge:",
+    ["Your game has not reached the author yet (tried on %d days). The author plays on the Normal (PvE) ruleset, Alliance. From another ruleset (PvP, RP...) or faction the game can't deliver it: your report stays saved, but please also leave a comment on CurseForge:"] = "Dein Spiel hat den Autor noch nicht erreicht (an %d Tagen versucht). Der Autor spielt mit Normal-Regeln (PvE), Allianz. Von anderen Regeln (PvP, RP...) oder der anderen Fraktion kann das Spiel nichts zustellen: Deine Meldung bleibt gespeichert, aber schreib bitte auch einen Kommentar auf CurseForge:",
+    ["Another ruleset (PvP, RP...) or faction? The game can't reach the author from there. Comment on CurseForge:"] = "Andere Regeln (PvP, RP...) oder Fraktion? Von dort erreicht das Spiel den Autor nicht. Kommentiere auf CurseForge:",
+    ["your report has not reached the author yet (tried on %d days). If you play on another ruleset (PvP, RP...) or faction, the game can't deliver it: leave a comment on CurseForge: %s"] = "deine Meldung hat den Autor noch nicht erreicht (an %d Tagen versucht). Wenn du mit anderen Regeln (PvP, RP...) oder in der anderen Fraktion spielst, kann das Spiel sie nicht zustellen: schreib einen Kommentar auf CurseForge: %s",
+    ["comments on CurseForge: %s"] = "Kommentare auf CurseForge: %s",
+    ["/gf bug link - link to the comments on CurseForge (for other rulesets or factions)"] = "/gf bug link - Link zu den Kommentaren auf CurseForge (für andere Regeln oder Fraktionen)",
 }

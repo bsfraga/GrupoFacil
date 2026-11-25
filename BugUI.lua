@@ -95,6 +95,29 @@ local function multiLine(parent, w, h)
     return bg
 end
 
+-- Link para copiar (o jogo não abre o navegador): caixa de uma linha, texto fixo, seleciona tudo
+-- ao clicar; Ctrl+C copia. Também usada pela janela de Novidades.
+function NS.MakeLinkBox(parent, w, url)
+    local e = CF("EditBox", nil, parent, "InputBoxTemplate")
+    e:SetSize(w, 20)
+    e:SetAutoFocus(false)
+    e:SetText(url)
+    e:SetCursorPosition(0)
+    e:SetScript("OnEditFocusGained", function(self) self:HighlightText() end)
+    e:SetScript("OnMouseUp", function(self) self:SetFocus(); self:HighlightText() end)
+    e:SetScript("OnTextChanged", function(self, user) if user then self:SetText(url); self:HighlightText() end end)
+    e:SetScript("OnEscapePressed", e.ClearFocus)
+    e:SetScript("OnEnterPressed", e.ClearFocus)
+    e:SetScript("OnEnter", function(self)
+        GameTooltip:SetOwner(self, "ANCHOR_TOP")
+        GameTooltip:SetText(L["Comments on CurseForge"])
+        GameTooltip:AddLine(L["Click the link, then Ctrl+C to copy it and open it in your browser."], 1, 1, 1, true)
+        GameTooltip:Show()
+    end)
+    e:SetScript("OnLeave", function() GameTooltip:Hide() end)
+    return e
+end
+
 -- O estado dos reports muda com a rede (A1, A2, F): a janela aberta se atualiza a cada 1 s.
 local function autoRefresh(f, fn)
     local acc = 0
@@ -142,6 +165,16 @@ local function refreshReport()
     if #list > MY_ROWS then f.more:SetText(format(L["+%d more: /gf bug list"], #list - MY_ROWS)) end
     -- o report só está garantido em disco depois de /reload ou logout
     f.save:SetShown(GrupoFacilDB.bugPendingSave == true)
+    -- o jogo não alcança o admin (outra regra ou facção?): aviso em destaque com o link
+    local reach, r = NS.BugReach()
+    local unlikely = reach == "unlikely" and NS.HasPendingBugs()
+    if unlikely then
+        f.linkText:SetText("|cffff9933" .. format(L["Your game has not reached the author yet (tried on %d days). The author plays on the Normal (PvE) ruleset, Alliance. From another ruleset (PvP, RP...) or faction the game can't deliver it: your report stays saved, but please also leave a comment on CurseForge:"],
+            math.max(1, r.missDays or 0)) .. "|r")
+    else
+        f.linkText:SetText(L["Playing on another ruleset (PvP, RP...) or faction? The game can't deliver reports there. Leave a comment on CurseForge:"])
+    end
+    f.linkWarn:SetShown(unlikely)
     -- admin: atalho para a caixa de entrada
     if NS.bugAdmin then
         f.inbox:SetText(format(L["Inbox (new: %d)"], #NS.BugInbox("new")))
@@ -229,6 +262,7 @@ local function buildReport()
     f.send:SetPoint("TOPLEFT", f.diag, "BOTTOMLEFT", 4, -(10 + extra))
     f.send:SetScript("OnClick", function()
         local id, why = NS.SubmitBug(f.note.box:GetText(), f.kind, f.includeDiag)
+        if id and NS.MaybeWarnBugReach then NS.MaybeWarnBugReach() end
         if id then
             f.note.box:SetText("")
             f.note.box:ClearFocus()
@@ -276,6 +310,28 @@ local function buildReport()
     f.more = text(f, "", "GameFontDisableSmall")
     f.more:SetPoint("TOPLEFT", f.rows[MY_ROWS], "BOTTOMLEFT", 0, -2)
     used = used + 10 + MY_ROWS * 16 + 2 + 12
+
+    -- caminho alternativo: comentários no CurseForge (sempre à mostra; em destaque quando o jogo
+    -- nunca alcançou o admin). A altura reservada é a do texto mais longo dos dois.
+    f.linkText = text(f, "", "GameFontHighlightSmall")
+    f.linkText:SetPoint("TOPLEFT", yl, "BOTTOMLEFT", 0, -(10 + MY_ROWS * 16 + 2 + 12 + 12))
+    f.linkText:SetWidth(INNER)
+    f.linkText:SetJustifyV("TOP")
+    local lh = 0
+    for _, s in ipairs({ L["Playing on another ruleset (PvP, RP...) or faction? The game can't deliver reports there. Leave a comment on CurseForge:"],
+        format(L["Your game has not reached the author yet (tried on %d days). The author plays on the Normal (PvE) ruleset, Alliance. From another ruleset (PvP, RP...) or faction the game can't deliver it: your report stays saved, but please also leave a comment on CurseForge:"], 99) }) do
+        f.linkText:SetText(s)
+        lh = max(lh, heightOf(f.linkText))
+    end
+    f.linkText:SetHeight(lh)
+    f.link = NS.MakeLinkBox(f, INNER - 6, NS.BUG_COMMENTS_URL)
+    f.link:SetPoint("TOPLEFT", f.linkText, "BOTTOMLEFT", 6, -4)
+    f.linkWarn = f:CreateTexture(nil, "BACKGROUND")
+    f.linkWarn:SetColorTexture(0.6, 0.3, 0, 0.25)
+    f.linkWarn:SetPoint("TOPLEFT", f.linkText, "TOPLEFT", -6, 4)
+    f.linkWarn:SetPoint("BOTTOMRIGHT", f.link, "BOTTOMRIGHT", 4, -4)
+    f.linkWarn:Hide()
+    used = used + 12 + lh + 4 + 20
 
     f:SetHeight(max(460, used + 16))
     f:SetScript("OnShow", function() refreshReport() end)

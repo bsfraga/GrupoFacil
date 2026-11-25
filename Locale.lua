@@ -352,6 +352,15 @@ local PT = {
     ["I've read it. Don't show again until the next version."] = "Já li. Não mostrar de novo até a próxima versão.",
     ["While this is unchecked, this window opens every time the addon loads."] = "Enquanto não estiver marcado, esta janela abre toda vez que o addon carregar.",
     ["/gf news - what's new in this version"] = "/gf news - novidades desta versão",
+    -- v0.13: bug report fora do alcance (CurseForge)
+    ["Comments on CurseForge"] = "Comentários no CurseForge",
+    ["Click the link, then Ctrl+C to copy it and open it in your browser."] = "Clique no link e aperte Ctrl+C para copiar e abrir no navegador.",
+    ["Playing on another ruleset (PvP, RP...) or faction? The game can't deliver reports there. Leave a comment on CurseForge:"] = "Joga em outra regra (PvP, RP...) ou facção? O jogo não entrega reports de lá. Deixe um comentário no CurseForge:",
+    ["Your game has not reached the author yet (tried on %d days). The author plays on the Normal (PvE) ruleset, Alliance. From another ruleset (PvP, RP...) or faction the game can't deliver it: your report stays saved, but please also leave a comment on CurseForge:"] = "Seu jogo ainda não alcançou o autor (tentou em %d dias). O autor joga na regra Normal (PvE), Aliança. De outra regra (PvP, RP...) ou facção o jogo não consegue entregar: seu report continua guardado, mas deixe também um comentário no CurseForge:",
+    ["Another ruleset (PvP, RP...) or faction? The game can't reach the author from there. Comment on CurseForge:"] = "Outra regra (PvP, RP...) ou facção? De lá o jogo não alcança o autor. Comente no CurseForge:",
+    ["your report has not reached the author yet (tried on %d days). If you play on another ruleset (PvP, RP...) or faction, the game can't deliver it: leave a comment on CurseForge: %s"] = "seu report ainda não chegou ao autor (tentou em %d dias). Se você joga em outra regra (PvP, RP...) ou facção, o jogo não consegue entregar: deixe um comentário no CurseForge: %s",
+    ["comments on CurseForge: %s"] = "comentários no CurseForge: %s",
+    ["/gf bug link - link to the comments on CurseForge (for other rulesets or factions)"] = "/gf bug link - link dos comentários no CurseForge (para outras regras ou facções)",
 }
 NS.PT_STRINGS = PT
 

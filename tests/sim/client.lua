@@ -118,6 +118,10 @@ function Client.new(world, opts)
     c.class = opts.class or "HUNTER"
     c.level = opts.level or 30
     c.faction = opts.faction or "Alliance"
+    -- Forever: nome + sobrenome ("Bael Goldmaker"); UnitName devolve só o nome, o remetente de
+    -- whisper vem "Nome Sobrenome" sem reino; cada regra (Normal, PvP, RP...) é um mundo à parte
+    c.surname = opts.surname
+    c.ruleset = opts.ruleset or "normal"
     c.locale = opts.locale or "enUS"
     c.zone = opts.zone or "Stormwind City"
     c.subzone = opts.subzone or ""
@@ -139,7 +143,10 @@ function Client.new(world, opts)
     return c
 end
 
-function Client:fullName() return self.name .. "-" .. self.realm end
+function Client:fullName()
+    if self.surname then return self.name .. " " .. self.surname end
+    return self.name .. "-" .. self.realm
+end
 function Client:now() return self.world.now + self.uptimeOffset end
 
 function Client:random(m, n)
@@ -372,7 +379,11 @@ function Client:buildEnv()
     }
 
     -- personagem
-    env.UnitName = function(u) if u == "player" then return c.name, nil end return nil end
+    -- opts.unitNameSurname: hipótese de o Forever devolver o sobrenome no 2º valor (não confirmado)
+    env.UnitName = function(u)
+        if u == "player" then return c.name, (c.opts.unitNameSurname and c.surname) or nil end
+        return nil
+    end
     env.UnitFullName = function(u) if u == "player" then return c.name, c.realm end end
     env.GetRealmName = function() return c.realm end
     env.GetNormalizedRealmName = function() return (c.realm:gsub("[%s%-]", "")) end

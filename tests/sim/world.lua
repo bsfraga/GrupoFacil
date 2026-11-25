@@ -193,10 +193,18 @@ function World:setOffline(c)
 end
 
 -- quem recebe mensagens agora (cliente carregado e não recarregando)
+-- Com sobrenome (Forever) o alvo precisa ser "Nome Sobrenome"; só o nome não acha ninguém
+-- (o modelo mais estrito: um addon que manda o nome completo funciona dos dois jeitos).
 function World:reachable(name)
     local short = tostring(name):match("^[^%-]+") or name
-    local c = self.online[short:lower()]
+    local first, last = short:match("^(%S+)%s+(.+)$")
+    local c = self.online[(first or short):lower()]
     if not c then return nil, "offline" end
+    if c.surname then
+        if not last or last:lower() ~= c.surname:lower() then return nil, "offline" end
+    elseif last then
+        return nil, "offline"
+    end
     return c, c.state
 end
 

@@ -94,7 +94,7 @@ function Net:sendAddon(c, prefix, msg, chatType, target)
     local rec = { from = c.name, to = target, prefix = prefix, msg = msg, at = world.now, status = "sent" }
     table.insert(self.log, rec)
     local dest, st = world:reachable(target)
-    if dest and dest.faction ~= c.faction then dest = nil end
+    if dest and (dest.faction ~= c.faction or dest.ruleset ~= c.ruleset) then dest = nil end
     if not dest then
         rec.status = "offline"
         if cfg.offline == "enum" then return result(world, R.TargetOffline) end
@@ -139,7 +139,7 @@ function Net:sendChat(c, msg, chatType, target)
     end
     table.insert(c.data.whispersSent, { msg = msg, to = target, at = world.now })
     local dest = world:reachable(target)
-    if dest and dest.faction ~= c.faction then dest = nil end
+    if dest and (dest.faction ~= c.faction or dest.ruleset ~= c.ruleset) then dest = nil end
     world:after(world.config.latency, function()
         if c.state ~= "online" then return end
         if not dest or dest.state == "offline" then

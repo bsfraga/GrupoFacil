@@ -81,6 +81,10 @@ Found something wrong or missing? Click the note icon in the window's title bar,
 
 GrupoFacil also logs its own errors. `/gf diag` shows the summary.
 
+### Another ruleset or faction?
+
+Reports travel as addon whispers, which the game delivers only inside the same ruleset (the author plays on Normal/PvE, Alliance) and possibly not across factions. From PvP, RP or the other faction, use the comments page instead: https://www.curseforge.com/wow/addons/grupofacil/comments (also linked in the report window, in What's New and with `/gf bug link`).
+
 ## Compatibility
 
 - WoW: Forever 1.60.1 (`Interface: 16001`).

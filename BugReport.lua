@@ -8,11 +8,17 @@ local L = NS.L
 local format = string.format
 
 ------------------------------------------------------------------------
--- ÚNICO lugar a editar: personagens admin (sem o reino), iguais nos addons do autor.
+-- ÚNICO lugar a editar: personagens admin, iguais nos addons do autor. No Forever use o nome
+-- COMPLETO, com sobrenome ("Nome Sobrenome"): é para ele que o whisper vai.
 -- Nome entre < > é marcador: enquanto não houver nome real, ninguém é admin e os reports
 -- ficam guardados no cliente de cada jogador até uma versão com os nomes chegar.
 ------------------------------------------------------------------------
 NS.BUG_ADMINS = NS.BUG_ADMINS or { "<ADMIN_1>", "<ADMIN_2>" }
+
+-- Onde o autor joga (o jogador de outra regra ou facção não alcança o admin pelo jogo) e o
+-- caminho alternativo: os comentários do addon no CurseForge.
+NS.BUG_COMMENTS_URL = "https://www.curseforge.com/wow/addons/grupofacil/comments"
+local REACH_DAYS, REACH_MISSES = 2, 8   -- sem contato nunca, e PING sem resposta em 2 dias ou 8 vezes
 
 NS.BUG_PREFIX = "GFBUG"
 NS.BUG_NOTE_MAX = 1000     -- caracteres do texto escrito pelo jogador
@@ -31,11 +37,50 @@ local function realAdmins()
 end
 NS.BugAdmins = realAdmins
 
+-- UnitName("player") vem sem sobrenome no Forever: casa com o primeiro nome do admin
+-- Se o jogo der o sobrenome no 2º valor, exige o nome inteiro (evita outro "Bael" virar admin).
 function NS.IsBugAdmin()
-    local me = (UnitName("player") or ""):lower()
-    for _, a in ipairs(realAdmins()) do if a:lower() == me then return true end end
+    local first, rest = UnitName("player")
+    first = (first or ""):lower()
+    if first == "" then return false end
+    local full = (type(rest) == "string" and rest ~= "") and (first .. " " .. rest:lower()) or nil
+    for _, a in ipairs(realAdmins()) do
+        local al = a:lower()
+        if full then
+            if al == full or al == first .. "-" .. rest:lower() or (al == first and not al:find(" ", 1, true)) then return true end
+        elseif al == first or al:match("^(%S+)") == first then
+            return true
+        end
+    end
     return false
 end
+
+-- O jogo consegue falar com o admin daqui? "ok" (já houve contato), "trying" (ainda tentando),
+-- "unlikely" (nunca respondeu em vários dias: outra regra/facção ou horários que não batem),
+-- "none" (sem admin configurado) e "self" (você é o admin).
+function NS.BugReach()
+    if NS.bugAdmin then return "self", {} end
+    if #realAdmins() == 0 then return "none", {} end
+    local r = (NS.BugChannel and NS.BugChannel.Reach and NS.bugReady) and NS.BugChannel.Reach() or {}
+    if r.contactAt or r.online then return "ok", r end
+    if (r.missDays or 0) >= REACH_DAYS or (r.misses or 0) >= REACH_MISSES then return "unlikely", r end
+    return "trying", r
+end
+function NS.HasPendingBugs()
+    for _, e in ipairs(NS.MyBugReports()) do if e.state ~= "done" then return true end end
+    return false
+end
+local warnedReach = false
+local function maybeWarnReach()
+    if warnedReach or not NS.HasPendingBugs() then return end
+    local st, r = NS.BugReach()
+    if st ~= "unlikely" then return end
+    warnedReach = true -- uma vez por sessão
+    NS.Print(format(L["your report has not reached the author yet (tried on %d days). If you play on another ruleset (PvP, RP...) or faction, the game can't deliver it: leave a comment on CurseForge: %s"],
+        math.max(1, r.missDays or 0), NS.BUG_COMMENTS_URL))
+    if NS.D then NS.D.Trace("BUG", "admin inalcançável? %d falhas em %d dias, sem contato", r.misses or 0, r.missDays or 0) end
+end
+NS.MaybeWarnBugReach = maybeWarnReach
 
 -- Report com corpo em texto: uma chave por linha, depois blocos livres (spec §4.3).
 local function oneLine(s) return (tostring(s or ""):gsub("\r", ""):gsub("\n", "\\n")) end
@@ -135,6 +180,10 @@ function NS.InitBugReports()
         collect = collect,
         resolutions = function() return GF_BugResolutions end,
         say = say,
+        onMiss = function()
+            maybeWarnReach()
+            if NS.RefreshBugUI then NS.RefreshBugUI() end
+        end,
         onReceived = function(e)
             NS.Print(format(L["new bug report from %s (%s). Type /gf bugs to read it."], tostring(e.from), tostring(e.id)))
             if NS.D then NS.D.Trace("BUG", "report recebido (%d bytes)", #(e.body or "")) end
@@ -142,6 +191,8 @@ function NS.InitBugReports()
         end,
     })
     NS.bugReady = true
+    -- reports esperando de sessões anteriores e o admin nunca alcançado: avisa no chat ao entrar
+    if C_Timer and C_Timer.After then C_Timer.After(20, NS.D.Wrap("bug.reach", maybeWarnReach)) end
     if NS.D then NS.D.Trace("BUG", "canal %s pronto: admin=%s admins=%d", NS.BUG_PREFIX, tostring(NS.bugAdmin), #admins) end
 end
 
@@ -314,6 +365,11 @@ function NS.BugCommand(cmd, rest)
             if NS.OpenBugReport then NS.OpenBugReport() end
         elseif lsub == "list" or lsub == "lista" then
             printMine()
+            if NS.BugReach() == "unlikely" and NS.HasPendingBugs() then
+                NS.Print(format(L["comments on CurseForge: %s"], NS.BUG_COMMENTS_URL))
+            end
+        elseif lsub == "link" or lsub == "curseforge" or lsub == "comments" then
+            NS.Print(format(L["comments on CurseForge: %s"], NS.BUG_COMMENTS_URL))
         else
             firstUse()
             local id, why = NS.SubmitBug(rest, "bug", true)

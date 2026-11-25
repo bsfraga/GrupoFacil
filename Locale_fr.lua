@@ -351,4 +351,13 @@ NS.LOCALES.fr = {
     ["I've read it. Don't show again until the next version."] = "Lu. Ne plus afficher avant la prochaine version.",
     ["While this is unchecked, this window opens every time the addon loads."] = "Tant que ce n'est pas coché, cette fenêtre s'ouvre à chaque chargement de l'addon.",
     ["/gf news - what's new in this version"] = "/gf news - nouveautés de cette version",
+    -- v0.13: bug report fora do alcance (CurseForge)
+    ["Comments on CurseForge"] = "Commentaires sur CurseForge",
+    ["Click the link, then Ctrl+C to copy it and open it in your browser."] = "Clique sur le lien puis Ctrl+C pour le copier et l'ouvrir dans ton navigateur.",
+    ["Playing on another ruleset (PvP, RP...) or faction? The game can't deliver reports there. Leave a comment on CurseForge:"] = "Tu joues avec d'autres règles (JcJ, JdR...) ou dans l'autre faction ? Le jeu ne transmet pas les signalements depuis là. Laisse un commentaire sur CurseForge :",
+    ["Your game has not reached the author yet (tried on %d days). The author plays on the Normal (PvE) ruleset, Alliance. From another ruleset (PvP, RP...) or faction the game can't deliver it: your report stays saved, but please also leave a comment on CurseForge:"] = "Ton jeu n'a pas encore atteint l'auteur (essayé sur %d jours). L'auteur joue avec les règles Normales (JcE), Alliance. Depuis d'autres règles (JcJ, JdR...) ou l'autre faction, le jeu ne peut pas le transmettre : ton signalement reste enregistré, mais laisse aussi un commentaire sur CurseForge :",
+    ["Another ruleset (PvP, RP...) or faction? The game can't reach the author from there. Comment on CurseForge:"] = "Autres règles (JcJ, JdR...) ou autre faction ? Depuis là, le jeu n'atteint pas l'auteur. Commente sur CurseForge :",
+    ["your report has not reached the author yet (tried on %d days). If you play on another ruleset (PvP, RP...) or faction, the game can't deliver it: leave a comment on CurseForge: %s"] = "ton signalement n'a pas encore atteint l'auteur (essayé sur %d jours). Si tu joues avec d'autres règles (JcJ, JdR...) ou dans l'autre faction, le jeu ne peut pas le transmettre : laisse un commentaire sur CurseForge : %s",
+    ["comments on CurseForge: %s"] = "commentaires sur CurseForge : %s",
+    ["/gf bug link - link to the comments on CurseForge (for other rulesets or factions)"] = "/gf bug link - lien vers les commentaires sur CurseForge (pour d'autres règles ou factions)",
 }

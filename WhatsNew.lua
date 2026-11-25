@@ -126,7 +126,13 @@ local function build()
     f.report:SetScript("OnClick", function()
         if NS.OpenBugReport then NS.OpenBugReport() end
     end)
-    local hh = 12 + max(36, heightOf(ht) + 6 + heightOf(hb) + 6 + heightOf(hw) + 10 + 24) + 12
+    -- quem joga noutra regra (PvP, RP) ou facção não alcança o autor pelo jogo: link direto
+    local lt = text(hl, L["Another ruleset (PvP, RP...) or faction? The game can't reach the author from there. Comment on CurseForge:"], "GameFontHighlightSmall")
+    lt:SetPoint("TOPLEFT", f.report, "BOTTOMLEFT", 0, -10)
+    lt:SetWidth(tw)
+    f.link = NS.MakeLinkBox and NS.MakeLinkBox(hl, tw - 6, NS.BUG_COMMENTS_URL)
+    if f.link then f.link:SetPoint("TOPLEFT", lt, "BOTTOMLEFT", 6, -4) end
+    local hh = 12 + max(36, heightOf(ht) + 6 + heightOf(hb) + 6 + heightOf(hw) + 10 + 24 + 10 + heightOf(lt) + 4 + 20) + 12
     hl:SetHeight(hh)
     f.highlight = hl
     used = used + hh

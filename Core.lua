@@ -1234,6 +1234,7 @@ local HELP = {
     "/gf blocked - list blocked players; /gf unblock <name> | all - unblock",
     "/gf diag - error and trace summary; /gf diag snap - save a snapshot now; /gf diag clear",
     "/gf bug - report a problem to the author (window); /gf bug <text> - report right away; /gf bug list - your reports",
+    "/gf bug link - link to the comments on CurseForge (for other rulesets or factions)",
     "/gf news - what's new in this version",
     "/gf debug on | off - show the trace in chat as it happens",
 }

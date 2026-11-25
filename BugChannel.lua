@@ -67,12 +67,54 @@ local function adler(s)
   for i = 1, #s do a = (a + s:byte(i)) % 65521; b = (b + a) % 65521 end
   return b * 65536 + a
 end
+-- [GrupoFacil] Forever: nomes têm sobrenome ("Bael Goldmaker"). O admin é configurado com o nome
+-- completo (é para ele que o whisper vai). UnitName("player") devolve só o nome; um remetente sem
+-- sobrenome casa com o primeiro nome; um remetente com sobrenome precisa casar inteiro.
 local function isAdmin(n)
   if not n then return false end
   n = n:lower()
-  for _, a in ipairs(cfg.admins) do if a:lower() == n then return true end end
+  local spaced = n:find(" ", 1, true)
+  for _, a in ipairs(cfg.admins) do
+    local al = a:lower()
+    if al == n then return true end
+    if not spaced and al:match("^(%S+)") == n then return true end
+  end
   return false
 end
+---------------------------------------------------------------- alcance do admin
+-- [GrupoFacil] Quando o admin nunca responde: o jogo diz "No player named X" tanto para admin
+-- offline quanto para quem está noutra regra (PvP, RP) ou facção, sem distinguir. Guardamos em
+-- disco o último contato e os dias com PING sem resposta, para a interface sugerir outro caminho.
+local function reach()
+  db.bugReach = type(db.bugReach) == "table" and db.bugReach or {}
+  local r = db.bugReach
+  r.days = type(r.days) == "table" and r.days or {}
+  return r
+end
+local function noteMiss(name)
+  if not db then return end
+  local r = reach()
+  local t = rt.missAt and rt.missAt[name:lower()]
+  if t and GetTime() - t < 60 then return end   -- uma rodada de PING conta uma vez
+  rt.missAt = rt.missAt or {}; rt.missAt[name:lower()] = GetTime()
+  r.misses = (r.misses or 0) + 1
+  r.firstMiss = r.firstMiss or time()
+  r.lastMiss = time()
+  r.days[date("%Y-%m-%d")] = true
+  if cfg.onMiss then cfg.onMiss(name) end
+end
+local function noteContact()
+  local r = reach()
+  r.contactAt, r.misses, r.firstMiss, r.days = time(), 0, nil, {}
+end
+function BC.Reach()
+  if not db then return {} end
+  local r, n = reach(), 0
+  for _ in pairs(r.days) do n = n + 1 end
+  return { contactAt = r.contactAt, misses = r.misses or 0, missDays = n, firstMiss = r.firstMiss, lastMiss = r.lastMiss,
+           online = rt.admin ~= nil and GetTime() - (rt.adminAt or 0) < ADMIN_TTL }
+end
+
 local function say(m) if cfg.say then cfg.say(m) else print("|cff9d7be0" .. cfg.addon .. ":|r " .. m) end end
 BC._esc, BC._unesc, BC._split, BC._adler = esc, unesc, split, adler   -- p/ testes
 
@@ -89,6 +131,11 @@ local function sendNow(item)
   if not ok then return false end
   if res == nil or res == true then return true end
   local S = Enum and Enum.SendAddonMessageResult
+  -- [GrupoFacil] clientes novos devolvem TargetOffline em vez da linha de sistema
+  if S and S.TargetOffline and res == S.TargetOffline then
+    if isAdmin(item.target) then noteMiss(item.target) end
+    return true   -- não adianta repetir agora; a descoberta tenta de novo mais tarde
+  end
   return (S and res == S.Success) and true or false
 end
 local function drain()
@@ -274,6 +321,7 @@ local function onAddon(prefix, text, channel, sender)
   if not isAdmin(from) then return end                      -- só aceitamos respostas dos admins
   local e = a1 and db.bugs[a1]
   if cmd == "P" then
+    noteContact()
     if a1 == "1" then rt.admin, rt.adminAt, rt.discBackoff, rt.discNext = from, GetTime(), 30, 0; pump() end
   elseif cmd == "A1" and e and e.state ~= "done" then e.state = "received"
   elseif cmd == "A2" and e then
@@ -304,7 +352,13 @@ function BC.Init(c)
   db = sv
   db.bugs, db.inbox = db.bugs or {}, db.inbox or {}
   db.bugSchema = "bugq/1"
-  rt.iAmAdmin = isAdmin(short(UnitName("player")))
+  -- [GrupoFacil] se o jogo der o sobrenome no 2º valor de UnitName, confere o nome inteiro
+  local me, rest = UnitName("player")
+  if type(rest) == "string" and rest ~= "" and not isSecret(rest) then
+    rt.iAmAdmin = isAdmin(me .. " " .. rest) or isAdmin(me .. "-" .. rest)
+  else
+    rt.iAmAdmin = isAdmin(short(me))
+  end
   rt.startAt = GetTime() + 12
   for id, e in pairs(db.bugs) do
     if e.state == "sending" or e.state == "sent" then e.state = "queued" end
@@ -326,7 +380,17 @@ function BC.Init(c)
   end
   local f = CreateFrame("Frame")
   f:RegisterEvent("CHAT_MSG_ADDON")
-  f:SetScript("OnEvent", function(_, e, ...) if e == "CHAT_MSG_ADDON" then onAddon(...) end end)
+  f:RegisterEvent("CHAT_MSG_SYSTEM")
+  f:SetScript("OnEvent", function(_, e, ...)
+    if e == "CHAT_MSG_ADDON" then onAddon(...)
+    elseif e == "CHAT_MSG_SYSTEM" then   -- [GrupoFacil] PING ao admin sem ninguém do outro lado
+      local msg = ...
+      if type(msg) ~= "string" or isSecret(msg) then return end
+      local n = msg:match(pat)
+      local t = n and rt.recentTo[n:lower()]
+      if t and GetTime() - t < 10 and isAdmin(n) then noteMiss(n) end
+    end
+  end)
   local k = 0
   C_Timer.NewTicker(0.25, function()
     drain(); k = k + 1

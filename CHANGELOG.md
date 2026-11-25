@@ -2,6 +2,8 @@
 
 ## 0.13.0
 - **What's New**: a window with the changes of the version opens every time the addon loads until you tick "I've read it" at the end of the list. It comes back with the next version. `/gf news` or the options open it any time.
+- Players on another ruleset (PvP, RP...) or faction can't reach the author through the game. The report window always shows a link to the comments on CurseForge, and when your reports never reach the author for days it says so in the window and once per session in the chat. `/gf bug link` prints the link.
+- Reports work with Forever names (name and surname).
 - The note icon in the title bar glows until you open the report window for the first time.
 - **Report a problem**: a window to send bugs, wrong texts and ideas straight to the author (note icon in the title bar, the options, or `/gf bug`). Reports wait on your computer and go out by themselves when the author is online; you see the state of each one and get a message when it is received and when it is marked.
 - `/gf bug <text>` reports from the chat; `/gf bug list` lists your reports.

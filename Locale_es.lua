@@ -324,4 +324,13 @@ NS.LOCALES.es = {
     ["I've read it. Don't show again until the next version."] = "Ya lo leí. No mostrar de nuevo hasta la próxima versión.",
     ["While this is unchecked, this window opens every time the addon loads."] = "Mientras no esté marcado, esta ventana se abre cada vez que se carga el addon.",
     ["/gf news - what's new in this version"] = "/gf news - novedades de esta versión",
+    -- v0.13: bug report fora do alcance (CurseForge)
+    ["Comments on CurseForge"] = "Comentarios en CurseForge",
+    ["Click the link, then Ctrl+C to copy it and open it in your browser."] = "Haz clic en el enlace y pulsa Ctrl+C para copiarlo y abrirlo en el navegador.",
+    ["Playing on another ruleset (PvP, RP...) or faction? The game can't deliver reports there. Leave a comment on CurseForge:"] = "¿Juegas en otras reglas (JcJ, rol...) o en otra facción? El juego no entrega informes desde allí. Deja un comentario en CurseForge:",
+    ["Your game has not reached the author yet (tried on %d days). The author plays on the Normal (PvE) ruleset, Alliance. From another ruleset (PvP, RP...) or faction the game can't deliver it: your report stays saved, but please also leave a comment on CurseForge:"] = "Tu juego aún no ha llegado al autor (lo intentó %d días). El autor juega con reglas Normal (JcE), Alianza. Desde otras reglas (JcJ, rol...) o facción el juego no puede entregarlo: tu informe sigue guardado, pero deja también un comentario en CurseForge:",
+    ["Another ruleset (PvP, RP...) or faction? The game can't reach the author from there. Comment on CurseForge:"] = "¿Otras reglas (JcJ, rol...) u otra facción? Desde allí el juego no llega al autor. Comenta en CurseForge:",
+    ["your report has not reached the author yet (tried on %d days). If you play on another ruleset (PvP, RP...) or faction, the game can't deliver it: leave a comment on CurseForge: %s"] = "tu informe aún no ha llegado al autor (lo intentó %d días). Si juegas con otras reglas (JcJ, rol...) o en otra facción, el juego no puede entregarlo: deja un comentario en CurseForge: %s",
+    ["comments on CurseForge: %s"] = "comentarios en CurseForge: %s",
+    ["/gf bug link - link to the comments on CurseForge (for other rulesets or factions)"] = "/gf bug link - enlace a los comentarios en CurseForge (para otras reglas o facciones)",
 }
