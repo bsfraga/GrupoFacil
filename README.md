@@ -68,6 +68,7 @@ The first time the window opens, a banner offers a 30-second tour of the window.
 | `/gf diag` | Show the diagnostic summary (for bug reports) |
 | `/gf bug` | Open the **Report a problem** window |
 | `/gf bug <text>` / `/gf bug list` | Report right away from the chat / list your reports and their state |
+| `/gf news` | Open **What's New** (it also opens by itself on every load until you tick "I've read it" for the current version) |
 
 ## Bug reports
 

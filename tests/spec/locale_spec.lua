@@ -181,6 +181,10 @@ local function exercise(lang, admin)
         local _, callout = ns.TourFrames()
         if callout and c.ui.visible(callout) then c:click(callout.next) end
     end
+    c:slash("/gf news")
+    check("GrupoFacilWhatsNew")
+    c:click(c.env.GrupoFacilWhatsNew.ack)
+    c:click(c.env.GrupoFacilWhatsNew.close)
     c:slash("/gf bug")
     local bf = c.env.GrupoFacilBugFrame
     c:type(bf.note.box, "algo deu errado")

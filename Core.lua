@@ -1234,6 +1234,7 @@ local HELP = {
     "/gf blocked - list blocked players; /gf unblock <name> | all - unblock",
     "/gf diag - error and trace summary; /gf diag snap - save a snapshot now; /gf diag clear",
     "/gf bug - report a problem to the author (window); /gf bug <text> - report right away; /gf bug list - your reports",
+    "/gf news - what's new in this version",
     "/gf debug on | off - show the trace in chat as it happens",
 }
 
@@ -1243,6 +1244,7 @@ local ALIAS = {
     classe = "class", modo = "mode", minimapa = "minimap", encaixar = "dock", erros = "diag", idioma = "lang", language = "lang",
     bloqueados = "blocked", desbloquear = "unblock",
     report = "bug", reportar = "bug", problema = "bug", reports = "bugs",
+    novidades = "news", whatsnew = "news", notes = "news", changelog = "news", novedades = "news", neuigkeiten = "news", ["nouveautés"] = "news",
 }
 local ON_OFF = function(v) return v and L["on"] or L["off"] end
 
@@ -1261,6 +1263,8 @@ SlashCmdList.GRUPOFACIL = function(input)
         if NS.OpenOptions then NS.OpenOptions() end
     elseif cmd == "tour" then
         if NS.StartTour then NS.StartTour() end
+    elseif cmd == "news" then
+        if NS.OpenNews then NS.OpenNews("/gf news") end
     elseif cmd == "lang" then
         if l == "" or not NS.SetLanguage(l) then -- recarrega a interface quando troca
             NS.Print(format(L["language: %s (use /gf lang followed by en, pt, es, mx, de or fr)"], NS.LanguageName(NS.Language())))

@@ -32,3 +32,4 @@ Minimap.lua
 Onboarding.lua
 BugReport.lua
 BugUI.lua
+WhatsNew.lua

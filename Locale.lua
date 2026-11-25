@@ -337,6 +337,21 @@ local PT = {
     ["your note"] = "sua nota",
     ["your report %s: %s"] = "seu report %s: %s",
     ["your text goes to the author of GrupoFacil. It stays saved on your computer until the author confirms they got it."] = "seu texto vai para o autor do GrupoFacil. Ele fica gravado no seu computador até o autor confirmar que recebeu.",
+    -- v0.13: novidades
+    ["What's New"] = "Novidades",
+    ["Close"] = "Fechar",
+    ["New: report a problem to the author"] = "Novo: reporte problemas direto ao autor",
+    ["Found a bug, a wrong text or have an idea? Send it to the author from inside the game. The report waits on your computer and goes out by itself when the author is online. You can follow each report and you get a message when it is fixed."] = "Achou um bug, um texto errado ou tem uma ideia? Mande para o autor de dentro do jogo. O report espera no seu computador e sai sozinho quando o autor estiver online. Você acompanha cada report e recebe uma mensagem quando ele for corrigido.",
+    ["Where: the note icon next to the window title, the options or /gf bug."] = "Onde: o ícone de bilhete ao lado do título da janela, as opções ou /gf bug.",
+    ["Also in this version"] = "Também nesta versão",
+    ["/gf bug <text> reports right from the chat; /gf bug list shows your reports."] = "/gf bug <texto> reporta direto do chat; /gf bug list mostra seus reports.",
+    ["The list uses the whole window height the first time it opens."] = "A lista usa a altura toda da janela já na primeira vez que abre.",
+    ["/gf spec with no talent points says so instead of showing the class name."] = "/gf spec sem pontos de talento avisa isso em vez de mostrar o nome da classe.",
+    ["A native search that gets no answer and a group member the game can't describe no longer count as errors in /gf diag."] = "Uma busca nativa sem resposta e um membro do grupo que o jogo não consegue descrever não contam mais como erro no /gf diag.",
+    ["This window shows what changed in each version. Open it again any time with /gf news or from the options."] = "Esta janela mostra o que mudou em cada versão. Abra de novo quando quiser com /gf news ou pelas opções.",
+    ["I've read it. Don't show again until the next version."] = "Já li. Não mostrar de novo até a próxima versão.",
+    ["While this is unchecked, this window opens every time the addon loads."] = "Enquanto não estiver marcado, esta janela abre toda vez que o addon carregar.",
+    ["/gf news - what's new in this version"] = "/gf news - novidades desta versão",
 }
 NS.PT_STRINGS = PT
 

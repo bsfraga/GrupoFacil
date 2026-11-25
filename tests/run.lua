@@ -19,6 +19,7 @@ local SPECS = {
     "spec.locale_spec",     -- traduções e chaves usadas
     "spec.bugchannel_spec", -- protocolo do canal de bug report
     "spec.bugui_spec",      -- janela de report e caixa de entrada do admin
+    "spec.whatsnew_spec",   -- novidades e destaque do report
     "spec.smoke_spec",      -- tudo junto em cada idioma, sem erro de Lua
 }
 

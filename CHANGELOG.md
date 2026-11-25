@@ -1,6 +1,8 @@
 # Changelog
 
 ## 0.13.0
+- **What's New**: a window with the changes of the version opens every time the addon loads until you tick "I've read it" at the end of the list. It comes back with the next version. `/gf news` or the options open it any time.
+- The note icon in the title bar glows until you open the report window for the first time.
 - **Report a problem**: a window to send bugs, wrong texts and ideas straight to the author (note icon in the title bar, the options, or `/gf bug`). Reports wait on your computer and go out by themselves when the author is online; you see the state of each one and get a message when it is received and when it is marked.
 - `/gf bug <text>` reports from the chat; `/gf bug list` lists your reports.
 - The report window fits its texts in every language: long labels wrap and push the rest down, report types move to a second line when they don't fit, and your reports keep a piece of what you wrote after they are delivered.

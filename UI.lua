@@ -350,12 +350,30 @@ function NS.BuildUI()
     by:SetPoint("TOPRIGHT", -30, -6)
     -- reportar um problema ao autor (BugUI.lua)
     local bug = CF("Button", nil, frame)
-    bug:SetSize(16, 16)
+    bug:SetSize(18, 18)
     bug:SetPoint("LEFT", title, "RIGHT", 6, 0)
     bug:SetNormalTexture("Interface\\Icons\\INV_Misc_Note_01")
     bug:SetHighlightTexture("Interface\\Buttons\\ButtonHilight-Square", "ADD")
     bug:SetScript("OnClick", function() if NS.OpenBugReport then NS.OpenBugReport() end end)
     tooltip(bug, L["Report a problem"], L["Something wrong or missing? Send it to the author."])
+    -- destaque: brilho dourado pulsando até o jogador abrir a janela de report a primeira vez
+    local glow = bug:CreateTexture(nil, "OVERLAY")
+    glow:SetTexture("Interface\\Buttons\\UI-ActionButton-Border")
+    glow:SetBlendMode("ADD")
+    glow:SetVertexColor(1, 0.82, 0)
+    glow:SetSize(40, 40)
+    glow:SetPoint("CENTER", bug, "CENTER", 0, 0)
+    bug.glow = glow
+    local t = 0
+    bug:SetScript("OnUpdate", function(self, elapsed)
+        if GrupoFacilDB.bugWindowOpened then
+            glow:Hide()
+            self:SetScript("OnUpdate", nil)
+            return
+        end
+        t = t + (elapsed or 0)
+        glow:SetAlpha(0.35 + 0.65 * math.abs(math.sin(t * 2.5)))
+    end)
     frame.bugButton = bug
 
     -- linha 1: modo e ordem

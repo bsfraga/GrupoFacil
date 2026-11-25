@@ -33,4 +33,5 @@ NS.LOCALES.mx = setmetatable({
     ["report %s marked as %s. The player is told the next time you are both online."] = "informe %s marcado como %s. El jugador recibe el aviso la próxima vez que ambos estén conectados.",
     ["report %s queued. It goes to the author the next time you are both online."] = "informe %s en cola. Llega al autor la próxima vez que ambos estén conectados.",
     ["Export: every new report, oldest first. Ctrl+A, Ctrl+C and paste it in your conversation with Claude."] = "Exportar: todos los informes nuevos, del más antiguo al más reciente. Ctrl+A, Ctrl+C y pégalo en tu conversación con Claude.",
+    ["Found a bug, a wrong text or have an idea? Send it to the author from inside the game. The report waits on your computer and goes out by itself when the author is online. You can follow each report and you get a message when it is fixed."] = "¿Encontraste un error, un texto incorrecto o tienes una idea? Envíaselo al autor desde el juego. El informe espera en tu computadora y sale solo cuando el autor está conectado. Puedes seguir cada informe y recibes un mensaje cuando se corrige.",
 }, { __index = NS.LOCALES.es })

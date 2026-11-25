@@ -291,6 +291,7 @@ function NS.OpenBugReport()
     else report:SetPoint("CENTER", UIParent, "CENTER", 0, 40) end
     report:Show()
     report.note.box:SetFocus()
+    GrupoFacilDB.bugWindowOpened = true -- apaga o brilho do ícone na janela principal
     NS.D.Trace("BUG", "janela de report aberta")
 end
 function NS.BugReportFrame() return report end
