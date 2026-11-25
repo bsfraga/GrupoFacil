@@ -1,16 +1,16 @@
 # Changelog
 
 ## 0.13.0
-- **What's New**: a window with the changes of the version opens every time the addon loads until you tick "I've read it" at the end of the list. It comes back with the next version. `/gf news` or the options open it any time.
-- Players on another ruleset (PvP, RP...) or faction can't reach the author through the game. The report window always shows a link to the comments on CurseForge, and when your reports never reach the author for days it says so in the window and once per session in the chat. `/gf bug link` prints the link.
-- Reports work with Forever names (name and surname).
-- The note icon in the title bar glows until you open the report window for the first time.
 - **Report a problem**: a window to send bugs, wrong texts and ideas straight to the author (note icon in the title bar, the options, or `/gf bug`). Reports wait on your computer and go out by themselves when the author is online; you see the state of each one and get a message when it is received and when it is marked.
 - `/gf bug <text>` reports from the chat; `/gf bug list` lists your reports.
+- Players on another ruleset (PvP, RP...), and possibly on the other faction, can't reach the author through the game. The report window always shows a link to the comments on CurseForge, and when your reports never reach the author for days it says so in the window and once per session in the chat. `/gf bug link` prints the link.
+- Reports work with Forever names (name and surname).
 - The report window fits its texts in every language: long labels wrap and push the rest down, report types move to a second line when they don't fit, and your reports keep a piece of what you wrote after they are delivered.
+- The note icon in the title bar glows until you open the report window for the first time.
+- **What's New**: a window with the changes of the version opens every time the addon loads until you tick "I've read it" at the end of the list. It comes back with the next version. `/gf news` or the options open it any time.
 - The list now uses the whole window height the first time it opens.
 - `/gf spec` with no talent points says so instead of showing the class name.
-- A group member the game fails to describe no longer logs an error in `/gf diag`.
+- A group member the game fails to describe, or a native search that never answers, no longer logs an error in `/gf diag`.
 
 ## 0.12.0
 - **Who is this? (/who)** in the right-click menu: opens the chat with `/who "Name Surname"` typed in; press Enter (the game only allows /who from your own chat). The answer shows in the row's tooltip: the player's guild (the Looking For Group data has none) and their exact zone, kept for 30 minutes.
