@@ -222,3 +222,127 @@ describe("janela principal", function()
         T.no(H.shown(c, c.env.GrupoFacilRowMenu), "fechar a janela fecha o menu")
     end)
 end)
+
+-- Fraga, 26/11: uma lista de escolha ficou aberta ao trocar de seção e um tooltip ficou preso.
+-- Toda lista do addon fecha com Esc, clique fora, troca de aba/seção e ao fechar a janela;
+-- clicar dentro dela não fecha; o tooltip de um botão do addon some quando o botão some.
+describe("listas de escolha e tooltips", function()
+    local function special(c)
+        local s = {}
+        for _, n in ipairs(c.env.UISpecialFrames) do s[n] = true end
+        return s
+    end
+
+    -- abre cada lista do addon e devolve { nome, quadro, dono, reabrir }
+    local function menusOf(w, c, f)
+        local out = {}
+        local function add(name, owner, opener)
+            opener()
+            out[#out + 1] = { name = name, m = c.env[name], owner = owner, open = opener }
+        end
+        local dungeonBtn = btn(c, f, "^All dungeons$")
+        add("GrupoFacilDungeonMenu", dungeonBtn, function() c:click(dungeonBtn) end)
+        c:click(rowOf(c, "Padre"), "RightButton")
+        c:click(btn(c, c.env.GrupoFacilRowMenu, "^Hide for this session$"))
+        w:advance(0.2)
+        local hiddenBtn = btn(c, f, "^Hidden %(1%)$")
+        add("GrupoFacilHiddenMenu", hiddenBtn, function() c:click(hiddenBtn) end)
+        local row = rowOf(c, "Arqueiro")
+        add("GrupoFacilRowMenu", row, function() c:click(row, "RightButton") end)
+        return out
+    end
+
+    it("listas da janela: clique fora, troca de aba, fechar a janela e Esc fecham; clicar dentro não", function()
+        local w, c, f = open()
+        local all = menusOf(w, c, f)
+        T.eq(#all, 3)
+        for _, x in ipairs(all) do
+            if not H.shown(c, x.m) then x.open() end
+            T.ok(H.shown(c, x.m), x.name .. " abriu")
+            T.ok(special(c)[x.name], x.name .. " fecha com Esc")
+            -- clicar num filho da lista (o mouse está sobre ela) não fecha pelo clique fora
+            c.ui.mouseOver = x.m
+            c:fireEvent("GLOBAL_MOUSE_DOWN", "LeftButton")
+            c.ui.mouseOver = nil
+            T.ok(H.shown(c, x.m), x.name .. " continua aberta com clique dentro")
+            c:clickOutside()
+            T.no(H.shown(c, x.m), x.name .. " fecha com clique fora")
+            x.open()
+            c:click(f.tabQuests)
+            T.no(H.shown(c, x.m), x.name .. " fecha ao trocar de aba")
+            c:click(f.tabDungeons)
+            w:advance(0.2)
+        end
+        -- o botão que abriu a lista fecha a lista (não reabre no mesmo clique)
+        local d = all[1]
+        d.open()
+        T.ok(H.shown(c, d.m))
+        c:click(d.owner)
+        T.no(H.shown(c, d.m), "o mesmo botão fecha")
+        d.open()
+        f:Hide()
+        T.no(H.shown(c, d.m), "fechar a janela fecha a lista")
+        T.clean(c)
+    end)
+
+    it("listas das opções (idioma e destino da indicação): trocar de seção, clique fora, fechar e Esc", function()
+        local w, c = open()
+        c:slash("/gf options invite")
+        local of = c.env.GrupoFacilOptionsFrame
+        local o = of.content
+        local lists = {
+            { name = "GrupoFacilShareMenu", owner = o.shareTarget },
+            { name = "GrupoFacilLanguageMenu", owner = o.lang },
+        }
+        for _, x in ipairs(lists) do
+            H.ns(c).OptionsSection("invite")
+            c:click(x.owner)
+            local m = c.env[x.name]
+            T.ok(H.shown(c, m), x.name .. " abriu")
+            T.ok(special(c)[x.name], x.name .. " fecha com Esc")
+            c:click(H.find(c, of, "^Help$", true))
+            T.no(H.shown(c, m), x.name .. " fecha ao trocar de seção")
+            H.ns(c).OptionsSection("invite")
+            c:click(x.owner)
+            c:clickOutside()
+            T.no(H.shown(c, m), x.name .. " fecha com clique fora")
+            c:click(x.owner)
+            c:click(x.owner)
+            T.no(H.shown(c, m), x.name .. " o mesmo botão fecha")
+            c:click(x.owner)
+            of:Hide()
+            T.no(H.shown(c, m), x.name .. " fecha com a janela de opções")
+            c:slash("/gf options invite")
+        end
+        T.clean(c)
+    end)
+
+    it("tooltip de um botão do addon some quando o botão some (troca de aba, de seção ou janela fechada)", function()
+        local w, c, f = open()
+        local tip = c.env.GameTooltip
+        local search = btn(c, f, "^Search again$")
+        c:mouseEnter(search)
+        T.ok(tip:IsOwned(search))
+        T.ok(c.ui.visible(tip), "tooltip aberto")
+        c:click(f.tabQuests) -- a aba Masmorras some com o botão embaixo do mouse
+        T.no(c.ui.visible(tip), "o tooltip do Buscar de novo não fica preso")
+        c:click(f.tabDungeons)
+        c:mouseEnter(search)
+        f:Hide()
+        T.no(c.ui.visible(tip), "fechar a janela também fecha o tooltip")
+        -- opções: tooltip de uma seção não fica sobre outra
+        c:slash("/gf options invite")
+        local o = c.env.GrupoFacilOptionsFrame.content
+        c:mouseEnter(o.share)
+        T.ok(c.ui.visible(tip))
+        H.ns(c).OptionsSection("help")
+        T.no(c.ui.visible(tip), "trocar de seção fecha o tooltip")
+        -- tooltip de quadro de outro addon não é tocado
+        local other = c.env.CreateFrame("Button", "OutroAddonBotao", c.env.UIParent)
+        tip:SetOwner(other, "ANCHOR_RIGHT"); tip:Show()
+        other:Hide()
+        T.ok(c.ui.visible(tip), "quadro alheio: o addon não mexe")
+        tip:Hide()
+        T.clean(c)
+    end)
+end)

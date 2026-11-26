@@ -284,7 +284,16 @@ function M.new(client)
     function regionM:SetScale(v) st(self).scale = v end
     function regionM:GetScale() return st(self).scale or 1 end
     function regionM:GetEffectiveScale() return st(self).scale or 1 end
-    function regionM:IsMouseOver() return ui.mouseOver == self end
+    -- como no jogo: o mouse sobre um filho também está sobre o pai (a área do pai contém o filho)
+    function regionM:IsMouseOver()
+        local f = ui.mouseOver
+        for _ = 1, 30 do
+            if not f then return false end
+            if f == self then return true end
+            f = st(f).parent
+        end
+        return false
+    end
     function regionM:SetIgnoreParentAlpha() end
     function regionM:SetIgnoreParentScale() end
 

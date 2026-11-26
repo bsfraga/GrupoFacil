@@ -14,7 +14,7 @@ for _, e in ipairs({ "ADDON_LOADED", "PLAYER_LOGIN", "PLAYER_LOGOUT", "PLAYER_EN
     "FRIENDLIST_UPDATE", "IGNORELIST_UPDATE", "BN_FRIEND_INFO_CHANGED", "WHO_LIST_UPDATE", "LFG_LIST_ROLE_UPDATE",
     "LUA_WARNING", "PLAYER_REGEN_DISABLED", "PLAYER_REGEN_ENABLED", "PARTY_INVITE_REQUEST", "ZONE_CHANGED_NEW_AREA",
     "QUEST_LOG_UPDATE", "QUEST_TURNED_IN", "QUEST_REMOVED", "QUEST_ACCEPTED", "GROUP_LEFT", "GROUP_JOINED",
-    "LFG_LIST_ACTIVE_ENTRY_UPDATE", "LFG_LIST_ENTRY_CREATION_FAILED", "UI_ERROR_MESSAGE" }) do
+    "LFG_LIST_ACTIVE_ENTRY_UPDATE", "LFG_LIST_ENTRY_CREATION_FAILED", "UI_ERROR_MESSAGE", "GLOBAL_MOUSE_DOWN" }) do
     KNOWN_EVENTS[e] = true
 end
 
@@ -753,7 +753,24 @@ function Client:runMacro(text, secure)
     end
 end
 
-function Client:click(f, mouse) assert(f, "click: frame nil"); f:Click(mouse) end
+-- Clique como no jogo: o mouse está sobre o quadro, o jogo avisa GLOBAL_MOUSE_DOWN e depois vem o OnClick.
+function Client:click(f, mouse)
+    assert(f, "click: frame nil")
+    self.ui.mouseOver = f
+    self:fireEvent("GLOBAL_MOUSE_DOWN", mouse or "LeftButton")
+    f:Click(mouse)
+    self.ui.mouseOver = nil
+end
+-- Clique fora de tudo (no mundo do jogo).
+function Client:clickOutside(mouse)
+    self.ui.mouseOver = nil
+    self:fireEvent("GLOBAL_MOUSE_DOWN", mouse or "LeftButton")
+end
+-- Põe o mouse sobre o quadro e deixa ali (o tooltip fica aberto até o OnLeave).
+function Client:mouseEnter(f)
+    self.ui.mouseOver = f
+    self.ui.fire(f, "OnEnter", true)
+end
 function Client:type(box, text) self.ui.type(box, text) end
 function Client:press(box, key)
     local s = self.ui.state(box)

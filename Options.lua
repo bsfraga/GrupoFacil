@@ -193,7 +193,7 @@ function NS.ToggleLanguageMenu(owner)
         end
         m:SetSize(216, 16 + #NS.LANGUAGES * 24)
         -- Esc fecha a lista (frame do próprio addon)
-        if UISpecialFrames then tinsert(UISpecialFrames, "GrupoFacilLanguageMenu") end
+        NS.RegisterMenu(m) -- Esc, clique fora e troca de seção fecham
         m:Hide()
     end
     if langMenu:IsShown() and langMenu.owner == owner then langMenu:Hide() return end
@@ -223,7 +223,7 @@ function NS.ToggleShareMenu(owner, onPick)
             m:SetBackdropColor(0.05, 0.05, 0.08, 0.97)
         end
         m.items = {}
-        if UISpecialFrames then tinsert(UISpecialFrames, "GrupoFacilShareMenu") end
+        NS.RegisterMenu(m) -- Esc, clique fora e troca de seção fecham
         m:Hide()
     end
     local m = shareMenu
@@ -269,6 +269,9 @@ local lastSection = "general"
 
 local function showSection(w, key)
     if not w.sections[key] then key = "general" end
+    -- a lista aberta pertence à seção de onde saiu
+    if langMenu then langMenu:Hide() end
+    if shareMenu then shareMenu:Hide() end
     w.section = key
     lastSection = key
     for k, f in pairs(w.sections) do f:SetShown(k == key) end
@@ -639,6 +642,11 @@ local function buildContent(root)
 
     showSection(w, "general")
     root:SetScript("OnShow", function() refreshOne(w) end)
+    -- a página do jogo (Options > AddOns) também fecha as listas ao sumir
+    root:HookScript("OnHide", function()
+        if langMenu and langMenu.owner == w.lang then langMenu:Hide() end
+        if shareMenu and shareMenu.owner == w.shareTarget then shareMenu:Hide() end
+    end)
     return w
 end
 

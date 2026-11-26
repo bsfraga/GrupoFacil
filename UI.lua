@@ -762,10 +762,11 @@ function NS.ToggleHiddenMenu(owner)
         m.more:SetJustifyH("LEFT")
         m.more:SetWordWrap(false)
         m.items = {}
-        if UISpecialFrames then tinsert(UISpecialFrames, "GrupoFacilHiddenMenu") end
+        NS.RegisterMenu(m) -- Esc, clique fora e troca de aba fecham
         m:Hide()
     end
     if hiddenMenu:IsShown() then hiddenMenu:Hide() return end
+    hiddenMenu.owner = owner
     hiddenMenu:ClearAllPoints()
     hiddenMenu:SetPoint("TOPRIGHT", owner, "BOTTOMRIGHT", 0, -2)
     hiddenMenu:Show()
@@ -903,10 +904,11 @@ function NS.ToggleDungeonMenu(owner)
         m.more:SetJustifyH("LEFT")
         m.more:SetWordWrap(false)
         m.items = {}
-        if UISpecialFrames then tinsert(UISpecialFrames, "GrupoFacilDungeonMenu") end
+        NS.RegisterMenu(m) -- Esc, clique fora e troca de aba fecham
         m:Hide()
     end
     if dungeonMenu:IsShown() then dungeonMenu:Hide() return end
+    dungeonMenu.owner = owner
     fillDungeonMenu()
     dungeonMenu:ClearAllPoints()
     dungeonMenu:SetPoint("TOPLEFT", owner, "BOTTOMLEFT", 0, -2)
@@ -958,10 +960,11 @@ function NS.ShowRowMenu(row)
         local w = max(m.dismiss:GetWidth(), m.block:GetWidth(), m.who:GetWidth(), m.cancel:GetWidth())
         for _, b in ipairs({ m.dismiss, m.block, m.who, m.cancel }) do b:SetWidth(w) end
         m:SetSize(w + 16, 36 + 4 * 26)
-        if UISpecialFrames then tinsert(UISpecialFrames, "GrupoFacilRowMenu") end
+        NS.RegisterMenu(m) -- Esc, clique fora e troca de aba fecham
         m:Hide()
     end
     rowMenu.entry = e
+    rowMenu.owner = row
     rowMenu.title:SetText(e.name or "")
     rowMenu.block:SetEnabled(e.name ~= nil)
     rowMenu:ClearAllPoints()
@@ -1019,11 +1022,10 @@ function NS.SelectTab(key)
     local qp = NS.QuestPanel and NS.QuestPanel()
     frame.dungeonPanel:SetShown(key == "dungeons")
     if qp then qp:SetShown(key == "quests") end
-    if key ~= "dungeons" then
-        NS.CloseDungeonMenu()
-        if NS.CloseRowMenu then NS.CloseRowMenu() end
-        NS.CloseHiddenMenu()
-    end
+    -- qualquer troca de aba fecha as listas abertas (elas pertencem à aba de onde saíram)
+    NS.CloseDungeonMenu()
+    if NS.CloseRowMenu then NS.CloseRowMenu() end
+    NS.CloseHiddenMenu()
     for k, b in pairs(frame.tabs) do
         if k == key then b:LockHighlight() else b:UnlockHighlight() end
         local fs = b.GetFontString and b:GetFontString()

@@ -836,6 +836,65 @@ function NS.PrefillWho(e)
 end
 
 ------------------------------------------------------------------------
+-- Listas de escolha (menus) e tooltips do addon (Fraga, 26/11: uma lista ficou aberta ao trocar
+-- de seção, e um tooltip ficou preso). Regras para TODA lista do addon:
+--  * fecha com Esc (UISpecialFrames), ao clicar fora dela e do botão que a abriu,
+--    e quando a janela, a aba ou a seção de onde ela saiu muda ou some (NS.CloseMenus);
+--  * um tooltip aberto por um quadro do addon some quando esse quadro some.
+------------------------------------------------------------------------
+local menus = {}
+function NS.RegisterMenu(m)
+    for _, x in ipairs(menus) do if x == m then return end end
+    menus[#menus + 1] = m
+    local name = m.GetName and m:GetName()
+    if name and UISpecialFrames then tinsert(UISpecialFrames, name) end
+end
+function NS.CloseMenus(why)
+    for _, m in ipairs(menus) do
+        if m:IsShown() then
+            m:Hide()
+            Trace("UI", "lista %s fechada (%s)", tostring(m.GetName and m:GetName()), tostring(why))
+        end
+    end
+end
+local mouseWatch = CreateFrame("Frame")
+pcall(mouseWatch.RegisterEvent, mouseWatch, "GLOBAL_MOUSE_DOWN") -- pode não existir neste cliente
+mouseWatch:SetScript("OnEvent", NS.D.Wrap("menus.GLOBAL_MOUSE_DOWN", function()
+    for _, m in ipairs(menus) do
+        if m:IsShown() and not m:IsMouseOver() then
+            local o = m.owner
+            local onOwner = o and o.IsShown and o:IsShown() and o:IsMouseOver()
+            if not onOwner then m:Hide() end -- o clique no próprio botão abre/fecha pelo OnClick
+        end
+    end
+end))
+
+-- O dono do tooltip é do addon? (nome GrupoFacil* nele ou num pai; nunca mexe em quadro alheio)
+local tipHooked = setmetatable({}, { __mode = "k" })
+local function ours(f)
+    for _ = 1, 15 do
+        if type(f) ~= "table" then return false end
+        local okF, forbidden = pcall(function() return f.IsForbidden and f:IsForbidden() end)
+        if not okF or forbidden then return false end
+        local okN, name = pcall(function() return f.GetName and f:GetName() end)
+        if okN and type(name) == "string" and name:find("^GrupoFacil") then return true end
+        local okP, parent = pcall(function() return f.GetParent and f:GetParent() end)
+        if not okP then return false end
+        f = parent
+    end
+    return false
+end
+if GameTooltip and hooksecurefunc then
+    hooksecurefunc(GameTooltip, "SetOwner", function(tip, owner)
+        if tip ~= GameTooltip or not owner or tipHooked[owner] or not owner.HookScript or not ours(owner) then return end
+        tipHooked[owner] = true
+        owner:HookScript("OnHide", function(self)
+            if GameTooltip:IsOwned(self) then GameTooltip:Hide() end
+        end)
+    end)
+end
+
+------------------------------------------------------------------------
 -- Indicar a um amigo (plano de adesão do Fraga, 26/11): os grupos por missão só funcionam com
 -- mais gente usando o addon. O addon não posta no chat (o Forever restringe mensagens de addon):
 -- só põe a frase pronta na caixa do chat, no canal da guilda quando há guilda, e o jogador aperta Enter.
