@@ -374,6 +374,7 @@ function Client:buildEnv()
     env.CreateAtlasMarkup = function(atlas, w, h) return ("|A:%s:%d:%d|a"):format(atlas, w or 0, h or 0) end
     env.C_Texture = { GetAtlasInfo = function(a) if world.config.atlases ~= false and a and a:find("^roleicon") then return { width = 16, height = 16 } end end }
     env.Enum = {
+        LFGEntryGeneralPlaystyle = { None = 0, Learning = 1, FunRelaxed = 2, FunSerious = 3, Expert = 4 },
         SendAddonMessageResult = { Success = 0, InvalidPrefix = 1, InvalidMessage = 2, AddonMessageThrottle = 3, InvalidChatType = 4,
             NotInGroup = 5, TargetRequired = 6, InvalidChannel = 7, ChannelThrottle = 8, GeneralError = 9, NotInGuild = 10,
             AddOnMessageLockdown = 11, TargetOffline = 12 },

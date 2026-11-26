@@ -98,6 +98,14 @@ function NS.GuardTag(tag, fn, ...)
     return D.Call(tag, fn, ...)
 end
 
+-- Janela do GrupoFacil que vem para a frente quando abre ou é clicada (com as outras janelas
+-- do addon no mesmo strata, os botões da de trás vazavam por cima: print do Fraga, 26/11).
+function NS.Toplevel(f)
+    if not f then return end
+    if f.SetToplevel then f:SetToplevel(true) end
+    if f.HookScript then f:HookScript("OnShow", function(self) if self.Raise then self:Raise() end end) end
+end
+
 local function normName(name)
     if type(name) ~= "string" or isSecret(name) then return nil end
     if Ambiguate then name = Ambiguate(name, "none") end

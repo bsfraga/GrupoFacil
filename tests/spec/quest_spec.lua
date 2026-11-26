@@ -443,3 +443,153 @@ describe("quest groups - janelas", function()
         T.clean(c)
     end)
 end)
+
+-- Ajustes do teste do Fraga no jogo (26/11): Criar grupo mudo, descrição, botões de outros addons
+-- e janelas sobrepostas.
+local function overlapsRect(a, b)
+    return a and b and math.min(a.r, b.r) - math.max(a.l, b.l) > 1 and math.min(a.t, b.t) - math.max(a.b, b.b) > 1
+end
+
+describe("quest groups - ajustes do teste no jogo", function()
+    it("criar grupo manda o estilo de jogo (obrigatório no Forever) e abre a descrição sugerida", function()
+        local w = world()
+        local q = copy(ELITE)
+        q.objectives = { { text = "Edwin VanCleef slain: 0/1" } }
+        local lead = login(w, "Lider", { q })
+        magnify(w, lead, ELITE.id)
+        lead:click(qwin(lead).create)
+        w:advance(0.5)
+        local created = lead.data.createdListings[1]
+        T.eq(created.generalPlaystyle, 2, "Enum.LFGEntryGeneralPlaystyle.FunRelaxed")
+        T.eq(lead.env.C_LFGList.HasActiveEntryInfo(), true)
+        local d = lead.env.GrupoFacilQuestDesc
+        T.ok(lead:isVisible(d), "descrição sugerida aberta quando a listagem sai")
+        local text = d.box:GetText()
+        T.match(text, "^Quest: The Defias Brotherhood %(Edwin VanCleef slain: 0/1%) in Westfall%.")
+        T.match(text, "GrupoFacil")
+        T.ok(#text <= 250, "cabe na descrição do Looking For Group")
+        T.no(lead:isVisible(d.mine), "cliente em inglês: sem a opção de idioma")
+        lead:click(d.close)
+        T.no(lead:isVisible(d))
+        lead:click(qwin(lead).desc)
+        T.ok(lead:isVisible(d), "o botão Description reabre")
+        noBlizzardWrites(w)
+        T.clean(lead)
+    end)
+
+    it("descrição em inglês por padrão; no cliente em português dá para trocar, e textos longos são cortados", function()
+        local w = world()
+        local q = copy(PLAIN)
+        q.title = string.rep("Um titulo muito longo ", 6)
+        q.objectives = { { text = "feito", finished = true }, { text = string.rep("Objetivo comprido ", 8) } }
+        local c = login(w, "Jogador", { q }, { locale = "ptBR" })
+        magnify(w, c, PLAIN.id)
+        c:click(qwin(c).desc)
+        local d = c.env.GrupoFacilQuestDesc
+        local en = d.box:GetText()
+        T.match(en, "^Quest: Um titulo")
+        T.match(en, "Objetivo comprido")
+        T.no(en:find("feito", 1, true), "objetivo já feito fica de fora")
+        T.ok(#en <= 250)
+        T.ok(c:isVisible(d.mine))
+        T.no(d.mine:GetChecked())
+        c:click(d.mine)
+        T.match(d.box:GetText(), "^Missão: ")
+        T.eq(H.db(c).quest.descTranslated, true)
+        T.clean(c)
+    end)
+
+    it("missão de masmorra cria grupo de masmorra (a masmorra da missão, sem o ID da missão)", function()
+        local w = world()
+        local q = copy(DUNGEON)
+        q.zone = "The Deadmines" -- como o log do jogo chama
+        local lead = login(w, "Lider", { q })
+        magnify(w, lead, DUNGEON.id)
+        T.eq(lead.lastSearch.category, 2)
+        lead:click(qwin(lead).create)
+        w:advance(0.5)
+        local created = lead.data.createdListings[1]
+        T.eq(created.activityIDs[1], 1, "Deadmines, em Masmorras")
+        T.eq(created.questID, nil)
+        T.eq(created.generalPlaystyle, 2)
+        T.has(lead:chatLines(), "in Dungeons: Deadmines")
+        T.clean(lead)
+    end)
+
+    it("o jogo não responde à criação: avisa, e o próximo clique vai sem o ID da missão", function()
+        local w = world({ silentListing = true })
+        local lead = login(w, "Lider", { ELITE })
+        magnify(w, lead, ELITE.id)
+        lead:click(qwin(lead).create)
+        w:advance(1)
+        T.no(lead:chatLines()[1] and table.concat(lead:chatLines(), "\n"):find("did not create", 1, true), "ainda esperando")
+        w:advance(4)
+        T.has(lead:chatLines(), "the game did not create the listing. Click Create group again")
+        T.eq(lead:text(qwin(lead).create), "Create group")
+        lead:click(qwin(lead).create)
+        w:advance(5)
+        T.eq(lead.data.createdListings[2].questID, nil)
+        T.has(lead:chatLines(), "Open Looking For Group to list by hand")
+        T.clean(lead)
+    end)
+
+    it("sem o estilo de jogo o modelo do jogo não lista (garante que o teste acima vale)", function()
+        local w = world()
+        local lead = login(w, "Lider", { ELITE })
+        lead.env.C_LFGList.CreateListing({ activityIDs = { 20 } })
+        w:advance(1)
+        T.eq(lead.env.C_LFGList.HasActiveEntryInfo(), false)
+    end)
+
+    it("o botão nos detalhes desvia de botões de outros addons (ex.: Play do Spoken)", function()
+        local w = world()
+        local c = login(w, "Jogador", { ELITE })
+        local df = c.env.QuestMapFrame.DetailsFrame
+        local back = df.BackFrame
+        -- outro addon põe dois botões na faixa do Voltar: ao lado dele e no canto direito
+        local play = c.env.CreateFrame("Button", "SpokenPlayButton", back)
+        play:SetSize(60, 22); play:SetPoint("LEFT", back.BackButton, "RIGHT", 6, 0); play:Show()
+        local other = c.env.CreateFrame("Button", nil, c.env.UIParent)
+        other:SetSize(80, 22); other:SetPoint("RIGHT", back, "RIGHT", -8, 4); other:Show()
+        c:openQuestDetails(ELITE.id)
+        w:advance(1.5)
+        local b = H.ns(c).QuestDetailsButtons[df]
+        T.ok(b and c:isVisible(b), "botão Achar grupo visível")
+        local function rs(r) return r and string.format("%.0f,%.0f-%.0f,%.0f", r.l, r.b, r.r, r.t) or "nil" end
+        for i, f in ipairs({ play, other, back.BackButton }) do
+            T.no(overlapsRect(c.ui.rect(b), c.ui.rect(f)),
+                string.format("não cobre o botão %d (nosso %s, dele %s)", i, rs(c.ui.rect(b)), rs(c.ui.rect(f))))
+        end
+        noBlizzardWrites(w)
+        T.clean(c)
+    end)
+
+    it("a lupa da lista de objetivos desvia de um botão de outro addon no título", function()
+        local w = world()
+        local c = login(w, "Jogador", { PLAIN })
+        local _, block = c:trackerMagnifier(PLAIN.id)
+        local mark = c.env.CreateFrame("Button", nil, block)
+        mark:SetSize(16, 16); mark:SetPoint("TOPRIGHT", block, "TOPRIGHT", 0, 0); mark:Show()
+        c:updateTracker()
+        local b = H.ns(c).QuestTrackerButtons[block]
+        T.ok(b and c:isVisible(b))
+        T.no(overlapsRect(c.ui.rect(b), c.ui.rect(mark)), "lupa não cobre o botão do outro addon")
+        T.clean(c)
+    end)
+
+    it("janelas do GrupoFacil sobrepostas: a que abriu ou foi clicada fica na frente", function()
+        local w = world()
+        local c = login(w, "Jogador", { ELITE })
+        c:slash("/gf")
+        local main = c.env.GrupoFacilFrame
+        c:click(main.questButton)
+        local qw = qwin(c)
+        T.ok(main:IsToplevel() and qw:IsToplevel(), "as duas janelas vêm para a frente quando clicadas")
+        T.ok(qw:GetFrameLevel() > main:GetFrameLevel(), "a de missões, aberta por último, na frente")
+        c:click(main.questButton) -- fecha
+        c:click(main.questButton) -- abre de novo
+        c:click(H.find(c, main, "^Options$", true) or main.questButton)
+        T.ok(main:GetFrameLevel() > qw:GetFrameLevel() or not c:isVisible(qw), "clicar na principal traz ela para a frente")
+        T.clean(c)
+    end)
+end)

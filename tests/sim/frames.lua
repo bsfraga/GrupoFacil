@@ -417,8 +417,13 @@ function M.new(client)
     function frameM:GetFrameStrata() return st(self).strata or "MEDIUM" end
     function frameM:SetFrameLevel(v) st(self).level = v end
     function frameM:GetFrameLevel() return st(self).level or 1 end
-    function frameM:SetToplevel() end
-    function frameM:Raise() end
+    -- Raise: o quadro (e os filhos, que contam a partir dele) vai para cima de tudo no strata
+    function frameM:SetToplevel(v) st(self).toplevel = v and true or false end
+    function frameM:IsToplevel() return st(self).toplevel or false end
+    function frameM:Raise()
+        ui.raiseTop = (ui.raiseTop or 100) + 50
+        st(self).level = ui.raiseTop
+    end
     function frameM:Lower() end
     function frameM:SetClampedToScreen(v) st(self).clamped = v end
     function frameM:SetClampRectInsets() end
@@ -514,6 +519,13 @@ function M.new(client)
         if not visible(self) and not ui.allowHiddenClick then return end
         mouse = mouse or "LeftButton"
         if s.kind == "CheckButton" then s.checked = not s.checked end
+        -- clique dentro de uma janela "toplevel": ela vem para a frente (como no jogo)
+        local anc = self
+        while anc do
+            local as = S[anc]
+            if as and as.toplevel then anc:Raise() break end
+            anc = as and as.parent
+        end
         -- evento de hardware: o clique libera UMA ação protegida (busca, criar/tirar listagem)
         local hw = client.hw
         client.hw = { left = 1 }

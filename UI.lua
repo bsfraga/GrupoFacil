@@ -327,6 +327,7 @@ function NS.BuildUI()
         frame:SetMaxResize(MAX_W, MAX_H)
     end
     frame:SetFrameStrata("HIGH")
+    NS.Toplevel(frame)
     frame:SetClampedToScreen(true)
     frame:SetMovable(true)
     frame:EnableMouse(true)
@@ -375,15 +376,17 @@ function NS.BuildUI()
         glow:SetAlpha(0.35 + 0.65 * math.abs(math.sin(t * 2.5)))
     end)
     frame.bugButton = bug
-    -- grupos por missão (QuestUI.lua): a janela separada
-    local quests = CF("Button", nil, frame)
-    quests:SetSize(18, 18)
-    quests:SetPoint("LEFT", bug, "RIGHT", 6, 0)
-    quests:SetNormalTexture("Interface\\Common\\UI-Searchbox-Icon")
-    quests:SetHighlightTexture("Interface\\Buttons\\ButtonHilight-Square", "ADD")
+    -- grupos por missão (QuestUI.lua): botão "Missões" na barra de título, simétrico ao "Masmorras" da janela de missões
+    local quests = button(frame, L["Quests"], 90, 20)
+    quests:SetPoint("TOPRIGHT", -30, -1)
     quests:SetScript("OnClick", function() if NS.ToggleQuestWindow then NS.ToggleQuestWindow() end end)
     tooltip(quests, L["Quest groups"], L["Groups for the quests in your quest log. Also: the magnifier next to each quest, or /gf quests."])
     frame.questButton = quests
+    by:ClearAllPoints()
+    by:SetPoint("RIGHT", quests, "LEFT", -8, 0)
+    by:SetPoint("LEFT", bug, "RIGHT", 8, 0) -- janela estreita: a autoria encurta, não cobre o título
+    by:SetJustifyH("RIGHT")
+    by:SetWordWrap(false)
 
     -- linha 1: modo e ordem
     local prevMode

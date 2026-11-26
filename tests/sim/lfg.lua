@@ -205,6 +205,10 @@ function LFG:api(c)
         if c.data.inGroup and not c.data.leader then return false end
         c.data.createdListings = c.data.createdListings or {}
         table.insert(c.data.createdListings, data)
+        -- Forever: sem estilo de jogo o jogo aceita a chamada e não cria nada, sem evento nenhum
+        -- (o "Criar grupo não faz nada" do teste do Fraga, 26/11)
+        if world.config.requirePlaystyle ~= false and data.generalPlaystyle == nil then return end
+        if world.config.silentListing then return end
         if data.questID and world.config.rejectListingQuestID then
             world:after(world.config.lfgLatency, function()
                 if c.state == "online" then c:fireEvent("LFG_LIST_ENTRY_CREATION_FAILED") end

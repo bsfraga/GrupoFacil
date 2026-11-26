@@ -4,11 +4,15 @@
 - **Groups for your quests**: a magnifier next to every quest in the objective list (under the minimap) and in the quest details of the quest log. Click it and GrupoFacil searches Looking For Group (Quests & Zones, the quest's zone; a dungeon quest searches the dungeon) and opens the new **quest groups** window.
 - The quest window lists the zone's groups and players: groups doing that quest first, then groups where someone has it, then the rest of the zone. **Join** asks the leader; **Invite** asks a solo player in.
 - Players who also use GrupoFacil tell each other, silently (addon whisper, never a chat channel), which quests they are on. The leader gets your request in the quest window and invites with one click.
-- **Create group** lists you in Looking For Group with the quest, so whoever clicks the magnifier on the same quest finds you first. If the game refuses the quest in the listing, the next click lists without it. **Remove listing** takes it out.
+- **Create group** lists you in Looking For Group with the quest (playstyle: fun and relaxed, which the game requires), so whoever clicks the magnifier on the same quest finds you first. A dungeon quest lists a normal dungeon group for that dungeon. If the game refuses the quest in the listing, or doesn't answer, the addon says so and the next click lists without it. **Remove listing** takes it out.
+- **Description**: a ready text (English by default, or your language) with the quest, its objective, the zone and a word about GrupoFacil, to copy and paste in your listing's description. It opens by itself when the listing goes up. The game doesn't let addons fill in the description.
 - Options in the quest window: auto-invite players who ask for the same quest (off by default, at most 6 invites every 10 minutes), auto-accept the invite from the leader you asked (on, for 2 minutes after asking), and show or hide the magnifier.
 - When the quest is done, the addon offers to leave the group and to remove the listing. It never does either on its own.
 - A warning when you get close to the game's limit of about 16 groups joined per hour.
-- The magnifier icon in the main window title and `/gf quests` open the quest window; its **Dungeons** button goes back to the main window.
+- The **Quests** button in the main window title and `/gf quests` open the quest window; its **Dungeons** button goes back to the main window.
+- The **Find group** button in the quest details and the magnifier in the objective list move out of the way of other addons' buttons (for example Spoken's Play); with no free spot they hide instead of covering anything.
+- GrupoFacil windows that overlap no longer show each other's buttons through: the one you open or click comes to the front.
+- **What's New** has one page per version, and the first page always has its own box to report bugs, feedback and ideas to the author.
 - Nothing is sent while the game restricts chat (instances, encounters). Search, create and remove only run from your click, one per click.
 
 ## 0.13.0

@@ -122,6 +122,8 @@ local function magnifierLine()
     return L["Searches Looking For Group for groups in this quest's zone. Groups doing this quest come first. No group? Create one in the window that opens."]
 end
 
+local mine = setmetatable({}, { __mode = "k" }) -- botões do GrupoFacil (nunca contam como obstáculo)
+
 local function newMagnifier(parent, size)
     local b = CF("Button", nil, parent)
     b:SetSize(size, size)
@@ -130,14 +132,86 @@ local function newMagnifier(parent, size)
     b:SetFrameLevel((parent.GetFrameLevel and parent:GetFrameLevel() or 1) + 5)
     b:SetScript("OnClick", function(self) if self.questID then NS.QuestMagnifierClick(self.questID) end end)
     tooltip(b, function(self) return format(L["Find a group: %s"], magnifierTip(self)) end, magnifierLine)
+    mine[b] = true
     return b
 end
+
+------------------------------------------------------------------------
+-- não cobrir botões de outros addons (pedido do Fraga, 26/11: o "Play" do Spoken ficava por baixo)
+-- Cada botão nosso tenta lugares em ordem e fica no primeiro onde não cobre nenhum botão ou quadro
+-- pequeno de outro addon (nem da Blizzard). Só lemos posições; nada é mudado nos quadros dos outros.
+------------------------------------------------------------------------
+local function rectOf(f)
+    if not (f and f.GetRect) then return nil end
+    local ok, l, b, w, h = pcall(f.GetRect, f)
+    if not ok or type(l) ~= "number" or NS.isSecret(l) or not w or w <= 0 or h <= 0 then return nil end
+    return { l = l, r = l + w, b = b, t = b + h }
+end
+
+local function overlaps(a, b)
+    return a and b and math.min(a.r, b.r) - math.max(a.l, b.l) > 1 and math.min(a.t, b.t) - math.max(a.b, b.b) > 1
+end
+
+local CLICKABLE = { Button = true, CheckButton = true, EditBox = true }
+-- quadros que podem estar onde queremos pôr o botão: clicáveis ou pequenos com mouse, visíveis
+local function collectObstacles(roots, depth)
+    local out, seen = {}, {}
+    local function walk(f, d)
+        if not f or seen[f] or mine[f] then return end
+        seen[f] = true
+        local ok, kids = pcall(function() return { f:GetChildren() } end)
+        if not ok then return end
+        for _, ch in ipairs(kids) do
+            if not mine[ch] and ch.IsVisible and ch:IsVisible() then
+                local r = rectOf(ch)
+                local kind = ch.GetObjectType and ch:GetObjectType()
+                local small = r and (r.r - r.l) <= 220 and (r.t - r.b) <= 60
+                local mouse = ch.IsMouseEnabled and ch:IsMouseEnabled()
+                if r and small and (CLICKABLE[kind] or mouse) then out[#out + 1] = { f = ch, r = r } end
+                if d < depth then walk(ch, d + 1) end
+            end
+        end
+    end
+    -- raiz pode vir como { quadro, profundidade } (o UIParent só no primeiro nível: é grande)
+    for _, root in ipairs(roots) do
+        if type(root) == "table" and root[1] then
+            local d0 = depth - (root[2] or depth) + 1
+            walk(root[1], d0)
+        else
+            walk(root, 1)
+        end
+    end
+    return out
+end
+
+-- place(btn) aplica um lugar; devolve o índice do primeiro lugar livre, ou nil se todos cobrem algo.
+-- bounds (opcional): o botão precisa caber dentro desse quadro.
+local function placeFree(btn, places, roots, depth, bounds)
+    local obstacles = collectObstacles(roots, depth or 3)
+    local box = bounds and rectOf(bounds)
+    for i, place in ipairs(places) do
+        btn:ClearAllPoints()
+        place(btn)
+        local r = rectOf(btn)
+        local free = true
+        if r and box and (r.l < box.l - 1 or r.r > box.r + 1 or r.b < box.b - 1 or r.t > box.t + 1) then free = false end
+        if r and free then
+            for _, o in ipairs(obstacles) do
+                if o.f ~= btn and overlaps(r, o.r) then free = false break end
+            end
+        end
+        if free then return i end
+    end
+    return nil
+end
+NS.QuestPlaceFree = placeFree
 
 ------------------------------------------------------------------------
 -- lista de objetivos (QuestObjectiveTracker e o de campanhas, quando houver)
 ------------------------------------------------------------------------
 local trackerButtons = setmetatable({}, { __mode = "k" }) -- [bloco da Blizzard] = botão
 local hooked = {}
+NS.QuestTrackerButtons = trackerButtons
 
 local function shown() return Q.DB().magnifier ~= false end
 
@@ -156,14 +230,18 @@ local function decorateTracker(tracker)
                         if not b then b = newMagnifier(block, 14); trackerButtons[block] = b end
                         b.questID = questID
                         b.tracker = tracker
-                        b:ClearAllPoints()
-                        local edge = block.rightEdgeFrame
-                        if edge and edge.IsShown and edge:IsShown() then
-                            b:SetPoint("RIGHT", edge, "LEFT", -2, 0)
-                        else
-                            b:SetPoint("TOPRIGHT", block, "TOPRIGHT", 0, 0)
-                        end
                         b:Show()
+                        local edge = block.rightEdgeFrame
+                        if not (edge and edge.IsShown and edge:IsShown()) then edge = nil end
+                        -- ao lado do botão nativo (ou no canto do título); ocupado: mais à esquerda
+                        local function at(dx)
+                            return function(x)
+                                if edge then x:SetPoint("RIGHT", edge, "LEFT", -2 - dx, 0)
+                                else x:SetPoint("TOPRIGHT", block, "TOPRIGHT", -dx, 0) end
+                            end
+                        end
+                        -- sem lugar livre: escondida, nunca por cima do botão de outro addon
+                        if not placeFree(b, { at(0), at(18), at(36) }, { block }, 2) then b:Hide() end
                     elseif b then
                         b:Hide()
                     end
@@ -215,11 +293,13 @@ end
 ------------------------------------------------------------------------
 local details = {} -- [quadro da Blizzard] = botão
 local detailsQuest = {} -- [quadro] = questID mostrado
+NS.QuestDetailsButtons = details
 
 local function detailsButton(frame, anchor)
     local b = details[frame]
     if b then return b end
     b = CF("Button", nil, frame, "UIPanelButtonTemplate")
+    mine[b] = true
     b:SetHeight(22)
     b:SetText(L["Find group"])
     fitWidth(b, 96, { L["Find group"] })
@@ -230,16 +310,42 @@ local function detailsButton(frame, anchor)
     icon:SetPoint("LEFT", 6, 0)
     local base = anchor or frame
     b:SetFrameLevel((base.GetFrameLevel and base:GetFrameLevel() or 1) + 5)
-    b:ClearAllPoints()
-    if anchor then
-        b:SetPoint("RIGHT", anchor, "RIGHT", -8, 4) -- na altura do botão Voltar da Blizzard
-    else
-        b:SetPoint("TOPRIGHT", frame, "TOPRIGHT", -8, -6)
-    end
+    b.wide = b:GetWidth()
+    b.icon = icon
     b:SetScript("OnClick", function(self) if self.questID then NS.QuestMagnifierClick(self.questID) end end)
     tooltip(b, function(self) return format(L["Find a group: %s"], magnifierTip(self)) end, magnifierLine)
     details[frame] = b
     return b
+end
+
+-- Lugares do botão nos detalhes, em ordem: ao lado do Voltar; deslizando pela faixa do Voltar até achar
+-- um vão; no canto direito da faixa; no canto do quadro; os mesmos só com a lupa (sem texto). Outros
+-- addons (ex.: o "Play" do Spoken) põem botões nessa faixa: o nosso desvia, e se não houver lugar livre
+-- nenhum ele fica escondido (a lupa da lista de objetivos e /gf quests continuam), nunca por cima.
+local function placeDetails(b, frame, anchor)
+    if not b.want then return end
+    b:Show()
+    local back = anchor and anchor.BackButton
+    local function wide(on)
+        if on then b:SetWidth(b.wide); b:SetText(L["Find group"]); b.icon:ClearAllPoints(); b.icon:SetPoint("LEFT", 6, 0)
+        else b:SetWidth(26); b:SetText(""); b.icon:ClearAllPoints(); b.icon:SetPoint("CENTER", 0, 0) end
+    end
+    local places = {}
+    local function add(isWide, fn) places[#places + 1] = function(x) wide(isWide); fn(x) end end
+    for _, isWide in ipairs({ true, false }) do
+        if back then
+            for dx = 6, 246, 12 do add(isWide, function(x) x:SetPoint("LEFT", back, "RIGHT", dx, 0) end) end
+        end
+        if anchor then add(isWide, function(x) x:SetPoint("RIGHT", anchor, "RIGHT", -8, 4) end) end
+        add(isWide, function(x) x:SetPoint("TOPRIGHT", frame, "TOPRIGHT", -8, -6) end)
+    end
+    local roots = { frame }
+    local parent = frame.GetParent and frame:GetParent()
+    if parent then roots[#roots + 1] = parent end
+    roots[#roots + 1] = { UIParent, 1 } -- botões de outros addons presos ao UIParent e ancorados aqui
+    local i = placeFree(b, places, roots, 4, frame)
+    if not i then b:Hide() end
+    Trace("MISSAO", "botão Achar grupo: %s", i and format("lugar %d de %d", i, #places) or "sem lugar livre, escondido")
 end
 
 local function showDetails(frame, anchor, questID)
@@ -247,13 +353,20 @@ local function showDetails(frame, anchor, questID)
     detailsQuest[frame] = questID
     local b = detailsButton(frame, anchor)
     b.questID = questID
-    b:SetShown(shown() and type(questID) == "number" and questID > 0)
+    b.want = shown() and type(questID) == "number" and questID > 0
+    b:SetShown(b.want)
+    placeDetails(b, frame, anchor)
+    -- outros addons podem pôr o botão deles depois do nosso: confere de novo
+    C_Timer.After(0.2, function() if detailsQuest[frame] == questID then placeDetails(b, frame, anchor) end end)
+    C_Timer.After(1, function() if detailsQuest[frame] == questID then placeDetails(b, frame, anchor) end end)
 end
 
 function NS.UpdateDetailsMagnifier()
     for frame, b in pairs(details) do
         local q = detailsQuest[frame]
-        b:SetShown(shown() and type(q) == "number" and q > 0)
+        b.want = shown() and type(q) == "number" and q > 0
+        b:SetShown(b.want)
+        if b.want then placeDetails(b, frame, frame.BackFrame) end
     end
 end
 
@@ -412,6 +525,7 @@ function NS.BuildQuestUI()
     win = CF("Frame", "GrupoFacilQuestFrame", UIParent, "BasicFrameTemplateWithInset")
     win:SetSize(W, H)
     win:SetFrameStrata("HIGH")
+    NS.Toplevel(win)
     win:SetClampedToScreen(true)
     win:SetMovable(true)
     win:EnableMouse(true)
@@ -506,8 +620,13 @@ function NS.BuildQuestUI()
         if not ok then return L["Unavailable: "] .. why end
         local act = Q.current and Q.current.activity
         return format(L["Lists you in Looking For Group (%s) with this quest. Players who click the magnifier on the same quest find you first."],
-            act and act.name or "?")
+            act and (act.label or act.name) or "?")
     end)
+    win.desc = button(win, L["Description"], 100)
+    win.desc:SetPoint("LEFT", win.create, "RIGHT", 6, 0)
+    win.desc:SetScript("OnClick", function() if Q.current then NS.ShowQuestDescription(Q.current.questID) end end)
+    tooltip(win.desc, L["Description for the listing"],
+        L["Text with the quest, the objective, the zone and GrupoFacil, to paste in the description of your Looking For Group listing. The game does not let addons fill it in."])
     win.pageFS = label(win, "", "GameFontDisableSmall")
     win.pageFS:SetPoint("BOTTOMRIGHT", -16, 82)
     win.pageFS:SetJustifyH("RIGHT")
@@ -563,7 +682,7 @@ function NS.RenderQuest()
         if q.size then meta[#meta + 1] = format(L["Group: %d"], q.size) end
         if q.complete then meta[#meta + 1] = "|cff55ff55" .. L["complete"] .. "|r" end
         if cur.activity then
-            meta[#meta + 1] = "|cff999999" .. format(L["Looking For Group: %s"], cur.activity.name or "?") .. "|r"
+            meta[#meta + 1] = "|cff999999" .. format(L["Looking For Group: %s"], cur.activity.label or cur.activity.name or "?") .. "|r"
         end
         win.meta:SetText(table.concat(meta, "  ·  "))
     else
@@ -652,6 +771,7 @@ function NS.RenderQuest()
     local has = Q.HasListing()
     win.create:SetText(has and L["Remove listing"] or L["Create group"])
     win.create:SetEnabled(has or (Q.CanCreate()))
+    win.desc:SetEnabled(cur ~= nil)
 end
 
 local queued = false
@@ -680,6 +800,86 @@ function NS.ToggleQuestWindow()
 end
 
 ------------------------------------------------------------------------
+-- descrição sugerida para a listagem (o jogador copia e cola no Looking For Group)
+------------------------------------------------------------------------
+local desc
+
+local function descText()
+    return desc and desc.questID and Q.Description(desc.questID, desc.mine:GetChecked() and true or false) or ""
+end
+
+local function buildDesc()
+    desc = CF("Frame", "GrupoFacilQuestDesc", UIParent, "BasicFrameTemplateWithInset")
+    desc:SetSize(460, 150)
+    desc:SetPoint("TOP", UIParent, "TOP", 0, -140)
+    desc:SetFrameStrata("DIALOG")
+    NS.Toplevel(desc)
+    desc:SetClampedToScreen(true)
+    desc:SetMovable(true)
+    desc:EnableMouse(true)
+    desc:RegisterForDrag("LeftButton")
+    desc:SetScript("OnDragStart", desc.StartMoving)
+    desc:SetScript("OnDragStop", desc.StopMovingOrSizing)
+    desc:Hide()
+    local title = desc.TitleText or label(desc, "", "GameFontHighlight")
+    title:SetText(L["Description for the listing"])
+    desc.text = label(desc, L["Click the text, Ctrl+C to copy, then paste it (Ctrl+V) in the description of your listing in Looking For Group."], "GameFontHighlightSmall")
+    desc.text:SetPoint("TOPLEFT", 14, -32)
+    desc.text:SetPoint("RIGHT", desc, "RIGHT", -14, 0)
+    desc.text:SetJustifyH("LEFT")
+    desc.text:SetJustifyV("TOP")
+    desc.text:SetHeight(30)
+    local e = CF("EditBox", nil, desc, "InputBoxTemplate")
+    e:SetSize(420, 20)
+    e:SetPoint("TOPLEFT", 22, -66)
+    e:SetAutoFocus(false)
+    e:SetMaxLetters(255)
+    e:SetScript("OnEditFocusGained", function(self) self:HighlightText() end)
+    e:SetScript("OnMouseUp", function(self) self:SetFocus(); self:HighlightText() end)
+    e:SetScript("OnTextChanged", function(self, user) if user then self:SetText(descText()); self:HighlightText() end end)
+    e:SetScript("OnEscapePressed", function(self) self:ClearFocus(); desc:Hide() end)
+    e:SetScript("OnEnterPressed", e.ClearFocus)
+    desc.box = e
+    desc.mine = check(desc, L["In my language (English reaches more players)"], L["The description goes in English by default, which every player on the server reads."])
+    desc.mine.label:SetWidth(300)
+    desc.mine:SetPoint("BOTTOMLEFT", 12, 12)
+    desc.mine:SetScript("OnClick", function(self)
+        Q.DB().descTranslated = self:GetChecked() and true or false
+        NS.RenderQuestDescription()
+    end)
+    desc.close = button(desc, L["Close"], 80)
+    desc.close:SetPoint("BOTTOMRIGHT", -12, 12)
+    desc.close:SetScript("OnClick", function() desc:Hide() end)
+end
+
+function NS.RenderQuestDescription()
+    if not desc or not desc:IsShown() then return end
+    local t = descText()
+    desc.box:SetText(t)
+    desc.box:SetCursorPosition(0)
+    desc.box:SetFocus()
+    desc.box:HighlightText()
+end
+
+function NS.ShowQuestDescription(questID)
+    if not questID then return end
+    if not desc then buildDesc() end
+    desc.questID = questID
+    -- cliente em inglês: a opção "no meu idioma" não muda nada
+    local english = (GetLocale and GetLocale() or "enUS"):match("^en") ~= nil
+    desc.mine:SetShown(not english)
+    desc.mine:SetChecked((not english) and Q.DB().descTranslated == true)
+    desc:Show()
+    NS.RenderQuestDescription()
+    Trace("MISSAO", "descrição sugerida aberta: missão=%d", questID)
+end
+
+-- a listagem saiu: oferece a descrição na hora, que é quando o jogador vai querer colar
+function NS.OnQuestListed(questID)
+    NS.ShowQuestDescription(questID)
+end
+
+------------------------------------------------------------------------
 -- missão concluída: oferecer sair do grupo e tirar a listagem
 ------------------------------------------------------------------------
 local done
@@ -689,6 +889,7 @@ local function buildDone()
     done:SetSize(380, 130)
     done:SetPoint("TOP", UIParent, "TOP", 0, -180)
     done:SetFrameStrata("DIALOG")
+    NS.Toplevel(done)
     done:SetClampedToScreen(true)
     done:SetMovable(true)
     done:EnableMouse(true)

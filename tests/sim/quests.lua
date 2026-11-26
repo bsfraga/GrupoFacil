@@ -61,6 +61,15 @@ function Q.install(c, env)
         IsComplete = function(id) local q = find(id); return q and q.complete == true or false end,
         ReadyForTurnIn = function(id) local q = find(id); return q and q.complete == true or false end,
         IsOnQuest = function(id) return find(id) ~= nil end,
+        GetQuestObjectives = function(id)
+            local q = find(id)
+            if not q then return {} end
+            local out = {}
+            for _, o in ipairs(q.objectives or {}) do
+                out[#out + 1] = { text = o.text, finished = o.finished == true, type = "monster" }
+            end
+            return out
+        end,
     }
     env.GetQuestUiMapID = function(id) local q = find(id); return q and q.mapID or 0 end
 
@@ -198,7 +207,7 @@ end
 ------------------------------------------------------------------------
 local Client = require("sim.client")
 
--- q = { id, title, zone, level, elite, size, mapID, complete, tracked }
+-- q = { id, title, zone, level, elite, size, mapID, complete, tracked, objectives = { {text, finished} } }
 function Client:addQuest(q)
     table.insert(self.data.quests, q)
     if self.state == "online" then

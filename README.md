@@ -25,7 +25,7 @@ The native Looking For Group window lists every player and group with no filters
   - **Ask to join** a group: sends the leader a whisper such as *"Hi, I'm a level 29 Beast Mastery Hunter, can I join your group?"* (only when you are solo).
   - **Whisper**: opens the chat to write your own message.
 - **Search again** repeats your last Looking For Group search.
-- **Groups for your quests**: a magnifier next to every quest in the objective list and in the quest details. One click searches Looking For Group in the quest's zone and opens the quest groups window, with the groups doing that quest first. No group? **Create group** lists you with the quest. Players who also use GrupoFacil see each other's quests silently, the leader invites from the window (or automatically, if they turn it on), and the invite from the leader you asked is accepted by itself. When the quest is done, the addon offers to leave the group and remove the listing.
+- **Groups for your quests**: a magnifier next to every quest in the objective list and in the quest details. One click searches Looking For Group in the quest's zone and opens the quest groups window, with the groups doing that quest first. No group? **Create group** lists you with the quest (a dungeon quest lists a dungeon group), and **Description** gives you a ready text with the quest, objective and zone to paste in the listing's description (the game doesn't let addons fill it in). Players who also use GrupoFacil see each other's quests silently, the leader invites from the window (or automatically, if they turn it on), and the invite from the leader you asked is accepted by itself. When the quest is done, the addon offers to leave the group and remove the listing.
 - **Your own message**: use `{class}`, `{spec}`, `{level}`, `{name}`, `{role}` (your Looking For Group roles) and `{activity}` (the group's dungeon). Your spec is detected from your talents, or you can set it yourself.
 - **Six languages**: English, Brazilian Portuguese, Spanish (Spain), Spanish (Latin America), German and French. It follows your game client until you pick one in the options (the UI reloads).
 - **Resizable window**: drag the bottom-right corner; a taller window shows more rows.
@@ -71,7 +71,7 @@ The first time the window opens, a banner offers a 30-second tour of the window.
 | `/gf bug` | Open the **Report a problem** window |
 | `/gf bug <text>` / `/gf bug list` | Report right away from the chat / list your reports and their state |
 | `/gf quests` | Open or close the quest groups window (or click the magnifier next to a quest) |
-| `/gf news` | Open **What's New** (it also opens by itself on every load until you tick "I've read it" for the current version) |
+| `/gf news` | Open **What's New**: one page per version, with the report box on the first page (it also opens by itself on every load until you tick "I've read it" for the current version) |
 
 ## Bug reports
 

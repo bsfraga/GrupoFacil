@@ -38,6 +38,8 @@ local ACCEPT_FOR = 120
 local JOIN_WINDOW, JOIN_WARN = 3600, 12 -- o jogo recusa a 17ª entrada em grupo numa hora (LayerSwap, 25/11/2026)
 local MAX_LOG_IDS = 30
 local REQUEST_TTL = 300
+local CREATE_WAIT = 4      -- s para o jogo responder à criação da listagem
+local PLAYSTYLE_FUN_RELAXED = 2 -- Enum.LFGEntryGeneralPlaystyle.FunRelaxed, se o Enum não existir
 
 local function isSecret(v) return NS.isSecret(v) end
 local function num(v) if type(v) == "number" and not isSecret(v) then return v end end
@@ -176,7 +178,7 @@ local function activities(category)
             if num(a) then
                 local info = call(C_LFGList.GetActivityInfoTable, a)
                 if type(info) == "table" and not isSecret(info) then
-                    list[#list + 1] = { id = a, name = norm(info.fullName or info.shortName), mapID = num(info.mapID),
+                    list[#list + 1] = { id = a, name = norm(info.fullName or info.shortName), label = str(info.fullName or info.shortName), mapID = num(info.mapID),
                         min = num(info.minLevelSuggestion), max = num(info.maxLevelSuggestion), size = num(info.maxNumPlayers) }
                 end
             end
@@ -188,10 +190,22 @@ end
 Q.Activities = activities
 function Q.ResetActivityCache() actCache = {} end
 
+-- "The Deadmines" (cabeçalho do log) e "Deadmines" (atividade) são o mesmo lugar
+local function bare(s)
+    s = norm(s)
+    if not s then return nil end
+    s = s:gsub("^the%s+", ""):gsub("[%p]", ""):gsub("%s+", " ")
+    return s
+end
+
 local function findActivity(category, zone, mapID)
-    local z = norm(zone)
-    for _, a in ipairs(activities(category)) do
+    local z, zb = norm(zone), bare(zone)
+    local list = activities(category)
+    for _, a in ipairs(list) do
         if (z and a.name == z) or (mapID and a.mapID == mapID) then return a end
+    end
+    if zb and zb ~= "" then
+        for _, a in ipairs(list) do if bare(a.name) == zb then return a end end
     end
     return nil
 end
@@ -207,8 +221,9 @@ end
 function Q.ActivityFor(q)
     if not q then return nil, Q.CATEGORY, nil end
     local mapID = questMapID(q.id)
-    -- uma missão de masmorra pede o grupo da masmorra
-    local a = findActivity(Q.DUNGEON_CATEGORY, q.zone, nil)
+    -- uma missão de masmorra pede o grupo da masmorra (busca e criação vão para Masmorras, pedido do
+    -- Fraga, 26/11): pelo cabeçalho do log ou, se o jogo der, pelo mapa da missão
+    local a = findActivity(Q.DUNGEON_CATEGORY, q.zone, nil) or (mapID and findActivity(Q.DUNGEON_CATEGORY, nil, mapID))
     if a then return a, Q.DUNGEON_CATEGORY, "dungeon" end
     a = findActivity(Q.CATEGORY, q.zone, mapID)
     if a then return a, Q.CATEGORY, "quest" end
@@ -473,17 +488,97 @@ function Q.Create()
     local ok, why = Q.CanCreate()
     if not ok then NS.Print(format(L["not listed: %s."], why)) return false end
     local cur = Q.current
+    -- Mesmos campos que o botão "Listar" do Looking For Group do Forever manda. O estilo de jogo é
+    -- obrigatório lá ("Select Playstyle (required)"): sem ele o jogo não cria a listagem e não avisa
+    -- (teste do Fraga, 26/11). "Divertido, sem pressa" combina com grupo de missão.
     local data = { activityIDs = { cur.activity.id }, newPlayerFriendly = false }
+    local styles = Enum and Enum.LFGEntryGeneralPlaystyle
+    data.generalPlaystyle = (styles and styles.FunRelaxed) or PLAYSTYLE_FUN_RELAXED
     local db = Q.DB()
-    if not db.noQuestIDListing then data.questID = cur.questID end
-    Q.pendingCreate = { questID = cur.questID, at = GetTime(), withQuest = data.questID ~= nil }
+    -- missão de masmorra: grupo de masmorra normal, como o botão do jogo cria (sem o ID da missão)
+    local dungeon = cur.category == Q.DUNGEON_CATEGORY
+    if not (dungeon or db.noQuestIDListing or Q.noQuestIDSession) then data.questID = cur.questID end
+    local p = { questID = cur.questID, at = GetTime(), withQuest = data.questID ~= nil,
+        dungeon = dungeon and (cur.activity.label or cur.activity.name) or nil }
+    Q.pendingCreate = p
     local called = NS.GuardTag("C_LFGList.CreateListing", C_LFGList.CreateListing, data)
-    Trace("MISSAO", "criar listagem: missão=%d atividade=%d comID=%s chamada=%s", cur.questID, cur.activity.id,
-        tostring(data.questID ~= nil), tostring(called))
-    if not called then Q.pendingCreate = nil return false end
+    Trace("MISSAO", "criar listagem: missão=%d atividade=%d comID=%s estilo=%s chamada=%s", cur.questID, cur.activity.id,
+        tostring(data.questID ~= nil), tostring(data.generalPlaystyle), tostring(called))
+    if not called then
+        Q.pendingCreate = nil
+        NS.Print(L["the game did not accept the listing. Send /gf diag to the author."])
+        return false
+    end
     Q.myQuest = cur.questID
+    -- Sem resposta do jogo (nem criada nem recusada) em CREATE_WAIT s: avisa em vez de ficar mudo.
+    C_Timer.After(CREATE_WAIT, function()
+        if Q.pendingCreate ~= p then return end
+        Q.pendingCreate = nil
+        if Q.HasListing() then return end
+        if not IsInGroup() then Q.myQuest = nil end
+        if p.withQuest then
+            -- o botão nativo não manda o ID da missão: a próxima tentativa (nesta sessão) vai sem ele
+            Q.noQuestIDSession = true
+            NS.Print(L["the game did not create the listing. Click Create group again (it goes without the quest)."])
+        else
+            NS.Print(L["the game did not create the listing. Open Looking For Group to list by hand, and send /gf diag to the author."])
+        end
+        Trace("MISSAO", "listagem sem resposta do jogo em %ds (com ID=%s)", CREATE_WAIT, tostring(p.withQuest))
+        refresh("create-timeout")
+    end)
     refresh("create")
     return true
+end
+
+------------------------------------------------------------------------
+-- descrição sugerida para a listagem
+-- O jogo lê a descrição da caixa de texto do próprio Looking For Group (quadro seguro da Blizzard):
+-- addon não consegue preencher, e mexer nela é interferir na interface do jogo. O GrupoFacil monta o
+-- texto e o jogador cola (Ctrl+C, Ctrl+V). Em inglês por padrão, que é o que todo mundo lê.
+------------------------------------------------------------------------
+local DESC_MAX = 250
+local function clip(s, n)
+    s = tostring(s or "")
+    if #s <= n then return s end
+    s = s:sub(1, n - 3)
+    s = s:gsub("[\192-\255][\128-\191]*$", "") -- não corta um caractere UTF-8 no meio
+    return s .. "..."
+end
+
+function Q.Objective(questID)
+    local ql = questLog()
+    local list = ql and call(ql.GetQuestObjectives, questID)
+    if type(list) ~= "table" or isSecret(list) then return nil end
+    for _, o in ipairs(list) do
+        local t = type(o) == "table" and str(o.text)
+        if t and not o.finished then return t end
+    end
+    local first = list[1]
+    return type(first) == "table" and str(first.text) or nil
+end
+
+function Q.Description(questID, translated)
+    local q = Q.Info(questID)
+    if not q then return nil end
+    local zone = q.zone or ""
+    local cur = Q.current
+    if cur and cur.questID == questID and cur.activity and cur.activity.label then zone = cur.activity.label end
+    local obj = Q.Objective(questID)
+    local tpl
+    if translated then
+        tpl = obj and L["Quest: %s (%s) in %s. Grouping with the free GrupoFacil addon: find quest groups in 2 clicks (CurseForge)."]
+            or L["Quest: %s in %s. Grouping with the free GrupoFacil addon: find quest groups in 2 clicks (CurseForge)."]
+    else
+        tpl = obj and "Quest: %s (%s) in %s. Grouping with the free GrupoFacil addon: find quest groups in 2 clicks (CurseForge)."
+            or "Quest: %s in %s. Grouping with the free GrupoFacil addon: find quest groups in 2 clicks (CurseForge)."
+    end
+    local text
+    if obj then
+        text = format(tpl, clip(q.title, 60), clip(obj, 60), clip(zone, 40))
+    else
+        text = format(tpl, clip(q.title, 60), clip(zone, 40))
+    end
+    return clip(text, DESC_MAX)
 end
 
 function Q.RemoveListing()
@@ -760,8 +855,13 @@ local function onEvent(_, event, ...)
         local p = Q.pendingCreate
         if p and Q.HasListing() then
             Q.pendingCreate = nil
-            NS.Print(L["your group is listed in Looking For Group for this quest."])
+            if p.dungeon then
+                NS.Print(format(L["your group is listed in Looking For Group, in Dungeons: %s."], p.dungeon))
+            else
+                NS.Print(L["your group is listed in Looking For Group for this quest."])
+            end
             Trace("MISSAO", "listagem criada (com ID da missão=%s)", tostring(p.withQuest))
+            if NS.OnQuestListed then NS.OnQuestListed(p.questID) end
         elseif not Q.HasListing() and not IsInGroup() then
             Q.myQuest = nil
         end

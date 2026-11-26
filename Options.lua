@@ -458,6 +458,7 @@ local function buildWindow()
     optWindow = f
     f:SetSize(640, 640)
     f:SetFrameStrata("DIALOG")
+    NS.Toplevel(f)
     f:SetClampedToScreen(true)
     f:SetMovable(true)
     f:EnableMouse(true)
