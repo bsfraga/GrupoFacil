@@ -562,8 +562,51 @@ function Q.RemoveListing()
     if not Q.HasListing() then return false end
     local ok = NS.GuardTag("C_LFGList.RemoveListing", C_LFGList.RemoveListing)
     Trace("MISSAO", "tirar listagem: %s", tostring(ok))
+    -- confere: se o jogo não tirou, avisa em vez de a janela mostrar uma coisa e o jogo outra
+    C_Timer.After(2, function()
+        if Q.HasListing() then
+            NS.Print(L["the game did not take your group out of Looking For Group. Remove it there, and send /gf diag to the author."])
+            Trace("MISSAO", "listagem continua 2 s depois de tirar")
+        end
+        Q.CheckListing("tirar+2")
+        refresh("remove-check")
+    end)
     refresh("remove")
     return ok
+end
+
+-- Estado da sua listagem: quando ela some (tirada pelo GrupoFacil, pelo Looking For Group do jogo ou
+-- porque o grupo acabou), a missão do grupo e as informações dela são limpas (pedido do Fraga, 26/11):
+-- a aba Missões volta para a lista das suas missões e ninguém mais recebe a missão como sua.
+Q.wasListed = false
+function Q.CheckListing(why)
+    local has = Q.HasListing()
+    if has then Q.wasListed = true return end
+    if not Q.wasListed then return end
+    Q.wasListed = false
+    Trace("MISSAO", "listagem saiu (%s): limpa a missão do grupo", tostring(why))
+    if not IsInGroup() or UnitIsGroupLeader("player") then Q.myQuest = nil end
+    Q.current = nil
+    Q.status = nil
+    if NS.QuestPick then NS.QuestPick(true) end
+    refresh("delisted")
+end
+
+-- todas as missões do log (para a lista da aba Missões), na ordem do log
+function Q.LogQuests()
+    local ql = questLog()
+    local out = {}
+    if not ql then return out end
+    local n = num(call(ql.GetNumQuestLogEntries)) or 0
+    for i = 1, math.min(n, 80) do
+        local info = call(ql.GetInfo, i)
+        if type(info) == "table" and not isSecret(info) and not info.isHeader then
+            local id = num(info.questID) or num(call(ql.GetQuestIDForLogIndex, i))
+            local q = id and id > 0 and Q.Info(id)
+            if q then out[#out + 1] = q end
+        end
+    end
+    return out
 end
 
 function Q.LeaveGroup()
@@ -868,9 +911,11 @@ local function onEvent(_, event, ...)
                 NS.Print(L["your group is listed in Looking For Group for this quest."])
             end
             Trace("MISSAO", "listagem criada (com ID da missão=%s)", tostring(p.withQuest))
-        elseif not Q.HasListing() and not IsInGroup() then
-            Q.myQuest = nil
         end
+        Q.CheckListing("evento")
+        -- o jogo pode avisar antes de atualizar o estado da listagem: confere de novo logo depois
+        C_Timer.After(0.5, function() Q.CheckListing("evento+0.5") end)
+        C_Timer.After(1.5, function() Q.CheckListing("evento+1.5") end)
         refresh("entry")
     elseif event == "LFG_LIST_ENTRY_CREATION_FAILED" then
         local p = Q.pendingCreate

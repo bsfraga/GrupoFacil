@@ -71,7 +71,7 @@ local function check(parent, text, tip)
     local t = c.Text or c.text or label(c, "", "GameFontHighlightSmall")
     if not (c.Text or c.text) then t:SetPoint("LEFT", c, "RIGHT", 2, 1) end
     t:SetText(text)
-    t:SetWidth(W - 60)
+    t:SetWidth(W - 90)
     t:SetJustifyH("LEFT")
     t:SetWordWrap(false)
     c.label = t
@@ -104,6 +104,7 @@ end
 ------------------------------------------------------------------------
 function NS.QuestMagnifierClick(questID)
     if NS.ShowQuestWindow then NS.ShowQuestWindow(true) end
+    if NS.QuestPick then NS.QuestPick(false) end
     local ok, why = Q.Search(questID)
     if not ok and why then
         Q.status = why
@@ -542,9 +543,29 @@ function NS.BuildQuestUI()
     win:Hide()
     win:SetScript("OnSizeChanged", function() NS.RefreshQuest("size") end)
 
-    -- a missão
+    -- Layout (rodada 3 do Fraga, 26/11: "interface de missões não é intuitiva"), de cima para baixo:
+    --  1. barra: "< Suas missões" (volta à lista) e "Buscar de novo"
+    --  2. a missão escolhida: nome, zona/level/elite, objetivo
+    --  3. a ação principal: Criar grupo / Tirar listagem, com o estado do seu grupo ao lado
+    --  4. pedidos de vaga (quando há)
+    --  5. grupos e jogadores da zona (ou, sem missão escolhida, a lista das suas missões)
+    --  6. rodapé: contagem, páginas e "Opções" (as três opções ficam recolhidas)
+    win.back = button(win, L["< Your quests"], 120, 22)
+    win.back:SetPoint("TOPLEFT", 12, -30)
+    win.back:SetScript("OnClick", function() NS.QuestPick(true); NS.RenderQuest() end)
+    tooltip(win.back, L["Your quests"], L["Back to the list of the quests in your log."])
+    win.search = button(win, L["Search again"], 110)
+    win.search:SetPoint("TOPRIGHT", -12, -30)
+    win.search:SetScript("OnClick", function()
+        local ok, why = Q.SearchAgain()
+        Q.status = (not ok) and why or nil
+        NS.RefreshQuest("search")
+    end)
+    tooltip(win.search, L["Search again"], L["Searches again for the same quest."])
+
+    -- 2. a missão
     win.quest = label(win, "", "GameFontNormalLarge")
-    win.quest:SetPoint("TOPLEFT", 14, -32)
+    win.quest:SetPoint("TOPLEFT", 14, -60)
     win.quest:SetPoint("RIGHT", win, "RIGHT", -14, 0)
     win.quest:SetJustifyH("LEFT")
     win.quest:SetWordWrap(false)
@@ -560,31 +581,42 @@ function NS.BuildQuestUI()
     win.obj:SetJustifyH("LEFT")
     win.obj:SetWordWrap(false)
     win.obj:SetTextColor(0.85, 0.85, 0.85)
-    win.status = label(win, "", "GameFontNormalSmall")
-    win.status:SetPoint("TOPLEFT", win.obj, "BOTTOMLEFT", 0, -6)
-    win.status:SetPoint("RIGHT", win, "RIGHT", -14, 0)
-    win.status:SetJustifyH("LEFT")
-    win.status:SetWordWrap(false)
-    win.warn = label(win, "", "GameFontNormalSmall")
-    win.warn:SetPoint("TOPLEFT", win.status, "BOTTOMLEFT", 0, -4)
-    win.warn:SetPoint("RIGHT", win, "RIGHT", -14, 0)
-    win.warn:SetJustifyH("LEFT")
-    win.warn:SetWordWrap(false)
-    win.warn:SetTextColor(1, 0.53, 0)
 
-    -- pedidos recebidos (você lidera)
+    -- 3. ação principal e o estado do seu grupo
+    win.create = button(win, L["Create group"], 130, 24, { L["Create group"], L["Remove listing"] })
+    win.create:SetPoint("TOPLEFT", 12, -114)
+    win.create:SetScript("OnClick", function()
+        if Q.HasListing() then Q.RemoveListing() else Q.Create() end
+        NS.RefreshQuest("create")
+    end)
+    tooltip(win.create, function() return Q.HasListing() and L["Remove listing"] or L["Create group"] end, function()
+        if Q.HasListing() then return L["Takes your group out of Looking For Group."] end
+        local ok, why = Q.CanCreate()
+        if not ok then return L["Unavailable: "] .. why end
+        local act = Q.current and Q.current.activity
+        return format(L["Lists you in Looking For Group (%s) with this quest. Players who click the magnifier on the same quest find you first."],
+            act and (act.label or act.name) or "?")
+    end)
+    win.group = label(win, "", "GameFontHighlightSmall")
+    win.group:SetPoint("LEFT", win.create, "RIGHT", 10, 0)
+    win.group:SetPoint("RIGHT", win, "RIGHT", -14, 0)
+    win.group:SetJustifyH("LEFT")
+    win.group:SetWordWrap(true)
+    win.group:SetHeight(24)
+
+    -- 4. pedidos recebidos (você lidera)
     win.reqTitle = label(win, L["Asked to join your group"], "GameFontNormal")
-    win.reqTitle:SetPoint("TOPLEFT", 14, -126)
     win.reqTitle:SetJustifyH("LEFT")
     win.reqBox = CF("Frame", nil, win)
-    win.reqBox:SetPoint("TOPLEFT", 10, -144)
     win.reqBox:SetPoint("RIGHT", win, "RIGHT", -10, 0)
     win.reqBox:SetHeight(REQ_ROWS * 26)
     for i = 1, REQ_ROWS do reqRows[i] = makeReqRow(win.reqBox, i) end
 
-    -- resultados
+    -- 5. resultados (ou a lista das suas missões)
+    win.listTitle = label(win, "", "GameFontNormal")
+    win.listTitle:SetJustifyH("LEFT")
+    win.listTitle:SetWordWrap(false)
     win.list = CF("Frame", nil, win)
-    win.list:SetPoint("BOTTOMRIGHT", -10, 104)
     win.list:EnableMouseWheel(true)
     win.offset = 0
     win.list:SetScript("OnMouseWheel", function(_, delta)
@@ -598,63 +630,180 @@ function NS.BuildQuestUI()
     win.empty:SetJustifyV("TOP")
     win.empty:SetHeight(60)
 
-    -- ações
-    win.search = button(win, L["Search again"], 110)
-    win.search:SetPoint("BOTTOMLEFT", 12, 76)
-    win.search:SetScript("OnClick", function()
-        local ok, why = Q.SearchAgain()
-        Q.status = (not ok) and why or nil
-        NS.RefreshQuest("search")
-    end)
-    tooltip(win.search, L["Search again"], L["Searches again for the same quest."])
-    win.create = button(win, L["Create group"], 120, 22, { L["Create group"], L["Remove listing"] })
-    win.create:SetPoint("LEFT", win.search, "RIGHT", 6, 0)
-    win.create:SetScript("OnClick", function()
-        if Q.HasListing() then Q.RemoveListing() else Q.Create() end
-        NS.RefreshQuest("create")
-    end)
-    tooltip(win.create, function() return Q.HasListing() and L["Remove listing"] or L["Create group"] end, function()
-        if Q.HasListing() then return L["Takes your group out of Looking For Group."] end
-        local ok, why = Q.CanCreate()
-        if not ok then return L["Unavailable: "] .. why end
-        local act = Q.current and Q.current.activity
-        return format(L["Lists you in Looking For Group (%s) with this quest. Players who click the magnifier on the same quest find you first."],
-            act and (act.label or act.name) or "?")
-    end)
+    -- 6. rodapé
+    win.status = label(win, "", "GameFontNormalSmall")
+    win.status:SetPoint("BOTTOMLEFT", 14, 44)
+    win.status:SetJustifyH("LEFT")
+    win.status:SetWordWrap(false)
     win.pageFS = label(win, "", "GameFontDisableSmall")
-    win.pageFS:SetPoint("BOTTOMRIGHT", -16, 82)
+    win.pageFS:SetPoint("BOTTOMRIGHT", -16, 44)
     win.pageFS:SetJustifyH("RIGHT")
+    win.status:SetPoint("RIGHT", win.pageFS, "LEFT", -8, 0)
+    win.optBtn = button(win, L["Options"], 90, 22)
+    win.optBtn:SetPoint("BOTTOMLEFT", 12, 12)
+    win.optBtn:SetScript("OnClick", function() win.opts:SetShown(not win.opts:IsShown()) end)
+    tooltip(win.optBtn, L["Options"], L["Auto-invite, auto-accept and the magnifier next to quests."])
+    win.warn = label(win, "", "GameFontNormalSmall")
+    win.warn:SetPoint("LEFT", win.optBtn, "RIGHT", 10, 0)
+    win.warn:SetPoint("RIGHT", win, "RIGHT", -26, 0)
+    win.warn:SetJustifyH("LEFT")
+    win.warn:SetWordWrap(false)
+    win.warn:SetTextColor(1, 0.53, 0)
 
-    win.autoInvite = check(win, L["Auto-invite players who ask for the same quest"],
+    -- opções recolhidas: caixa por cima da lista, acima do botão
+    win.opts = CF("Frame", nil, win, "BackdropTemplate")
+    if win.opts.SetBackdrop then
+        win.opts:SetBackdrop({ bgFile = "Interface\\Tooltips\\UI-Tooltip-Background", edgeFile = "Interface\\Tooltips\\UI-Tooltip-Border",
+            tile = true, tileSize = 16, edgeSize = 14, insets = { left = 4, right = 4, top = 4, bottom = 4 } })
+        win.opts:SetBackdropColor(0.04, 0.05, 0.09, 0.97)
+        win.opts:SetBackdropBorderColor(1, 0.82, 0, 1)
+    end
+    win.opts:SetPoint("BOTTOMLEFT", win.optBtn, "TOPLEFT", -4, 4)
+    win.opts:SetPoint("RIGHT", win, "RIGHT", -10, 0)
+    win.opts:SetHeight(84)
+    win.opts:SetFrameLevel(win:GetFrameLevel() + 30)
+    win.opts:EnableMouse(true)
+    win.opts:Hide()
+    win.autoInvite = check(win.opts, L["Auto-invite players who ask for the same quest"],
         L["Only players who use GrupoFacil and asked to join for a quest you also have. At most 6 invites every 10 minutes. Off by default."])
-    win.autoInvite:SetPoint("BOTTOMLEFT", 12, 50)
+    win.autoInvite:SetPoint("TOPLEFT", 10, -8)
     win.autoInvite:SetScript("OnClick", function(self) Q.DB().autoInvite = self:GetChecked() and true or false end)
-    win.autoAccept = check(win, L["Auto-accept the invite from a leader I asked"],
+    win.autoAccept = check(win.opts, L["Auto-accept the invite from a leader I asked"],
         L["Only the leader you asked to join, for 2 minutes after asking."])
-    win.autoAccept:SetPoint("BOTTOMLEFT", 12, 28)
+    win.autoAccept:SetPoint("TOPLEFT", win.autoInvite, "BOTTOMLEFT", 0, -2)
     win.autoAccept:SetScript("OnClick", function(self) Q.DB().autoAccept = self:GetChecked() and true or false end)
-    win.magnifier = check(win, L["Magnifier next to quests"], L["Shows the magnifier in the objective list and in the quest details."])
-    win.magnifier:SetPoint("BOTTOMLEFT", 12, 6)
+    win.magnifier = check(win.opts, L["Magnifier next to quests"], L["Shows the magnifier in the objective list and in the quest details."])
+    win.magnifier:SetPoint("TOPLEFT", win.autoAccept, "BOTTOMLEFT", 0, -2)
     win.magnifier:SetScript("OnClick", function(self)
         Q.DB().magnifier = self:GetChecked() and true or false
         NS.RefreshMagnifiers()
     end)
 
     win:SetScript("OnShow", function() NS.RenderQuest() end)
+    win:SetScript("OnHide", function() if win.opts then win.opts:Hide() end end)
+    NS.QuestRefs = { back = win.back, search = win.search, quest = win.quest, obj = win.obj, create = win.create,
+        group = win.group, list = win.list, listTitle = win.listTitle, options = win.optBtn, panel = win }
     Trace("CARGA", "janela de missões criada")
 end
 
-local function layoutList(nReq)
-    local top = nReq > 0 and (144 + nReq * 26 + 6) or 124
+-- Lista das suas missões (sem missão escolhida, ou depois de "< Suas missões")
+local pickRows = {}
+local function makePickRow(parent, i)
+    local r = CF("Button", nil, parent)
+    r:SetHeight(ROW_H)
+    r:SetPoint("TOPLEFT", 0, -(i - 1) * ROW_H)
+    r:SetPoint("TOPRIGHT", 0, -(i - 1) * ROW_H)
+    r:SetHighlightTexture("Interface\\QuestFrame\\UI-QuestTitleHighlight", "ADD")
+    r.bg = r:CreateTexture(nil, "BACKGROUND")
+    r.bg:SetAllPoints()
+    r.icon = r:CreateTexture(nil, "ARTWORK")
+    r.icon:SetSize(18, 18)
+    r.icon:SetPoint("LEFT", 8, 0)
+    r.icon:SetTexture(ICON)
+    r.name = label(r, "", "GameFontNormal")
+    r.name:SetPoint("TOPLEFT", r.icon, "TOPRIGHT", 10, 4)
+    r.name:SetJustifyH("LEFT")
+    r.name:SetWordWrap(false)
+    r.info = label(r, "", "GameFontHighlightSmall")
+    r.info:SetPoint("TOPLEFT", r.name, "BOTTOMLEFT", 0, -3)
+    r.info:SetJustifyH("LEFT")
+    r.info:SetWordWrap(false)
+    r.go = button(r, L["Find group"], 96, 20)
+    r.go:SetPoint("RIGHT", -4, 0)
+    r.name:SetPoint("RIGHT", r.go, "LEFT", -6, 0)
+    r.info:SetPoint("RIGHT", r.go, "LEFT", -6, 0)
+    -- clique do jogador: a busca (ação protegida) pode sair daqui
+    local function go() if r.questID then NS.QuestMagnifierClick(r.questID) end end
+    r.go:SetScript("OnClick", go)
+    r:SetScript("OnClick", go)
+    tooltip(r.go, L["Find group"], magnifierLine)
+    r:Hide()
+    return r
+end
+
+-- picking: true mostra a lista das suas missões; false, a missão escolhida
+function NS.QuestPick(on)
+    if win then win.picking = on and true or false; win.offset = 0 end
+end
+
+local function layoutList(nReq, top0)
+    local top = top0
+    win.reqTitle:ClearAllPoints()
+    win.reqTitle:SetPoint("TOPLEFT", 14, -top)
     win.reqTitle:SetShown(nReq > 0)
+    win.reqBox:ClearAllPoints()
+    win.reqBox:SetPoint("TOPLEFT", 10, -(top + 18))
+    win.reqBox:SetPoint("RIGHT", win, "RIGHT", -10, 0)
+    if nReq > 0 then top = top + 18 + nReq * 26 + 8 end
+    win.listTitle:ClearAllPoints()
+    win.listTitle:SetPoint("TOPLEFT", 14, -top)
+    win.listTitle:SetPoint("RIGHT", win, "RIGHT", -14, 0)
+    top = top + 18
     win.list:ClearAllPoints()
     win.list:SetPoint("TOPLEFT", 10, -top)
-    win.list:SetPoint("BOTTOMRIGHT", -10, 104)
-    local h = (win:GetHeight() or 540) - top - 104
-    local n = max(2, floor(h / ROW_H))
-    for i = 1, n do if not rows[i] then rows[i] = makeRow(win.list, i) end end
-    for i = n + 1, #rows do rows[i]:Hide() end
-    return n
+    win.list:SetPoint("BOTTOMRIGHT", -10, 62)
+    local h = (win:GetHeight() or 540) - top - 62
+    return max(2, floor(h / ROW_H))
+end
+
+local function questMeta(q, cur)
+    local meta = {}
+    if q.zone then meta[#meta + 1] = q.zone end
+    if q.level then meta[#meta + 1] = format(L["Lvl %d"], q.level) end
+    if q.elite then meta[#meta + 1] = "|cffff8000" .. L["Elite"] .. "|r" end
+    if q.size then meta[#meta + 1] = format(L["Group: %d"], q.size) end
+    if q.complete then meta[#meta + 1] = "|cff55ff55" .. L["complete"] .. "|r" end
+    if cur and cur.activity then
+        meta[#meta + 1] = "|cff999999" .. format(L["Looking For Group: %s"], cur.activity.label or cur.activity.name or "?") .. "|r"
+    end
+    return table.concat(meta, "  ·  ")
+end
+
+-- estado do seu grupo, ao lado do Criar grupo
+local function groupLine(cur)
+    if Q.pendingCreate then return "|cffaaaaaa" .. L["Listing your group..."] .. "|r" end
+    if Q.HasListing() then
+        local q = Q.myQuest and Q.Info(Q.myQuest)
+        return "|cff55ff55" .. format(L["Your group is listed for %s."], (q and q.title) or L["this quest"]) .. "|r"
+    end
+    if IsInGroup() and Q.myQuest then
+        local q = Q.Info(Q.myQuest)
+        return format(L["In a group for %s."], (q and q.title) or L["this quest"])
+    end
+    local ok, why = Q.CanCreate()
+    if not ok then return "|cff999999" .. why .. "|r" end
+    return L["No group? List yours: players who click the magnifier on this quest find you."]
+end
+
+local function renderPicker(n)
+    for _, r in ipairs(rows) do r:Hide() end
+    local quests = Q.LogQuests()
+    local total = #quests
+    win.offset = max(0, min(win.offset, max(0, total - n)))
+    for i = 1, n do if not pickRows[i] then pickRows[i] = makePickRow(win.list, i) end end
+    for i = n + 1, #pickRows do pickRows[i]:Hide() end
+    for i = 1, n do
+        local r, q = pickRows[i], quests[win.offset + i]
+        r.questID = q and q.id
+        if q then
+            r.name:SetText(q.title or "")
+            r.info:SetText(questMeta(q))
+            r.bg:SetColorTexture(1, 1, 1, (i % 2 == 0) and 0.04 or 0)
+            r.go:SetEnabled(not NS.InLockdown())
+            r:Show()
+        else
+            r:Hide()
+        end
+    end
+    win.listTitle:SetText(format(L["Your quests (%d)"], total))
+    if total == 0 then
+        win.empty:SetText(L["Your quest log is empty. Pick up a quest and come back, or click the magnifier next to a quest."])
+        win.empty:Show()
+    else
+        win.empty:Hide()
+    end
+    win.pageFS:SetText(total > n and format(L["%d-%d of %d"], win.offset + 1, min(total, win.offset + n), total) or "")
+    win.status:SetText(L["Pick a quest: GrupoFacil searches its zone in Looking For Group."])
 end
 
 function NS.RenderQuest()
@@ -665,29 +814,27 @@ function NS.RenderQuest()
     win.magnifier:SetChecked(db.magnifier ~= false)
 
     local cur = Q.current
-    if cur and cur.info then
+    if not cur then win.picking = true end
+    local picking = win.picking
+    win.back:SetShown(not picking)
+    win.search:SetShown(not picking)
+    win.create:SetShown(not picking)
+    win.group:SetShown(not picking)
+    win.obj:SetShown(not picking)
+    if picking then
+        win.quest:SetText(L["Your quests"])
+        win.meta:SetText(L["Click Find group on a quest, or the magnifier next to it in the objective list or the quest log."])
+    else
         local q = Q.Info(cur.questID) or cur.info
         cur.info = q
         win.quest:SetText(q.title or "")
-        local meta = {}
-        if q.zone then meta[#meta + 1] = q.zone end
-        if q.level then meta[#meta + 1] = format(L["Lvl %d"], q.level) end
-        if q.elite then meta[#meta + 1] = "|cffff8000" .. L["Elite"] .. "|r" end
-        if q.size then meta[#meta + 1] = format(L["Group: %d"], q.size) end
-        if q.complete then meta[#meta + 1] = "|cff55ff55" .. L["complete"] .. "|r" end
-        if cur.activity then
-            meta[#meta + 1] = "|cff999999" .. format(L["Looking For Group: %s"], cur.activity.label or cur.activity.name or "?") .. "|r"
-        end
-        win.meta:SetText(table.concat(meta, "  ·  "))
+        win.meta:SetText(questMeta(q, cur))
         local obj = Q.Objective(cur.questID)
         win.obj:SetText(obj and (L["Objective: "] .. obj) or "")
-    else
-        win.quest:SetText(L["No quest chosen"])
-        win.meta:SetText(L["Click the magnifier next to a quest in the objective list or in the quest log."])
-        win.obj:SetText("")
+        win.group:SetText(groupLine(cur))
     end
 
-    -- pedidos recebidos
+    -- pedidos recebidos (nos dois modos: quem lidera precisa ver)
     local reqs = Q.Requests()
     NS.UpdateQuestTab()
     local nReq = min(REQ_ROWS, #reqs)
@@ -706,10 +853,21 @@ function NS.RenderQuest()
             r:Hide()
         end
     end
-    local n = layoutList(nReq)
+    local n = layoutList(nReq, picking and 96 or 150)
+    win.warn:SetText(Q.JoinWarning() or "")
+
+    if picking then
+        renderPicker(n)
+        return
+    end
+    for _, r in ipairs(pickRows) do r:Hide() end
+    for i = 1, n do if not rows[i] then rows[i] = makeRow(win.list, i) end end
+    for i = n + 1, #rows do rows[i]:Hide() end
 
     local list = Q.Results()
     local total = #list
+    local zone = (cur.activity and (cur.activity.label or cur.activity.name)) or (cur.info and cur.info.zone) or "?"
+    win.listTitle:SetText(format(L["Groups and players in %s"], zone))
     win.offset = max(0, min(win.offset, max(0, total - n)))
     for i = 1, n do
         local r, e = rows[i], list[win.offset + i]
@@ -746,8 +904,8 @@ function NS.RenderQuest()
         end
     end
     if total == 0 then
-        win.empty:SetText(cur and (NS.searching and L["Searching..."]
-            or L["No group for this quest yet. Create one: players who click the magnifier on the same quest find you."]) or "")
+        win.empty:SetText(NS.searching and L["Searching..."]
+            or L["No group for this quest yet. Create one: players who click the magnifier on the same quest find you."])
         win.empty:Show()
     else
         win.empty:Hide()
@@ -756,7 +914,6 @@ function NS.RenderQuest()
 
     local status
     if Q.status then status = "|cffff8800" .. Q.status .. "|r"
-    elseif not cur then status = ""
     elseif NS.searching then status = L["Searching..."]
     else
         local doing, peers = 0, 0
@@ -767,9 +924,8 @@ function NS.RenderQuest()
         status = format(L["%d groups in the zone, %d doing this quest. %d use GrupoFacil."], total, doing, peers)
     end
     win.status:SetText(status)
-    win.warn:SetText(Q.JoinWarning() or "")
 
-    win.search:SetEnabled(cur ~= nil and GetTime() >= NS.searchReadyAt and not NS.searching and not NS.InLockdown())
+    win.search:SetEnabled(GetTime() >= NS.searchReadyAt and not NS.searching and not NS.InLockdown())
     local has = Q.HasListing()
     win.create:SetText(has and L["Remove listing"] or L["Create group"])
     -- esperando o jogo responder à criação: um clique por vez (no teste, 9 cliques seguidos)

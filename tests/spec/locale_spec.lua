@@ -191,8 +191,19 @@ local function exercise(lang, admin)
     for _, child in ipairs({ qf.list:GetChildren() }) do
         if c.ui.visible(child) and child.entry then c:hover(child); c:hover(child.b1) end
     end
-    for _, b in ipairs({ qf.search, qf.create, qf.dungeons, qf.autoInvite, qf.autoAccept, qf.magnifier }) do c:hover(b) end
+    c:click(qf.optBtn)
+    for _, b in ipairs({ qf.back, qf.search, qf.create, qf.optBtn, qf.autoInvite, qf.autoAccept, qf.magnifier }) do c:hover(b) end
     check("GrupoFacilQuestFrame")
+    -- a lista das missões do registro (o ponto de partida da aba)
+    c:click(qf.back)
+    w:advance(0.3)
+    local firstGo
+    for _, child in ipairs({ qf.list:GetChildren() }) do
+        if c.ui.visible(child) and child.go then c:hover(child.go); firstGo = firstGo or child.go end
+    end
+    check("GrupoFacilQuestFrame")
+    c:click(firstGo)
+    w:advance(1.5)
     c:click(qf.create)
     w:advance(0.5)
     c:hover(qf.create)

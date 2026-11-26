@@ -30,6 +30,12 @@ local function login(w, name, quests, opts)
 end
 
 local function qwin(c) return c.env.GrupoFacilQuestFrame end
+-- as opções ficam num quadro recolhido: abre pelo botão Opções antes de clicar
+local function opt(c, key)
+    local win = qwin(c)
+    if not c:isVisible(win.opts) then c:click(win.optBtn) end
+    return win[key]
+end
 
 -- linhas visíveis da janela de missões: { name, info, row }
 local function qrows(c)
@@ -119,13 +125,14 @@ describe("quest groups - a lupa", function()
         local c = login(w, "Jogador", { ELITE })
         c:slash("/gf quests")
         local win = qwin(c)
-        T.ok(win.magnifier:GetChecked())
-        c:click(win.magnifier)
+        T.no(c:isVisible(win.opts), "opções recolhidas")
+        T.ok(opt(c, "magnifier"):GetChecked())
+        c:click(opt(c, "magnifier"))
         T.eq(H.db(c).quest.magnifier, false)
         T.no(c:isVisible((c:trackerMagnifier(ELITE.id))), "escondida")
         c:updateTracker()
         T.no(c:isVisible((c:trackerMagnifier(ELITE.id))), "continua escondida depois do redesenho")
-        c:click(win.magnifier)
+        c:click(opt(c, "magnifier"))
         T.ok(c:isVisible((c:trackerMagnifier(ELITE.id))), "de volta")
         T.clean(c)
     end)
@@ -262,7 +269,7 @@ describe("quest groups - entrar no grupo", function()
         local lead = listedLeader(w, "Lider", ELITE)
         local c = login(w, "Jogador", { ELITE })
         c:slash("/gf quests")
-        c:click(qwin(c).autoAccept)
+        c:click(opt(c, "autoAccept"))
         T.eq(H.db(c).quest.autoAccept, false)
         magnify(w, c, ELITE.id)
         c:click(rowOf(c, "Lider").b1)
@@ -278,7 +285,7 @@ describe("quest groups - entrar no grupo", function()
         local w = world()
         local lead = listedLeader(w, "Lider", ELITE)
         T.eq(H.db(lead).quest.autoInvite, false, "desligado por padrão")
-        lead:click(qwin(lead).autoInvite)
+        lead:click(opt(lead, "autoInvite"))
         T.eq(H.db(lead).quest.autoInvite, true)
         local players = {}
         for i = 1, 7 do
@@ -412,7 +419,7 @@ describe("quest groups - uma janela com abas", function()
         T.ok(c:isVisible(main), "a janela é a principal")
         T.ok(c:isVisible(qwin(c)), "aba Missões")
         T.no(c:isVisible(main.dungeonPanel), "a aba Masmorras fica escondida, sem vazar por baixo")
-        T.match(c:text(qwin(c).meta), "Click the magnifier")
+        T.match(c:text(qwin(c).meta), "Click Find group on a quest")
         c:slash("/gf missoes")
         T.no(c:isVisible(main))
         c:slash("/gf")
@@ -597,6 +604,116 @@ describe("quest groups - ajustes do teste no jogo", function()
         local b = H.ns(c).QuestTrackerButtons[block]
         T.ok(b and c:isVisible(b))
         T.no(overlapsRect(c.ui.rect(b), c.ui.rect(mark)), "lupa não cobre o botão do outro addon")
+        T.clean(c)
+    end)
+end)
+
+-- rodada 3 do teste no jogo (26/11): tirar a listagem, limpar a missão, a lista das suas missões
+local function pickRowsOf(c)
+    local out = {}
+    for _, r in ipairs({ qwin(c).list:GetChildren() }) do
+        if c.ui.visible(r) and r.go then out[#out + 1] = r end
+    end
+    return out
+end
+
+describe("quest groups - tirar a listagem e a lista das suas missões", function()
+    it("Tirar listagem pelo GrupoFacil limpa a missão e volta para a lista das suas missões", function()
+        local w = world()
+        local lead = listedLeader(w, "Lider", ELITE)
+        local Q = H.ns(lead).Quest
+        T.eq(Q.myQuest, ELITE.id)
+        T.match(lead:text(qwin(lead).group), "Your group is listed for The Defias Brotherhood")
+        lead:click(qwin(lead).create)
+        w:advance(3)
+        T.eq(lead.env.C_LFGList.HasActiveEntryInfo(), false)
+        T.eq(Q.myQuest, nil, "a missão do grupo foi limpa")
+        T.eq(Q.current, nil, "a missão escolhida foi limpa")
+        T.ok(qwin(lead).picking, "de volta para a lista das suas missões")
+        T.no(lead:isVisible(qwin(lead).create), "sem Criar grupo na lista")
+        T.eq(lead:text(qwin(lead).quest), "Your quests")
+        T.no(lead:chatLines()[1] and lead:chatLines()[#lead:chatLines()]:find("did not take your group out"), "o jogo tirou")
+        T.clean(lead)
+    end)
+
+    it("tirar a listagem no Looking For Group do jogo também limpa o GrupoFacil", function()
+        local w = world()
+        local lead = listedLeader(w, "Lider", ELITE)
+        local Q = H.ns(lead).Quest
+        w.lfg:removeActive(lead) -- o jogador clicou em "Remover listagem" na janela do jogo
+        w:advance(2)
+        T.eq(Q.myQuest, nil)
+        T.eq(Q.current, nil)
+        T.ok(qwin(lead).picking)
+        T.no(Q.HasListing())
+        -- um novo pedido de outro jogador não diz mais que o grupo é dessa missão
+        local c = login(w, "Jogador", { ELITE })
+        magnify(w, c, ELITE.id)
+        T.eq(rowOf(c, "Lider"), nil, "o grupo saiu da busca")
+        T.clean(lead); T.clean(c)
+    end)
+
+    it("se o jogo não tirar a listagem, avisa em vez de ficar mudo", function()
+        local w = world()
+        local lead = listedLeader(w, "Lider", ELITE)
+        local api = lead.env.C_LFGList
+        api.RemoveListing = function() end -- o jogo ignora
+        lead:click(qwin(lead).create)
+        w:advance(3)
+        T.has(lead:chatLines(), "the game did not take your group out of Looking For Group")
+        T.eq(lead:text(qwin(lead).create), "Remove listing", "continua listado")
+        T.clean(lead)
+    end)
+
+    it("a aba Missões começa pela lista das suas missões; Achar grupo busca a missão", function()
+        local w = world()
+        local c = login(w, "Jogador", { ELITE, OTHER })
+        c:slash("/gf quests")
+        local win = qwin(c)
+        T.ok(win.picking)
+        T.eq(c:text(win.quest), "Your quests")
+        T.eq(c:text(win.listTitle), "Your quests (2)")
+        local rs = pickRowsOf(c)
+        T.eq(#rs, 2)
+        local target
+        for _, r in ipairs(rs) do if r.questID == OTHER.id then target = r end end
+        T.ok(target, "Blackrock Menace na lista")
+        T.match(c:text(target.info), "Redridge")
+        c:click(target.go)
+        w:advance(1.5)
+        T.no(win.picking)
+        T.eq(c:text(win.quest), OTHER.title)
+        T.ok(c:isVisible(win.create))
+        T.match(c:text(win.listTitle), "Groups and players in Redridge")
+        c:click(win.back)
+        T.ok(win.picking, "o botão < Suas missões volta para a lista")
+        T.clean(c)
+    end)
+
+    it("registro vazio: explica o que fazer", function()
+        local w = world()
+        local c = login(w, "Jogador", {})
+        c:slash("/gf quests")
+        T.ok(qwin(c).picking)
+        T.match(c:text(qwin(c).empty), "Your quest log is empty")
+        T.clean(c)
+    end)
+
+    it("as opções ficam recolhidas atrás do botão Opções", function()
+        local w = world()
+        local c = login(w, "Jogador", { ELITE })
+        c:slash("/gf quests")
+        local win = qwin(c)
+        T.no(c:isVisible(win.opts))
+        T.no(c:isVisible(win.autoInvite))
+        c:click(win.optBtn)
+        T.ok(c:isVisible(win.autoInvite)); T.ok(c:isVisible(win.autoAccept)); T.ok(c:isVisible(win.magnifier))
+        c:click(win.optBtn)
+        T.no(c:isVisible(win.opts), "o mesmo botão fecha")
+        c:click(win.optBtn)
+        c:slash("/gf quests") -- fecha a janela
+        c:slash("/gf quests")
+        T.no(c:isVisible(win.opts), "reabre recolhido")
         T.clean(c)
     end)
 end)
