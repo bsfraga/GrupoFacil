@@ -28,6 +28,17 @@ jobs:
             exit 1
           fi
 
+      - name: A versão da tag precisa ser a primeira do CHANGELOG
+        # sem isto, uma tag nova num commit antigo da main publicava o código velho com o número novo
+        run: |
+          tag="${GITHUB_REF_NAME#v}"
+          base="${tag%%-*}"
+          top="$(grep -m1 -oP '^## \K[0-9][0-9.]*' CHANGELOG.md || true)"
+          if [ "$top" != "$base" ]; then
+            echo "::error::A tag ${GITHUB_REF_NAME} não bate com a primeira versão do CHANGELOG.md (${top:-nenhuma}). Confira se a tag está no commit certo da main."
+            exit 1
+          fi
+
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"

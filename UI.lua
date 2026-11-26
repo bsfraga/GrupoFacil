@@ -5,7 +5,7 @@ local L = NS.L
 local format, lower, floor, max, min = string.format, string.lower, math.floor, math.max, math.min
 
 local ROW_H, MAX_ROWS = 38, 30
-local MIN_W, MIN_H, MAX_W, MAX_H = 440, 420, 1000, 1200
+local MIN_W, MIN_H, MAX_W, MAX_H = 470, 420, 1000, 1200
 local LIST_TOP, LIST_BOTTOM = 222, 66 -- distância da lista ao topo e ao pé da janela
 local LIST_TOP_COMPACT = 92            -- com os filtros recolhidos
 local STATUS_Y, STATUS_Y_COMPACT = -192, -62
@@ -317,6 +317,8 @@ function NS.BuildUI()
     if frame then return end
     local db = GrupoFacilDB
     frame = CF("Frame", "GrupoFacilFrame", UIParent, "BasicFrameTemplateWithInset")
+    -- Esc fecha a janela (a janela não tem botão seguro, então fechar em combate também é seguro)
+    if UISpecialFrames then tinsert(UISpecialFrames, "GrupoFacilFrame") end
     local size = type(db.size) == "table" and db.size or {}
     frame:SetSize(min(MAX_W, max(MIN_W, size[1] or MIN_W)), min(MAX_H, max(MIN_H, size[2] or 600)))
     frame:SetResizable(true)
@@ -327,6 +329,7 @@ function NS.BuildUI()
         frame:SetMaxResize(MAX_W, MAX_H)
     end
     frame:SetFrameStrata("HIGH")
+    NS.Toplevel(frame)
     frame:SetClampedToScreen(true)
     frame:SetMovable(true)
     frame:EnableMouse(true)
@@ -375,11 +378,23 @@ function NS.BuildUI()
         glow:SetAlpha(0.35 + 0.65 * math.abs(math.sin(t * 2.5)))
     end)
     frame.bugButton = bug
+    frame.authorLine = by
+    by:ClearAllPoints()
+    by:SetPoint("TOPRIGHT", frame, "TOPRIGHT", -30, -6)
+    by:SetPoint("LEFT", bug, "RIGHT", 8, 0) -- janela estreita: a autoria encurta, não cobre o título
+    by:SetJustifyH("RIGHT")
+    by:SetWordWrap(false)
+
+    -- abas (pedido do Fraga, 26/11: uma janela só, Masmorras e Missões em abas). Cada aba é um
+    -- quadro do tamanho da janela; só a aba escolhida fica visível.
+    local panel = CF("Frame", nil, frame)
+    panel:SetAllPoints(frame)
+    frame.dungeonPanel = panel
 
     -- linha 1: modo e ordem
     local prevMode
     for _, mode in ipairs({ "players", "groups", "all" }) do
-        local b = button(frame, MODE_LABEL[mode], 84)
+        local b = button(panel, MODE_LABEL[mode], 84)
         if prevMode then b:SetPoint("LEFT", prevMode, "RIGHT", 2, 0) else b:SetPoint("TOPLEFT", 12, -30) end
         b:SetScript("OnClick", function()
             filters().mode = mode
@@ -388,7 +403,7 @@ function NS.BuildUI()
         modeButtons[mode] = b
         prevMode = b
     end
-    sortBtn = button(frame, "", 140)
+    sortBtn = button(panel, "", 140)
     sortBtn:SetPoint("TOPRIGHT", -12, -30)
     fitWidth(sortBtn, 120, { L["Sort: "] .. L["Level"], L["Sort: "] .. L["Name"], L["Sort: "] .. L["Newest"] })
     sortBtn:SetScript("OnClick", function()
@@ -397,17 +412,17 @@ function NS.BuildUI()
     end)
 
     -- linha 2: level
-    local lvl = label(frame, L["Level"], "GameFontNormal")
+    local lvl = label(panel, L["Level"], "GameFontNormal")
     lvl:SetPoint("TOPLEFT", 14, -64)
-    minBox = CF("EditBox", nil, frame, "InputBoxTemplate")
+    minBox = CF("EditBox", nil, panel, "InputBoxTemplate")
     minBox:SetSize(32, 20)
     minBox:SetPoint("LEFT", lvl, "RIGHT", 10, 0)
     minBox:SetAutoFocus(false)
     minBox:SetNumeric(true)
     minBox:SetMaxLetters(2)
-    local dash = label(frame, L["to"], "GameFontNormal")
+    local dash = label(panel, L["to"], "GameFontNormal")
     dash:SetPoint("LEFT", minBox, "RIGHT", 6, 0)
-    maxBox = CF("EditBox", nil, frame, "InputBoxTemplate")
+    maxBox = CF("EditBox", nil, panel, "InputBoxTemplate")
     maxBox:SetSize(32, 20)
     maxBox:SetPoint("LEFT", dash, "RIGHT", 10, 0)
     maxBox:SetAutoFocus(false)
@@ -423,7 +438,7 @@ function NS.BuildUI()
         box:SetScript("OnEnterPressed", box.ClearFocus)
         box:SetScript("OnEscapePressed", box.ClearFocus)
     end
-    local near = button(frame, L["Near me"], 96, 20)
+    local near = button(panel, L["Near me"], 96, 20)
     near:SetPoint("LEFT", maxBox, "RIGHT", 10, 0)
     near:SetScript("OnClick", function()
         local me = UnitLevel("player") or 1
@@ -432,10 +447,10 @@ function NS.BuildUI()
         onFilterChanged()
     end)
     tooltip(near, L["Near me"], L["Your level, 3 below to 3 above."])
-    hideDelistedCheck = CF("CheckButton", nil, frame, "UICheckButtonTemplate")
+    hideDelistedCheck = CF("CheckButton", nil, panel, "UICheckButtonTemplate")
     hideDelistedCheck:SetSize(24, 24)
     hideDelistedCheck:SetPoint("LEFT", near, "RIGHT", 8, 0)
-    local hdl = label(frame, L["Hide delisted"], "GameFontHighlightSmall")
+    local hdl = label(panel, L["Hide delisted"], "GameFontHighlightSmall")
     hdl:SetPoint("LEFT", hideDelistedCheck, "RIGHT", 0, 0)
     hideDelistedCheck:SetScript("OnClick", function(self)
         filters().hideDelisted = self:GetChecked() and true or false
@@ -444,11 +459,11 @@ function NS.BuildUI()
     for _, w in ipairs({ lvl, minBox, dash, maxBox, near, hideDelistedCheck, hdl }) do filterWidgets[#filterWidgets + 1] = w end
 
     -- linha 3: classes
-    local cl = label(frame, L["Class"], "GameFontNormal")
+    local cl = label(panel, L["Class"], "GameFontNormal")
     cl:SetPoint("TOPLEFT", 14, -98)
     local prev
     for _, class in ipairs(CLASSES) do
-        local b = CF("Button", nil, frame)
+        local b = CF("Button", nil, panel)
         b:SetSize(26, 26)
         if prev then b:SetPoint("LEFT", prev, "RIGHT", 4, 0) else b:SetPoint("LEFT", cl, "RIGHT", 10, 0) end
         b.tex = b:CreateTexture(nil, "ARTWORK")
@@ -472,14 +487,14 @@ function NS.BuildUI()
     filterWidgets[#filterWidgets + 1] = cl
 
     -- linha 4: roles
-    roleLabel = label(frame, L["Role"], "GameFontNormal")
+    roleLabel = label(panel, L["Role"], "GameFontNormal")
     roleLabel:SetPoint("TOPLEFT", 14, -132)
     prev = roleLabel
     for _, role in ipairs({ "tank", "healer", "dps" }) do
-        local c = CF("CheckButton", nil, frame, "UICheckButtonTemplate")
+        local c = CF("CheckButton", nil, panel, "UICheckButtonTemplate")
         c:SetSize(24, 24)
         c:SetPoint("LEFT", prev, "RIGHT", prev == roleLabel and 6 or 2, 0)
-        local l = label(frame, roleWithIcon(role), "GameFontHighlightSmall")
+        local l = label(panel, roleWithIcon(role), "GameFontHighlightSmall")
         l:SetPoint("LEFT", c, "RIGHT", 0, 0)
         c:SetScript("OnClick", function(self)
             filters().roles[role] = self:GetChecked() and true or nil
@@ -494,9 +509,9 @@ function NS.BuildUI()
     filterWidgets[#filterWidgets + 1] = roleLabel
 
     -- linha 5: dungeon e limpar filtros
-    local dl = label(frame, L["Dungeon"], "GameFontNormal")
+    local dl = label(panel, L["Dungeon"], "GameFontNormal")
     dl:SetPoint("TOPLEFT", 14, -166)
-    dungeonBtn = button(frame, "", 220, 20)
+    dungeonBtn = button(panel, "", 220, 20)
     dungeonBtn:SetPoint("LEFT", dl, "RIGHT", 10, 0)
     do -- nome longo de masmorra não vaza do botão
         local fs = dungeonBtn:GetFontString()
@@ -504,7 +519,7 @@ function NS.BuildUI()
     end
     dungeonBtn:SetScript("OnClick", function(self) NS.ToggleDungeonMenu(self) end)
     tooltip(dungeonBtn, L["Dungeon"], L["Show only these dungeons. The list has the dungeons in the current results, with their suggested level."])
-    local clear = button(frame, L["Clear filters"], 110, 20)
+    local clear = button(panel, L["Clear filters"], 110, 20)
     clear:SetPoint("TOPRIGHT", -12, -164)
     clear:SetScript("OnClick", function()
         local f = filters()
@@ -517,19 +532,22 @@ function NS.BuildUI()
     for _, w in ipairs({ dl, dungeonBtn, clear }) do filterWidgets[#filterWidgets + 1] = w end
 
     -- linha 6: status e busca (sobe no modo compacto, ver NS.ApplyCompact)
-    searchBtn = button(frame, L["Search again"], 120)
+    searchBtn = button(panel, L["Search again"], 120)
     searchBtn:SetScript("OnClick", function()
         local ok, why = NS.SearchAgain()
-        if not ok then NS.Print(why .. ".") end
+        if not ok then
+            NS.Print(why .. ".")
+            NS.status = why -- na janela também: sem isso o clique parecia não fazer nada
+        end
         NS.Refresh("search")
     end)
     tooltip(searchBtn, L["Search again"], L["Repeats the last Looking For Group search (same category and activities)."])
-    statusFS = label(frame, "", "GameFontHighlightSmall")
+    statusFS = label(panel, "", "GameFontHighlightSmall")
     statusFS:SetJustifyH("LEFT")
     statusFS:SetWordWrap(false)
 
     -- escondidos nesta sessão e bloqueados: só aparece quando há algum
-    hiddenBtn = button(frame, format(L["Hidden (%d)"], 0), 100)
+    hiddenBtn = button(panel, format(L["Hidden (%d)"], 0), 100)
     hiddenBtn:SetPoint("RIGHT", searchBtn, "LEFT", -6, 0)
     fitWidth(hiddenBtn, 100, { format(L["Hidden (%d)"], 99) })
     hiddenBtn:SetScript("OnClick", function(self) NS.ToggleHiddenMenu(self) end)
@@ -537,7 +555,7 @@ function NS.BuildUI()
     hiddenBtn:Hide()
 
     -- lista (as âncoras de cima ficam em NS.ApplyCompact)
-    local list = CF("Frame", nil, frame)
+    local list = CF("Frame", nil, panel)
     list:EnableMouseWheel(true)
     list:SetScript("OnMouseWheel", function(_, delta)
         NS.CloseRowMenu()
@@ -547,31 +565,25 @@ function NS.BuildUI()
     frame.list = list
 
     -- rodapé
-    local up = button(frame, "<", 26, 20)
+    local up = button(panel, "<", 26, 20)
     up:SetPoint("BOTTOMLEFT", 12, 38)
     up:SetScript("OnClick", function() NS.CloseRowMenu(); NS.offset = NS.offset - NS.rowsVisible; NS.Refresh("page") end)
-    local down = button(frame, ">", 26, 20)
+    local down = button(panel, ">", 26, 20)
     down:SetPoint("LEFT", up, "RIGHT", 2, 0)
     down:SetScript("OnClick", function() NS.CloseRowMenu(); NS.offset = NS.offset + NS.rowsVisible; NS.Refresh("page") end)
-    pageFS = label(frame, "", "GameFontHighlightSmall")
+    pageFS = label(panel, "", "GameFontHighlightSmall")
     pageFS:SetPoint("LEFT", down, "RIGHT", 8, 0)
     pageFS:SetJustifyH("LEFT")
     pageFS:SetWordWrap(false)
-    previewFS = label(frame, "", "GameFontDisableSmall")
+    previewFS = label(panel, "", "GameFontDisableSmall")
     previewFS:SetPoint("BOTTOMLEFT", 14, 14)
     previewFS:SetPoint("BOTTOMRIGHT", -26, 14) -- deixa o canto livre para a alça de tamanho
     previewFS:SetJustifyH("LEFT")
     previewFS:SetWordWrap(false)
 
-    -- opções (mensagem, spec, modo de envio etc.) ficam em Options > AddOns > GrupoFacil
-    local opts = button(frame, L["Options"], 80, 20)
-    opts:SetPoint("BOTTOMRIGHT", -12, 38)
-    opts:SetScript("OnClick", function() if NS.OpenOptions then NS.OpenOptions() end end)
-    tooltip(opts, L["Options"], L["Join request message, spec, send mode, window and language. Also in Options > AddOns > GrupoFacil."])
-
     -- modo compacto: recolhe os filtros e a lista ganha o espaço (os filtros continuam valendo)
-    compactBtn = button(frame, L["Hide filters"], 100, 20)
-    compactBtn:SetPoint("RIGHT", opts, "LEFT", -4, 0)
+    compactBtn = button(panel, L["Hide filters"], 100, 20)
+    compactBtn:SetPoint("BOTTOMRIGHT", -12, 38)
     fitWidth(compactBtn, 100, { L["Hide filters"], L["Show filters"] })
     compactBtn:SetScript("OnClick", function()
         if NS.TourRunning and NS.TourRunning() then return end -- o tour aponta para os filtros
@@ -607,9 +619,53 @@ function NS.BuildUI()
     tooltip(grip, L["Drag to resize the window."])
     frame:SetScript("OnSizeChanged", function() NS.Layout() end)
 
+    -- abas na barra de título, depois do ícone de report: Masmorras (esta) e Missões (QuestUI.lua)
+    local function tab(key, text, tip)
+        local b = button(frame, text, 90, 20)
+        b:SetScript("OnClick", function()
+            NS.SelectTab(key)
+            -- Voltar para Masmorras depois da lupa: os resultados são da missão, e a lista de masmorras
+            -- ficaria vazia (teste do Fraga, 26/11). O clique na aba é do jogador, então dá para buscar
+            -- as masmorras de novo aqui (a única ação protegida deste clique).
+            if key == "dungeons" and NS.resultsFromQuest and not NS.searching and not NS.InLockdown()
+                and GetTime() >= NS.searchReadyAt then
+                local ok, why = NS.SearchAgain()
+                if not ok and why then NS.status = why end
+                NS.Refresh("tab-search")
+            end
+        end)
+        tooltip(b, text, tip)
+        b.key = key
+        return b
+    end
+    frame.tabDungeons = tab("dungeons", L["Dungeons"], L["Dungeon groups and players looking for one."])
+    frame.tabDungeons:SetPoint("LEFT", frame.bugButton, "RIGHT", 10, 0)
+    frame.tabQuests = tab("quests", L["Quests"], L["Groups for the quests in your quest log. Also: the magnifier next to each quest, or /gf quests."])
+    frame.tabQuests:SetPoint("LEFT", frame.tabDungeons, "RIGHT", 4, 0)
+    frame.tabs = { dungeons = frame.tabDungeons, quests = frame.tabQuests }
+    fitWidth(frame.tabQuests, 90, { L["Quests"], format(L["Quests (%d)"], 9) })
+    -- opções: engrenagem, sempre o último botão do cabeçalho (pedido do Fraga, 26/11).
+    -- Botão novo no cabeçalho entra ANTES dela: ancore no anterior e passe a engrenagem para depois.
+    local gear = CF("Button", nil, frame)
+    gear:SetSize(18, 18)
+    gear:SetPoint("LEFT", frame.tabQuests, "RIGHT", 8, 0)
+    gear:SetNormalTexture("Interface\\Icons\\INV_Misc_Gear_01")
+    gear:SetHighlightTexture("Interface\\Buttons\\ButtonHilight-Square", "ADD")
+    gear:SetScript("OnClick", function()
+        if NS.OpenOptions then NS.OpenOptions(NS.tab == "quests" and "quests" or nil) end
+    end)
+    tooltip(gear, L["Options"], L["General, messages, quests, invite a friend and help. Also in Options > AddOns > GrupoFacil."])
+    frame.optionsButton = gear
+    -- autoria entre a engrenagem e o X, na mesma linha: encurta (sem quebrar) e nunca cobre os botões
+    frame.authorLine:ClearAllPoints()
+    frame.authorLine:SetPoint("LEFT", gear, "RIGHT", 8, 0)
+    frame.authorLine:SetPoint("RIGHT", frame.CloseButton or frame, frame.CloseButton and "LEFT" or "TOPRIGHT", -2, 0)
+    frame.authorLine:SetWordWrap(false)
+    NS.tab = "dungeons"
+
     -- referências para o tour (Onboarding.lua)
     NS.UIRefs = { modeFirst = modeButtons.players, modeLast = modeButtons.all, level = lvl, clear = clear,
-        search = searchBtn, list = list, pageUp = up, preview = previewFS, options = opts }
+        search = searchBtn, list = list, pageUp = up, preview = previewFS, options = gear }
 
     NS.ApplyCompact()
 
@@ -665,7 +721,7 @@ local function fillHiddenMenu()
             it = CF("Frame", nil, m)
             it:SetSize(240, 22)
             it:SetPoint("TOPLEFT", 8, -34 - (i - 1) * 24)
-            it:SetPoint("RIGHT", m, "RIGHT", -8, 0)
+            it:SetPoint("TOPRIGHT", m, "TOPRIGHT", -8, -34 - (i - 1) * 24)
             it.btn = button(it, L["Show"], 90, 20)
             it.btn:SetPoint("RIGHT", 0, 0)
             fitWidth(it.btn, 90, { L["Show"], L["Unblock"] })
@@ -722,10 +778,11 @@ function NS.ToggleHiddenMenu(owner)
         m.more:SetJustifyH("LEFT")
         m.more:SetWordWrap(false)
         m.items = {}
-        if UISpecialFrames then tinsert(UISpecialFrames, "GrupoFacilHiddenMenu") end
+        NS.RegisterMenu(m) -- Esc, clique fora e troca de aba fecham
         m:Hide()
     end
     if hiddenMenu:IsShown() then hiddenMenu:Hide() return end
+    hiddenMenu.owner = owner
     hiddenMenu:ClearAllPoints()
     hiddenMenu:SetPoint("TOPRIGHT", owner, "BOTTOMRIGHT", 0, -2)
     hiddenMenu:Show()
@@ -800,10 +857,12 @@ local function fillDungeonMenu()
         if not it then
             it = CF("CheckButton", nil, m, "UICheckButtonTemplate")
             it:SetSize(22, 22)
-            it:SetPoint("TOPLEFT", 8, -34 - (i - 1) * 22)
+            it:SetPoint("TOPLEFT", 8, -36 - (i - 1) * 22)
             it.text = label(m, "", "GameFontHighlightSmall")
-            it.text:SetPoint("LEFT", it, "RIGHT", 2, 0)
-            it.text:SetPoint("RIGHT", m, "RIGHT", -10, 0)
+            -- cantos de cima nas duas pontas: a mesma referência vertical (LEFT + RIGHT do
+            -- menu juntava os textos todos na altura do meio do menu)
+            it.text:SetPoint("TOPLEFT", it, "TOPRIGHT", 2, -5)
+            it.text:SetPoint("TOPRIGHT", m, "TOPRIGHT", -10, -36 - (i - 1) * 22 - 5)
             it.text:SetJustifyH("LEFT")
             it.text:SetWordWrap(false)
             it:SetScript("OnClick", function(self)
@@ -831,7 +890,17 @@ local function fillDungeonMenu()
     m.empty:SetShown(shown == 0)
     m.more:SetShown(#list > shown)
     if #list > shown then m.more:SetText(format(L["+%d more: pick a level range to narrow the list."], #list - shown)) end
-    m:SetSize(min(width, 420), 44 + max(1, shown) * 22 + (#list > shown and 18 or 0))
+    if shown == 0 then
+        -- texto em várias linhas, dentro da caixa (antes saía pela borda)
+        m.empty:SetText(NS.resultsFromQuest and L["These results are from a quest search. Click Search again to list dungeons."]
+            or L["No dungeons in the results yet. Search first."])
+        m:SetWidth(260)
+        local h = (m.empty.GetStringHeight and m.empty:GetStringHeight()) or 14
+        if type(h) ~= "number" or h < 14 then h = 14 end
+        m:SetHeight(40 + h + 14)
+    else
+        m:SetSize(min(width, 420), 46 + shown * 22 + (#list > shown and 18 or 0))
+    end
     dungeonBtn:SetText(dungeonButtonText())
 end
 NS.FillDungeonMenu = function() if dungeonMenu and dungeonMenu:IsShown() then fillDungeonMenu() end end
@@ -849,24 +918,28 @@ function NS.ToggleDungeonMenu(owner)
             m:SetBackdropColor(0.05, 0.05, 0.08, 0.97)
         end
         m.all = button(m, L["All dungeons"], 120, 20)
-        m.all:SetPoint("TOPLEFT", 8, -8)
+        m.all:SetPoint("TOPLEFT", 10, -10)
         m.all:SetScript("OnClick", function()
             wipe(filters().activities)
             onFilterChanged()
             fillDungeonMenu()
         end)
-        m.empty = label(m, L["No dungeons in the results yet. Search first."], "GameFontDisableSmall")
-        m.empty:SetPoint("TOPLEFT", 12, -38)
+        m.empty = label(m, "", "GameFontDisableSmall")
+        m.empty:SetPoint("TOPLEFT", 12, -40)
+        m.empty:SetPoint("TOPRIGHT", m, "TOPRIGHT", -12, -40)
+        m.empty:SetJustifyH("LEFT")
+        m.empty:SetWordWrap(true)
         m.more = label(m, "", "GameFontDisableSmall")
         m.more:SetPoint("BOTTOMLEFT", 12, 10)
         m.more:SetPoint("BOTTOMRIGHT", -10, 10)
         m.more:SetJustifyH("LEFT")
         m.more:SetWordWrap(false)
         m.items = {}
-        if UISpecialFrames then tinsert(UISpecialFrames, "GrupoFacilDungeonMenu") end
+        NS.RegisterMenu(m) -- Esc, clique fora e troca de aba fecham
         m:Hide()
     end
     if dungeonMenu:IsShown() then dungeonMenu:Hide() return end
+    dungeonMenu.owner = owner
     fillDungeonMenu()
     dungeonMenu:ClearAllPoints()
     dungeonMenu:SetPoint("TOPLEFT", owner, "BOTTOMLEFT", 0, -2)
@@ -918,10 +991,11 @@ function NS.ShowRowMenu(row)
         local w = max(m.dismiss:GetWidth(), m.block:GetWidth(), m.who:GetWidth(), m.cancel:GetWidth())
         for _, b in ipairs({ m.dismiss, m.block, m.who, m.cancel }) do b:SetWidth(w) end
         m:SetSize(w + 16, 36 + 4 * 26)
-        if UISpecialFrames then tinsert(UISpecialFrames, "GrupoFacilRowMenu") end
+        NS.RegisterMenu(m) -- Esc, clique fora e troca de aba fecham
         m:Hide()
     end
     rowMenu.entry = e
+    rowMenu.owner = row
     rowMenu.title:SetText(e.name or "")
     rowMenu.block:SetEnabled(e.name ~= nil)
     rowMenu:ClearAllPoints()
@@ -970,10 +1044,40 @@ function NS.Dock()
     end
 end
 
-function NS.ShowPanel(fromLFG)
+-- Aba visível: "dungeons" (a lista das masmorras) ou "quests" (grupos por missão, QuestUI.lua).
+function NS.SelectTab(key)
+    if not frame then return end
+    if key ~= "quests" then key = "dungeons" end
+    if key == "quests" and NS.BuildQuestUI then NS.BuildQuestUI() end
+    NS.tab = key
+    local qp = NS.QuestPanel and NS.QuestPanel()
+    frame.dungeonPanel:SetShown(key == "dungeons")
+    if qp then qp:SetShown(key == "quests") end
+    -- qualquer troca de aba fecha as listas abertas (elas pertencem à aba de onde saíram)
+    NS.CloseDungeonMenu()
+    if NS.CloseRowMenu then NS.CloseRowMenu() end
+    NS.CloseHiddenMenu()
+    for k, b in pairs(frame.tabs) do
+        if k == key then b:LockHighlight() else b:UnlockHighlight() end
+        local fs = b.GetFontString and b:GetFontString()
+        if fs then
+            if k == key then fs:SetTextColor(1, 1, 1) else fs:SetTextColor(1, 0.82, 0) end
+        end
+    end
+    -- cada aba tem o seu tour: trocar de aba interrompe o da outra e mostra a faixa desta
+    if NS.TourKey and NS.TourKey() and NS.TourKey() ~= key and NS.StopTour then NS.StopTour(false, "trocou de aba") end
+    if frame:IsShown() and NS.OnPanelShown then NS.OnPanelShown() end
+    if NS.UpdateQuestTab then NS.UpdateQuestTab() end
+    if key == "dungeons" and frame:IsShown() then NS.Refresh("tab") end
+end
+function NS.CurrentTab() return frame and frame:IsShown() and NS.tab or nil end
+
+function NS.ShowPanel(fromLFG, tab)
     if not frame then return end
     NS.openedWithLFG = fromLFG and true or false
     NS.Dock()
+    -- aberta junto com o Looking For Group: sempre nas masmorras
+    NS.SelectTab(tab or (fromLFG and "dungeons") or NS.tab)
     frame:Show()
 end
 
@@ -1070,7 +1174,8 @@ function NS.Render()
     end
 
     local status = NS.status or L["Search in the Looking For Group window."]
-    if NS.searching then status = L["Searching..."] end
+    if NS.searching then status = L["Searching..."]
+    elseif NS.resultsFromQuest then status = L["These are the results of a quest search. Search again searches dungeons."] end
     if NS.stale then status = "|cffff8800" .. status .. "|r" end
     if GrupoFacilDB.compact and filtersActive() then status = status .. "  |cffffd200" .. L["(filters on)"] .. "|r" end
     -- botão Escondidos: escondidos nesta sessão + bloqueados (os ignorados do jogo não entram)

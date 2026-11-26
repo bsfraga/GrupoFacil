@@ -12,7 +12,9 @@ for _, e in ipairs({ "ADDON_LOADED", "PLAYER_LOGIN", "PLAYER_LOGOUT", "PLAYER_EN
     "CHAT_MSG_WHISPER_INFORM", "CHAT_MSG_WHISPER", "CHAT_MSG_SYSTEM", "CHAT_MSG_ADDON", "CHAT_MSG_ADDON_LOGGED",
     "TRAIT_CONFIG_UPDATED", "PLAYER_LEVEL_UP", "ADDON_ACTION_BLOCKED", "ADDON_ACTION_FORBIDDEN", "GUILD_ROSTER_UPDATE",
     "FRIENDLIST_UPDATE", "IGNORELIST_UPDATE", "BN_FRIEND_INFO_CHANGED", "WHO_LIST_UPDATE", "LFG_LIST_ROLE_UPDATE",
-    "LUA_WARNING", "PLAYER_REGEN_DISABLED", "PLAYER_REGEN_ENABLED", "PARTY_INVITE_REQUEST", "ZONE_CHANGED_NEW_AREA" }) do
+    "LUA_WARNING", "PLAYER_REGEN_DISABLED", "PLAYER_REGEN_ENABLED", "PARTY_INVITE_REQUEST", "ZONE_CHANGED_NEW_AREA",
+    "QUEST_LOG_UPDATE", "QUEST_TURNED_IN", "QUEST_REMOVED", "QUEST_ACCEPTED", "GROUP_LEFT", "GROUP_JOINED",
+    "LFG_LIST_ACTIVE_ENTRY_UPDATE", "LFG_LIST_ENTRY_CREATION_FAILED", "UI_ERROR_MESSAGE", "GLOBAL_MOUSE_DOWN" }) do
     KNOWN_EVENTS[e] = true
 end
 
@@ -372,6 +374,8 @@ function Client:buildEnv()
     env.CreateAtlasMarkup = function(atlas, w, h) return ("|A:%s:%d:%d|a"):format(atlas, w or 0, h or 0) end
     env.C_Texture = { GetAtlasInfo = function(a) if world.config.atlases ~= false and a and a:find("^roleicon") then return { width = 16, height = 16 } end end }
     env.Enum = {
+        LFGEntryGeneralPlaystyle = { None = 0, Learning = 1, FunRelaxed = 2, FunSerious = 3, Expert = 4 },
+        LFGEntryVoiceMode = { None = 0, Required = 1, Optional = 2 },
         SendAddonMessageResult = { Success = 0, InvalidPrefix = 1, InvalidMessage = 2, AddonMessageThrottle = 3, InvalidChatType = 4,
             NotInGroup = 5, TargetRequired = 6, InvalidChannel = 7, ChannelThrottle = 8, GeneralError = 9, NotInGuild = 10,
             AddOnMessageLockdown = 11, TargetOffline = 12 },
@@ -401,6 +405,14 @@ function Client:buildEnv()
     env.IsInInstance = function() return c.data.inInstance, c.data.inInstance and "party" or "none" end
     env.IsInGroup = function() return c.data.inGroup end
     env.IsInRaid = function() return false end
+    -- canais numerados em que o jogador está (id, nome, desativado, ...)
+    env.GetChannelList = function()
+        local out = {}
+        for _, ch in ipairs(c.data.channels or { { 1, "General" }, { 2, "Trade" }, { 4, "LocalDefense" } }) do
+            out[#out + 1] = ch[1]; out[#out + 1] = ch[2]; out[#out + 1] = ch[3] or false
+        end
+        return unpack(out)
+    end
     env.GetNumGroupMembers = function() return c.data.inGroup and 2 or 0 end
     env.UnitIsGroupLeader = function(u) return u == "player" and c.data.leader end
     env.UnitIsGroupAssistant = function(u) return u == "player" and c.data.assistant end
@@ -553,6 +565,9 @@ function Client:buildEnv()
     -- Looking For Group
     env.C_LFGList = world.lfg:api(c)
     env.LFGUtil_GetFilteredActivities = function(category) return world.lfg:activitiesFor(category) end
+
+    -- missões, rastreador, quest log, grupo (sim/quests.lua)
+    require("sim.quests").install(c, env)
 end
 
 ------------------------------------------------------------------------
@@ -615,7 +630,12 @@ function Client:loadBlizzard(name)
     parent:Hide()
     local browse = ui.CreateFrame("Frame", "LFGBrowseFrame", parent)
     browse:SetAllPoints(parent)
-    browse.CategoryDropdown = { GetValue = function() return self.nativeCategory end }
+    -- SetValue existe (é do mixin da Blizzard) só para o teste ver se o addon chamou: chamar contamina
+    -- a busca que o jogo faz ao criar uma listagem (ADDON_ACTION_BLOCKED no BugSack do Fraga, 26/11)
+    browse.CategoryDropdown = {
+        GetValue = function() return self.nativeCategory end,
+        SetValue = function(_, v) self.data.nativeCategorySets = (self.data.nativeCategorySets or 0) + 1; self.nativeCategory = v end,
+    }
     browse.ActivityDropdown = { selectedValues = self.nativeActivities }
     -- grava quem escreve na janela da Blizzard (o addon nunca pode)
     world:watchWrites(self, parent, "LFGParentFrame")
@@ -641,7 +661,10 @@ function Client:nativeSearch(category, activities)
     local browse = self.env.LFGBrowseFrame
     browse.ActivityDropdown.selectedValues = self.nativeActivities
     self.world:blizzardWrite(browse, "searching", true)
+    local hw = self.hw
+    self.hw = { left = 1, native = true } -- código da Blizzard, do clique do jogador
     self.env.C_LFGList.Search(self.nativeCategory, 0, 0, nil, false, nil, self.nativeActivities)
+    self.hw = hw
 end
 
 ------------------------------------------------------------------------
@@ -656,6 +679,7 @@ function Client:start(isReload)
     self:fireEvent("VARIABLES_LOADED")
     self:fireEvent("PLAYER_LOGIN")
     self:fireEvent("PLAYER_ENTERING_WORLD", not isReload, isReload == true)
+    if self.updateTracker then self:updateTracker() end
 end
 
 function Client:teardown()
@@ -734,7 +758,24 @@ function Client:runMacro(text, secure)
     end
 end
 
-function Client:click(f, mouse) assert(f, "click: frame nil"); f:Click(mouse) end
+-- Clique como no jogo: o mouse está sobre o quadro, o jogo avisa GLOBAL_MOUSE_DOWN e depois vem o OnClick.
+function Client:click(f, mouse)
+    assert(f, "click: frame nil")
+    self.ui.mouseOver = f
+    self:fireEvent("GLOBAL_MOUSE_DOWN", mouse or "LeftButton")
+    f:Click(mouse)
+    self.ui.mouseOver = nil
+end
+-- Clique fora de tudo (no mundo do jogo).
+function Client:clickOutside(mouse)
+    self.ui.mouseOver = nil
+    self:fireEvent("GLOBAL_MOUSE_DOWN", mouse or "LeftButton")
+end
+-- Põe o mouse sobre o quadro e deixa ali (o tooltip fica aberto até o OnLeave).
+function Client:mouseEnter(f)
+    self.ui.mouseOver = f
+    self.ui.fire(f, "OnEnter", true)
+end
 function Client:type(box, text) self.ui.type(box, text) end
 function Client:press(box, key)
     local s = self.ui.state(box)

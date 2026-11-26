@@ -5,7 +5,7 @@ local H = require("helpers")
 local describe, it = T.describe, T.it
 
 local LANGS = { "pt", "es", "mx", "de", "fr" }
-local SOURCES = { "Core.lua", "Diag.lua", "UI.lua", "Options.lua", "Minimap.lua", "Onboarding.lua", "BugReport.lua", "BugUI.lua", "BugChannel.lua" }
+local SOURCES = { "Core.lua", "Diag.lua", "UI.lua", "Options.lua", "Minimap.lua", "Onboarding.lua", "BugReport.lua", "BugUI.lua", "BugChannel.lua", "Quest.lua", "QuestUI.lua" }
 
 local function readFile(p)
     local f = assert(io.open(H.ROOT .. "/" .. p, "rb"))
@@ -149,6 +149,10 @@ local function exercise(lang, admin)
     end }
     local w = H.world(cfg)
     H.sampleListings(w)
+    -- grupos da zona de uma missão (janela de missões)
+    w.lfg:add({ leader = "Zona", activityIDs = { 20 }, members = { { name = "Zona", level = 18, class = "PRIEST" },
+        { name = "Z2", level = 18, class = "MAGE" } } })
+    w.lfg:add({ leader = "Sozinho", activityIDs = { 20 }, members = { { name = "Sozinho", level = 18, class = "ROGUE" } } })
     local disk = w:diskFor("A")
     local c = H.login(w, { account = "A", level = 25 })
     H.db(c).language = lang
@@ -173,7 +177,59 @@ local function exercise(lang, admin)
         for _, x in ipairs(overlaps(c, name)) do over[#over + 1] = x end
     end
     check("GrupoFacilFrame")
+    -- grupos por missão: lupa, janela, pedido recebido, criar, missão concluída
+    c:hover(f.tabDungeons); c:hover(f.tabQuests)
+    c:addQuest({ id = 155, title = "The Defias Brotherhood", zone = "Westfall", level = 18, elite = true, size = 3, mapID = 1436 })
+    w:advance(3)
+    local mag = c:trackerMagnifier(155)
+    c:hover(mag)
+    c:click(mag)
+    w:advance(1.5)
+    ns.Quest.OnAddonMessage("GFQ", "J1 155 18 MAGE d The Defias Brotherhood", "WHISPER", "Pedinte Sobrenome")
+    w:advance(0.3)
+    local qf = c.env.GrupoFacilQuestFrame
+    for _, child in ipairs({ qf.list:GetChildren() }) do
+        if c.ui.visible(child) and child.entry then c:hover(child); c:hover(child.b1) end
+    end
+    for _, b in ipairs({ qf.back, qf.search, qf.create, qf.share, qf.info, f.optionsButton }) do c:hover(b) end
+    check("GrupoFacilQuestFrame")
+    -- a lista das missões do registro (o ponto de partida da aba)
+    c:click(qf.back)
+    w:advance(0.3)
+    local firstGo
+    for _, child in ipairs({ qf.list:GetChildren() }) do
+        if c.ui.visible(child) and child.go then c:hover(child.go); firstGo = firstGo or child.go end
+    end
+    check("GrupoFacilQuestFrame")
+    c:click(firstGo)
+    w:advance(1.5)
+    c:click(qf.create)
+    w:advance(0.5)
+    c:hover(qf.create)
+    check("GrupoFacilQuestFrame")
+    c:openQuestDetails(155)
+    local fb = H.find(c, c.env.QuestMapFrame.DetailsFrame, ".", true)
+    if fb then c:hover(fb) end
+    ns.ShowQuestDone(155, "The Defias Brotherhood")
+    for _, b in ipairs({ c.env.GrupoFacilQuestDone.leave, c.env.GrupoFacilQuestDone.remove, c.env.GrupoFacilQuestDone.later }) do c:hover(b) end
+    check("GrupoFacilQuestDone")
+    c:slash("/gf quests")
     c:slash("/gf options")
+    -- cada seção das opções, uma por vez, sem texto vazando nem sobreposto
+    for _, sec in ipairs(ns.OPTION_SECTIONS) do
+        ns.OptionsSection(sec.key)
+        local of = c.env.GrupoFacilOptionsFrame
+        for _, x in pairs(of.content) do
+            if type(x) == "table" and x.GetObjectType and c.ui.visible(x) and c.ui.state(x).kind ~= "FontString" then c:hover(x) end
+        end
+        check("GrupoFacilOptionsFrame")
+    end
+    -- destinos da indicação e o campo do amigo (sussurro)
+    ns.OptionsSection("invite")
+    local oc = c.env.GrupoFacilOptionsFrame.content
+    c:click(oc.shareTarget)
+    check("GrupoFacilShareMenu")
+    c:click(H.find(c, c.env.GrupoFacilShareMenu, ".", true))
     check("GrupoFacilOptionsFrame")
     c:hover(c.env.GrupoFacilMinimapButton)
     c:slash("/gf tour")
@@ -181,8 +237,19 @@ local function exercise(lang, admin)
         local _, callout = ns.TourFrames()
         if callout and c.ui.visible(callout) then c:click(callout.next) end
     end
+    -- o tour inteiro (Masmorras e Missões), passo a passo, sem texto sobreposto
+    c:slash("/gf quests")
+    c:slash("/gf tour")
+    for _ = 1, 12 do
+        local _, callout = ns.TourFrames()
+        if callout and c.ui.visible(callout) then check("GrupoFacilFrame"); c:click(callout.next) end
+    end
     c:slash("/gf news")
     check("GrupoFacilWhatsNew")
+    -- uma página por versão: as outras também cabem
+    local nf = c.env.GrupoFacilWhatsNew
+    while nf.older:IsEnabled() do c:click(nf.older); check("GrupoFacilWhatsNew") end
+    while nf.newer:IsEnabled() do c:click(nf.newer) end
     c:click(c.env.GrupoFacilWhatsNew.ack)
     c:click(c.env.GrupoFacilWhatsNew.close)
     c:slash("/gf bug")

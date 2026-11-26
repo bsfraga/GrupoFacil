@@ -7,8 +7,8 @@ local ADDON, NS = ...
 local L = NS.L
 local format = string.format
 
--- Link de doação. Vazio = o botão Donate não aparece.
-NS.DONATE_URL = ""
+-- Link de apoio (GitHub Sponsors, pedido do Fraga 26/11). Vazio = o botão não aparece.
+NS.DONATE_URL = "https://github.com/sponsors/bsfraga"
 
 local ALLIANCE_ICON = "|TInterface\\TargetingFrame\\UI-PVP-Alliance:16:16:0:0:64:64:0:40:0:40|t"
 NS.AUTHOR_LINE = "Authored by Bael (Bagael Bagacera " .. ALLIANCE_ICON .. ")"
@@ -103,6 +103,7 @@ function NS.ShowDonate()
         end)
         f.box:SetScript("OnEscapePressed", function() f:Hide() end)
         f.box:SetScript("OnEnterPressed", function() f:Hide() end)
+        if UISpecialFrames then tinsert(UISpecialFrames, "GrupoFacilDonateFrame") end -- Esc fecha
         f:Hide()
     end
     donateFrame.box:SetText(url)
@@ -192,7 +193,7 @@ function NS.ToggleLanguageMenu(owner)
         end
         m:SetSize(216, 16 + #NS.LANGUAGES * 24)
         -- Esc fecha a lista (frame do próprio addon)
-        if UISpecialFrames then tinsert(UISpecialFrames, "GrupoFacilLanguageMenu") end
+        NS.RegisterMenu(m) -- Esc, clique fora e troca de seção fecham
         m:Hide()
     end
     if langMenu:IsShown() and langMenu.owner == owner then langMenu:Hide() return end
@@ -206,9 +207,82 @@ function NS.ToggleLanguageMenu(owner)
 end
 
 ------------------------------------------------------------------------
+-- destino da indicação: lista montada na hora (guilda, grupo e canais mudam)
+------------------------------------------------------------------------
+local shareMenu
+function NS.ToggleShareMenu(owner, onPick)
+    if not shareMenu then
+        local m = CF("Frame", "GrupoFacilShareMenu", UIParent, "BackdropTemplate")
+        shareMenu = m
+        m:SetFrameStrata("FULLSCREEN_DIALOG")
+        m:EnableMouse(true)
+        m:SetClampedToScreen(true)
+        if m.SetBackdrop then
+            m:SetBackdrop({ bgFile = "Interface\\Tooltips\\UI-Tooltip-Background", edgeFile = "Interface\\Tooltips\\UI-Tooltip-Border",
+                tile = true, tileSize = 16, edgeSize = 16, insets = { left = 4, right = 4, top = 4, bottom = 4 } })
+            m:SetBackdropColor(0.05, 0.05, 0.08, 0.97)
+        end
+        m.items = {}
+        NS.RegisterMenu(m) -- Esc, clique fora e troca de seção fecham
+        m:Hide()
+    end
+    local m = shareMenu
+    if m:IsShown() and m.owner == owner then m:Hide() return end
+    m.owner = owner
+    local targets = NS.ShareTargets()
+    local cur = NS.ShareTarget()
+    for i, t in ipairs(targets) do
+        local b = m.items[i]
+        if not b then
+            b = CF("Button", nil, m, "UIPanelButtonTemplate")
+            b:SetSize(200, 22)
+            b:SetPoint("TOP", 0, -8 - (i - 1) * 24)
+            m.items[i] = b
+        end
+        b:SetText(t.label)
+        b:SetScript("OnClick", function() m:Hide(); NS.SetShareTarget(t.key); if onPick then onPick(t) end end)
+        if cur and cur.key == t.key then b:LockHighlight() else b:UnlockHighlight() end
+        b:Show()
+    end
+    for i = #targets + 1, #m.items do m.items[i]:Hide() end
+    m:SetSize(216, 16 + #targets * 24)
+    m:ClearAllPoints()
+    m:SetPoint("TOPLEFT", owner, "BOTTOMLEFT", 0, -2)
+    m:Show()
+end
+
+------------------------------------------------------------------------
 -- conteúdo das opções (montado uma vez por lugar)
 ------------------------------------------------------------------------
 local instances = {}
+
+-- Seções (pedido do Fraga, 26/11): cada contexto na sua página, escolhida pelos botões do topo.
+local SECTIONS = {
+    { key = "general", label = "General" },
+    { key = "messages", label = "Messages" },
+    { key = "quests", label = "Quests" },
+    { key = "invite", label = "Invite a friend" },
+    { key = "help", label = "Help" },
+}
+NS.OPTION_SECTIONS = SECTIONS -- para teste
+local lastSection = "general"
+
+local function showSection(w, key)
+    if not w.sections[key] then key = "general" end
+    -- a lista aberta pertence à seção de onde saiu
+    if langMenu then langMenu:Hide() end
+    if shareMenu then shareMenu:Hide() end
+    w.section = key
+    lastSection = key
+    for k, f in pairs(w.sections) do f:SetShown(k == key) end
+    for k, b in pairs(w.secButtons) do
+        if k == key then b:LockHighlight() else b:UnlockHighlight() end
+        local fs = b.GetFontString and b:GetFontString()
+        if fs then
+            if k == key then fs:SetTextColor(1, 1, 1) else fs:SetTextColor(1, 0.82, 0) end
+        end
+    end
+end
 
 local function refreshOne(w)
     local db, char = GrupoFacilDB, GrupoFacilCharDB or {}
@@ -225,13 +299,29 @@ local function refreshOne(w)
     w.minimap:SetChecked(NS.IsMinimapButtonShown and NS.IsMinimapButtonShown())
     w.hook:SetChecked(db.hookSearch ~= false)
     w.debug:SetChecked(db.debug)
+    local q = NS.Quest and NS.Quest.DB and NS.Quest.DB() or {}
+    w.autoInvite:SetChecked(q.autoInvite == true)
+    w.autoAccept:SetChecked(q.autoAccept ~= false)
+    w.magnifier:SetChecked(q.magnifier ~= false)
+    w.sharePreview:SetText("|cffffffff" .. (NS.ShareText and NS.ShareText() or "") .. "|r")
+    local st = NS.ShareTarget and NS.ShareTarget()
+    w.shareTarget:SetText(((st and st.label) or "") .. "  |cffffd200v|r")
+    local whisper = st and st.key == "whisper"
+    w.shareFriend:SetShown(whisper)
+    w.shareFriendL:SetShown(whisper)
     w.lang:SetText(NS.LanguageName(NS.Language()) .. "  |cffffd200v|r")
     w.donate:SetShown(NS.DONATE_URL ~= nil and NS.DONATE_URL ~= "")
     local nb = NS.BlockedCount and NS.BlockedCount() or 0
     w.blockedLabel:SetText(format(L["Blocked players: %d"], nb))
     w.unblock:SetEnabled(nb > 0)
     w.bugInbox:SetShown(NS.bugAdmin == true)
-    if NS.bugAdmin and NS.BugInbox then w.bugInbox:SetText(format(L["Bug reports (new: %d)"], #NS.BugInbox("new"))) end
+    if NS.bugAdmin and NS.BugInbox then
+        w.bugInbox:SetText(format(L["Bug reports (new: %d)"], #NS.BugInbox("new")))
+        -- com a contagem o texto cresce ("Reports de bug (novos: 0)" passava do botão de 150)
+        local fs = w.bugInbox.GetFontString and w.bugInbox:GetFontString()
+        local tw = fs and fs:GetStringWidth()
+        if tw then w.bugInbox:SetWidth(math.max(150, tw + 22)) end
+    end
 end
 
 local function refresh()
@@ -241,8 +331,18 @@ local function refresh()
 end
 NS.RefreshOptions = refresh
 
+local function tipOn(b, title, body)
+    b:SetScript("OnEnter", function(self)
+        GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
+        GameTooltip:SetText(title)
+        if body then GameTooltip:AddLine(body, 1, 1, 1, true) end
+        GameTooltip:Show()
+    end)
+    b:SetScript("OnLeave", function() GameTooltip:Hide() end)
+end
+
 local function buildContent(root)
-    local w = { root = root }
+    local w = { root = root, sections = {}, secButtons = {} }
     instances[#instances + 1] = w
 
     local title = text(root, "GrupoFacil", "GameFontNormalLarge")
@@ -265,14 +365,37 @@ local function buildContent(root)
     local langL = text(root, L["Language"] .. ":", "GameFontNormal")
     langL:SetPoint("RIGHT", w.lang, "LEFT", -6, 0)
 
-    -- mensagem
-    local h1 = text(root, L["Join request message"], "GameFontNormal")
-    h1:SetPoint("TOPLEFT", 16, -56)
-    w.msg = editBox(root, 470)
+    -- botões das seções
+    local prev
+    for _, sec in ipairs(SECTIONS) do
+        local b = button(root, L[sec.label], 104)
+        if prev then b:SetPoint("LEFT", prev, "RIGHT", 4, 0) else b:SetPoint("TOPLEFT", 14, -56) end
+        b:SetScript("OnClick", function() showSection(w, sec.key); refreshOne(w) end)
+        w.secButtons[sec.key] = b
+        prev = b
+        local f = CF("Frame", nil, root)
+        f:SetPoint("TOPLEFT", 0, -84)
+        f:SetPoint("BOTTOMRIGHT", 0, 44)
+        f:Hide()
+        w.sections[sec.key] = f
+    end
+    local line = root:CreateTexture(nil, "ARTWORK")
+    line:SetColorTexture(1, 0.82, 0, 0.35)
+    line:SetHeight(1)
+    line:SetPoint("TOPLEFT", 14, -82)
+    line:SetPoint("TOPRIGHT", -14, -82)
+
+    ------------------------------------------------------------------
+    -- Mensagens: o pedido de vaga, como você se apresenta, como sai
+    ------------------------------------------------------------------
+    local S = w.sections.messages
+    local h1 = text(S, L["Join request message"], "GameFontNormal")
+    h1:SetPoint("TOPLEFT", 16, -10)
+    w.msg = editBox(S, 470)
     w.msg:SetPoint("TOPLEFT", h1, "BOTTOMLEFT", 6, -6)
     w.msg:SetMaxLetters(240)
     bindSave(w.msg, function(t) NS.SetTemplate(t); refresh() end, function() return GrupoFacilDB.template end)
-    local reset = button(root, L["Default"], 80)
+    local reset = button(S, L["Default"], 80)
     reset:SetPoint("LEFT", w.msg, "RIGHT", 8, 0)
     reset:SetScript("OnClick", function()
         NS.SetTemplate(nil)
@@ -280,19 +403,18 @@ local function buildContent(root)
         w.msg:ClearFocus()
         refresh()
     end)
-    local hint = text(root, L["Use {class}, {spec}, {level}, {name}, {role} (your Looking For Group roles) and {activity} (the group's dungeon). Empty = English default: "] .. NS.DEFAULT_TEMPLATE)
+    local hint = text(S, L["Use {class}, {spec}, {level}, {name}, {role} (your Looking For Group roles) and {activity} (the group's dungeon). Empty = English default: "] .. NS.DEFAULT_TEMPLATE)
     hint:SetPoint("TOPLEFT", w.msg, "BOTTOMLEFT", -4, -6)
     hint:SetWidth(560)
-    w.preview = text(root, "")
+    w.preview = text(S, "")
     w.preview:SetPoint("TOPLEFT", hint, "BOTTOMLEFT", 0, -6)
     w.preview:SetWidth(560)
 
-    -- spec e classe (por personagem)
-    local h2 = text(root, L["How you introduce yourself (this character only)"], "GameFontNormal")
+    local h2 = text(S, L["How you introduce yourself (this character only)"], "GameFontNormal")
     h2:SetPoint("TOPLEFT", w.preview, "BOTTOMLEFT", 0, -20)
-    local specL = text(root, L["Spec"], "GameFontHighlight")
+    local specL = text(S, L["Spec"], "GameFontHighlight")
     specL:SetPoint("TOPLEFT", h2, "BOTTOMLEFT", 0, -12)
-    w.spec = editBox(root, 180)
+    w.spec = editBox(S, 180)
     w.spec:SetPoint("LEFT", specL, "LEFT", 120, 0)
     bindSave(w.spec, function(t)
         t = t:gsub("^%s+", ""):gsub("%s+$", "")
@@ -301,12 +423,11 @@ local function buildContent(root)
         NS.Refresh("options")
         refresh()
     end, function() return GrupoFacilCharDB.spec end)
-    w.specHint = text(root, "")
+    w.specHint = text(S, "")
     w.specHint:SetPoint("LEFT", w.spec, "RIGHT", 10, 0)
-
-    local classL = text(root, L["Class name"], "GameFontHighlight")
+    local classL = text(S, L["Class name"], "GameFontHighlight")
     classL:SetPoint("TOPLEFT", specL, "BOTTOMLEFT", 0, -16)
-    w.class = editBox(root, 180)
+    w.class = editBox(S, 180)
     w.class:SetPoint("LEFT", classL, "LEFT", 120, 0)
     bindSave(w.class, function(t)
         t = t:gsub("^%s+", ""):gsub("%s+$", "")
@@ -314,49 +435,61 @@ local function buildContent(root)
         NS.Refresh("options")
         refresh()
     end, function() return GrupoFacilCharDB.classe end)
-    w.classHint = text(root, "")
+    w.classHint = text(S, "")
     w.classHint:SetPoint("LEFT", w.class, "RIGHT", 10, 0)
 
-    -- envio
-    local h3 = text(root, L["Ask to join button"], "GameFontNormal")
+    local h3 = text(S, L["Ask to join button"], "GameFontNormal")
     h3:SetPoint("TOPLEFT", classL, "BOTTOMLEFT", 0, -24)
-    w.direct = check(root, L["Send the whisper straight to the leader"])
+    w.direct = check(S, L["Send the whisper straight to the leader"])
     w.direct:SetPoint("TOPLEFT", h3, "BOTTOMLEFT", -4, -4)
-    w.prefill = check(root, L["Only open the chat with the text (you press Enter)"])
+    w.prefill = check(S, L["Only open the chat with the text (you press Enter)"])
     w.prefill:SetPoint("TOPLEFT", w.direct, "BOTTOMLEFT", 0, -2)
     w.direct:SetScript("OnClick", function() GrupoFacilDB.sendMode = "direto"; refresh() end)
     w.prefill:SetScript("OnClick", function() GrupoFacilDB.sendMode = "preencher"; refresh() end)
 
-    -- janela
-    local h4 = text(root, L["Window"], "GameFontNormal")
-    h4:SetPoint("TOPLEFT", w.prefill, "BOTTOMLEFT", 4, -14)
-    w.auto = check(root, L["Open together with Looking For Group"])
+    ------------------------------------------------------------------
+    -- Geral: janela, minimapa, tour, bloqueados, avançado
+    ------------------------------------------------------------------
+    S = w.sections.general
+    local h4 = text(S, L["Window"], "GameFontNormal")
+    h4:SetPoint("TOPLEFT", 16, -10)
+    w.auto = check(S, L["Open together with Looking For Group"])
     w.auto:SetPoint("TOPLEFT", h4, "BOTTOMLEFT", -4, -4)
     w.auto:SetScript("OnClick", function(self) GrupoFacilDB.autoOpen = self:GetChecked() and true or false; refresh() end)
-    w.dock = check(root, L["Dock next to Looking For Group"], L["Unchecked, the window stays where you drag it."])
+    w.dock = check(S, L["Dock next to Looking For Group"], L["Unchecked, the window stays where you drag it."])
     w.dock:SetPoint("TOPLEFT", w.auto, "BOTTOMLEFT", 0, -2)
     w.dock:SetScript("OnClick", function(self)
         GrupoFacilDB.docked = self:GetChecked() and true or false
         if NS.Dock then NS.Dock() end
         refresh()
     end)
-    w.minimap = check(root, L["Show minimap button"], L["Left-click opens the window, right-click opens these options. Drag it around the minimap."])
-    w.minimap:SetPoint("LEFT", w.auto, "RIGHT", 300, 0)
+    w.minimap = check(S, L["Show minimap button"], L["Left-click opens the window, right-click opens these options. Drag it around the minimap."])
+    w.minimap:SetPoint("TOPLEFT", w.dock, "BOTTOMLEFT", 0, -2)
     w.minimap:SetScript("OnClick", function(self) NS.SetMinimapButtonShown(self:GetChecked() and true or false); refresh() end)
-    local tour = button(root, L["Show the tour"], 150)
-    tour:SetPoint("TOPLEFT", w.minimap, "BOTTOMLEFT", 4, -2)
+    local open = button(S, L["Open GrupoFacil"], 150)
+    open:SetPoint("TOPLEFT", w.minimap, "BOTTOMLEFT", 4, -8)
+    open:SetScript("OnClick", function() if NS.ShowPanel then NS.ShowPanel(false) end end)
+
+    local h4b = text(S, L["Tour"], "GameFontNormal")
+    h4b:SetPoint("TOPLEFT", open, "BOTTOMLEFT", 0, -18)
+    local tour = button(S, L["Show the tour"], 150)
+    tour:SetPoint("TOPLEFT", h4b, "BOTTOMLEFT", 0, -6)
     tour:SetScript("OnClick", function()
         -- fecha a janela de opções própria para o tour aparecer por cima da janela principal
         local own = _G.GrupoFacilOptionsFrame
         if own and own:IsShown() then own:Hide() end
-        if NS.StartTour then NS.StartTour() end
+        if NS.RestartTour then NS.RestartTour("opções") end
         -- a janela de Options do jogo fica por cima; fechá-la por código arrisca taint
         local sp = _G.SettingsPanel
         if sp and sp:IsShown() then NS.Print(L["Close the game options to see the tour."]) end
     end)
-    -- bloqueados pelo clique direito numa linha
-    w.unblock = button(root, L["Unblock all"], 150)
-    w.unblock:SetPoint("TOPLEFT", tour, "BOTTOMLEFT", 0, -4)
+    tipOn(tour, L["Show the tour"], L["Starts the tour of the whole addon again, from the first step: the Dungeons tab, then the Quests tab."])
+    w.tour = tour
+
+    local h4c = text(S, L["Blocked players"], "GameFontNormal")
+    h4c:SetPoint("TOPLEFT", tour, "BOTTOMLEFT", 0, -18)
+    w.unblock = button(S, L["Unblock all"], 150)
+    w.unblock:SetPoint("TOPLEFT", h4c, "BOTTOMLEFT", 0, -6)
     w.unblock:SetScript("OnClick", function()
         NS.Unblock("all")
         NS.Print(L["blocked list cleared."])
@@ -369,13 +502,12 @@ local function buildContent(root)
         GameTooltip:Show()
     end)
     w.unblock:SetScript("OnLeave", function() GameTooltip:Hide() end)
-    w.blockedLabel = text(root, "", "GameFontDisableSmall")
+    w.blockedLabel = text(S, "", "GameFontDisableSmall")
     w.blockedLabel:SetPoint("LEFT", w.unblock, "RIGHT", 8, 0)
 
-    -- avançado
-    local h5 = text(root, L["Advanced"], "GameFontNormal")
-    h5:SetPoint("TOPLEFT", w.dock, "BOTTOMLEFT", 4, -14)
-    w.hook = check(root, L["Capture the native search (applies after /reload)"],
+    local h5 = text(S, L["Advanced"], "GameFontNormal")
+    h5:SetPoint("TOPLEFT", w.unblock, "BOTTOMLEFT", 0, -18)
+    w.hook = check(S, L["Capture the native search (applies after /reload)"],
         L["Keeps the category and activities of the last search for the Search again button. Turn off if the native search gets stuck on Searching... with the addon on."])
     w.hook:SetPoint("TOPLEFT", h5, "BOTTOMLEFT", -4, -4)
     w.hook:SetScript("OnClick", function(self)
@@ -383,46 +515,154 @@ local function buildContent(root)
         NS.D.Trace("CONFIG", "hook da busca %s (após /reload)", GrupoFacilDB.hookSearch and "ligado" or "desligado")
         refresh()
     end)
-    w.debug = check(root, L["Show the diagnostic trace in chat"])
-    w.debug:SetPoint("TOPLEFT", w.hook, "BOTTOMLEFT", 0, -2)
-    w.debug:SetScript("OnClick", function(self) GrupoFacilDB.debug = self:GetChecked() and true or false; refresh() end)
 
-    local open = button(root, L["Open GrupoFacil"], 150)
-    open:SetPoint("TOPLEFT", w.debug, "BOTTOMLEFT", 4, -16)
-    open:SetScript("OnClick", function() if NS.ShowPanel then NS.ShowPanel(false) end end)
-    local diag = button(root, L["Diagnostics in chat"], 150)
-    diag:SetPoint("LEFT", open, "RIGHT", 8, 0)
-    diag:SetScript("OnClick", function() NS.D.PrintSummary() end)
-    local clear = button(root, L["Clear diagnostics"], 150)
-    clear:SetPoint("LEFT", diag, "RIGHT", 8, 0)
-    clear:SetScript("OnClick", function() NS.D.Clear(); NS.Print(L["diagnostics cleared."]) end)
+    ------------------------------------------------------------------
+    -- Missões: o que antes ficava escondido na aba Missões
+    ------------------------------------------------------------------
+    S = w.sections.quests
+    local h6 = text(S, L["Quest groups"], "GameFontNormal")
+    h6:SetPoint("TOPLEFT", 16, -10)
+    w.autoInvite = check(S, L["Auto-invite players who ask for the same quest"],
+        L["Only players who use GrupoFacil and asked to join for a quest you also have. At most 6 invites every 10 minutes. Off by default."])
+    w.autoInvite:SetPoint("TOPLEFT", h6, "BOTTOMLEFT", -4, -4)
+    w.autoInvite:SetScript("OnClick", function(self)
+        NS.Quest.DB().autoInvite = self:GetChecked() and true or false
+        refresh()
+    end)
+    w.autoAccept = check(S, L["Auto-accept the invite from a leader I asked"], L["Only the leader you asked to join, for 2 minutes after asking."])
+    w.autoAccept:SetPoint("TOPLEFT", w.autoInvite, "BOTTOMLEFT", 0, -2)
+    w.autoAccept:SetScript("OnClick", function(self)
+        NS.Quest.DB().autoAccept = self:GetChecked() and true or false
+        refresh()
+    end)
+    w.magnifier = check(S, L["Magnifier next to quests"], L["Shows the magnifier in the objective list and in the quest details."])
+    w.magnifier:SetPoint("TOPLEFT", w.autoAccept, "BOTTOMLEFT", 0, -2)
+    w.magnifier:SetScript("OnClick", function(self)
+        NS.Quest.DB().magnifier = self:GetChecked() and true or false
+        if NS.RefreshMagnifiers then NS.RefreshMagnifiers() end
+        refresh()
+    end)
+    local qopen = button(S, L["Open the Quests tab"], 160)
+    qopen:SetPoint("TOPLEFT", w.magnifier, "BOTTOMLEFT", 4, -10)
+    qopen:SetScript("OnClick", function() if NS.ShowQuestWindow then NS.ShowQuestWindow(true) end end)
+
+    ------------------------------------------------------------------
+    -- Convide um amigo (pedido do Fraga, 26/11): quanto mais gente com o addon, mais grupos se acham
+    ------------------------------------------------------------------
+    S = w.sections.invite
+    local h7 = text(S, L["Invite a friend"], "GameFontNormal")
+    h7:SetPoint("TOPLEFT", 16, -10)
+    local why = text(S, L["Quest groups and the quiet addon messages only work between players who have GrupoFacil. The more friends and guildmates use it, the more groups you find."], "GameFontHighlight")
+    why:SetPoint("TOPLEFT", h7, "BOTTOMLEFT", 0, -8)
+    why:SetWidth(590)
+    local h7b = text(S, L["Ready message"], "GameFontNormal")
+    h7b:SetPoint("TOPLEFT", why, "BOTTOMLEFT", 0, -16)
+    w.sharePreview = text(S, "")
+    w.sharePreview:SetPoint("TOPLEFT", h7b, "BOTTOMLEFT", 0, -6)
+    w.sharePreview:SetWidth(590)
+    -- para onde vai: sussurro (com o nome completo do amigo), guilda, grupo, dizer, /1, /2...
+    local toL = text(S, L["Send to:"], "GameFontHighlight")
+    toL:SetPoint("TOPLEFT", w.sharePreview, "BOTTOMLEFT", 0, -16)
+    w.shareTarget = button(S, "", 180)
+    w.shareTarget:SetPoint("LEFT", toL, "LEFT", 80, 0)
+    w.shareTarget:SetScript("OnClick", function(self)
+        NS.ToggleShareMenu(self, function(t)
+            refreshOne(w)
+            if t.key == "whisper" then w.shareFriend:SetFocus() end
+        end)
+    end)
+    tipOn(w.shareTarget, L["Send to:"], L["Whisper a friend, your guild, your group, say, or a numbered channel like /1 or /2."])
+    w.shareFriendL = text(S, L["Friend:"], "GameFontHighlight")
+    w.shareFriendL:SetPoint("LEFT", w.shareTarget, "RIGHT", 12, 0)
+    w.shareFriend = editBox(S, 170)
+    w.shareFriend:SetPoint("LEFT", w.shareFriendL, "RIGHT", 8, 0)
+    w.shareFriend:SetMaxLetters(48)
+    w.shareFriend:SetScript("OnEnterPressed", function(self) self:ClearFocus(); NS.RecommendAddon("opções", self:GetText()) end)
+    w.shareFriend:SetScript("OnEscapePressed", function(self) self:ClearFocus() end)
+    tipOn(w.shareFriend, L["Friend:"], L["The full character name, with the surname (for example: Bael Bagacera)."])
+    w.share = button(S, L["Recommend to a friend"], 180)
+    w.share:SetPoint("TOPLEFT", toL, "BOTTOMLEFT", 0, -14)
+    w.share:SetScript("OnClick", function()
+        local st = NS.ShareTarget()
+        NS.RecommendAddon("opções", st and st.key == "whisper" and w.shareFriend:GetText() or nil)
+    end)
+    tipOn(w.share, L["Recommend to a friend"], L["Puts the ready message in the chat box, already on the channel you picked. Press Enter to send it."])
+    local shareHint = text(S, L["Nothing is sent until you press Enter. The message is in the language you use in GrupoFacil."], "GameFontDisableSmall")
+    shareHint:SetPoint("TOPLEFT", w.share, "BOTTOMLEFT", 0, -6)
+    shareHint:SetWidth(590)
+    local h7c = text(S, L["Link to share outside the game"], "GameFontNormal")
+    h7c:SetPoint("TOPLEFT", shareHint, "BOTTOMLEFT", 0, -16)
+    local url = "https://www." .. (NS.SHARE_URL or "curseforge.com/wow/addons/grupofacil")
+    w.shareLink = editBox(S, 420)
+    w.shareLink:SetPoint("TOPLEFT", h7c, "BOTTOMLEFT", 6, -6)
+    w.shareLink:SetText(url)
+    w.shareLink:SetScript("OnEditFocusGained", function(self) self:HighlightText() end)
+    w.shareLink:SetScript("OnMouseUp", function(self) self:SetFocus(); self:HighlightText() end)
+    w.shareLink:SetScript("OnTextChanged", function(self, user) if user then self:SetText(url); self:HighlightText() end end)
+    w.shareLink:SetScript("OnEscapePressed", function(self) self:ClearFocus() end)
+    w.shareLink:SetScript("OnEnterPressed", function(self) self:ClearFocus() end)
+    tipOn(w.shareLink, L["Link to share outside the game"], L["Click the link, then Ctrl+C to copy it. Paste it in Discord, WhatsApp or wherever your friends are."])
+
+    ------------------------------------------------------------------
+    -- Ajuda: report, novidades, diagnóstico
+    ------------------------------------------------------------------
+    S = w.sections.help
+    local h8 = text(S, L["Problems and ideas"], "GameFontNormal")
+    h8:SetPoint("TOPLEFT", 16, -10)
     -- bug report: todos podem reportar; só o admin vê a caixa de entrada
-    local bug = button(root, L["Report a problem"], 150)
-    bug:SetPoint("TOPLEFT", open, "BOTTOMLEFT", 0, -8)
+    local bug = button(S, L["Report a problem"], 150)
+    bug:SetPoint("TOPLEFT", h8, "BOTTOMLEFT", 0, -6)
     bug:SetScript("OnClick", function() if NS.OpenBugReport then NS.OpenBugReport() end end)
-    w.bugInbox = button(root, L["Bug reports"], 150)
+    w.bugInbox = button(S, L["Bug reports"], 150)
     w.bugInbox:SetPoint("LEFT", bug, "RIGHT", 8, 0)
     w.bugInbox:SetScript("OnClick", function() if NS.OpenBugInbox then NS.OpenBugInbox() end end)
-    local news = button(root, L["What's New"], 150)
+    local news = button(S, L["What's New"], 150)
     news:SetPoint("TOPLEFT", bug, "BOTTOMLEFT", 0, -8)
     news:SetScript("OnClick", function() if NS.OpenNews then NS.OpenNews("opções") end end)
+    local h9 = text(S, L["Diagnostics"], "GameFontNormal")
+    h9:SetPoint("TOPLEFT", news, "BOTTOMLEFT", 0, -18)
+    local diag = button(S, L["Diagnostics in chat"], 150)
+    diag:SetPoint("TOPLEFT", h9, "BOTTOMLEFT", 0, -6)
+    diag:SetScript("OnClick", function() NS.D.PrintSummary() end)
+    local clear = button(S, L["Clear diagnostics"], 150)
+    clear:SetPoint("LEFT", diag, "RIGHT", 8, 0)
+    clear:SetScript("OnClick", function() NS.D.Clear(); NS.Print(L["diagnostics cleared."]) end)
+    w.debug = check(S, L["Show the diagnostic trace in chat"])
+    w.debug:SetPoint("TOPLEFT", diag, "BOTTOMLEFT", -4, -6)
+    w.debug:SetScript("OnClick", function(self) GrupoFacilDB.debug = self:GetChecked() and true or false; refresh() end)
 
-    -- autoria e doação
+    -- rodapé (todas as seções): autoria e doação
     local author = text(root, NS.AUTHOR_LINE, "GameFontNormal")
-    author:SetPoint("TOPLEFT", news, "BOTTOMLEFT", 0, -18)
-    w.donate = button(root, L["Donate"], 110)
+    author:SetPoint("BOTTOMLEFT", 16, 16)
+    w.donate = button(root, L["Sponsor on GitHub"], 150)
     w.donate:SetPoint("LEFT", author, "RIGHT", 16, 0)
     w.donate:SetScript("OnClick", function() NS.ShowDonate() end)
     w.donate:SetScript("OnEnter", function(self)
         GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
         GameTooltip:SetText(L["Support the addon"])
-        GameTooltip:AddLine(NS.DONATE_URL or "", 1, 1, 1, true)
+        GameTooltip:AddLine(L["Shows the GitHub Sponsors link to copy. GrupoFacil is free and always will be."], 1, 1, 1, true)
+        GameTooltip:AddLine(NS.DONATE_URL or "", 0.7, 0.7, 0.7, true)
         GameTooltip:Show()
     end)
     w.donate:SetScript("OnLeave", function() GameTooltip:Hide() end)
 
+    showSection(w, "general")
     root:SetScript("OnShow", function() refreshOne(w) end)
+    -- a página do jogo (Options > AddOns) também fecha as listas ao sumir
+    root:HookScript("OnHide", function()
+        if langMenu and langMenu.owner == w.lang then langMenu:Hide() end
+        if shareMenu and shareMenu.owner == w.shareTarget then shareMenu:Hide() end
+    end)
     return w
+end
+
+-- Mostra uma seção nas opções já montadas (janela própria e página do jogo).
+function NS.OptionsSection(key)
+    for _, w in ipairs(instances) do showSection(w, key); if w.root:IsShown() then refreshOne(w) end end
+end
+function NS.CurrentOptionsSection()
+    local w = instances[#instances]
+    return w and w.section
 end
 
 ------------------------------------------------------------------------
@@ -456,8 +696,9 @@ local optWindow
 local function buildWindow()
     local f = CF("Frame", "GrupoFacilOptionsFrame", UIParent, "BasicFrameTemplateWithInset")
     optWindow = f
-    f:SetSize(640, 640)
+    f:SetSize(640, 520)
     f:SetFrameStrata("DIALOG")
+    NS.Toplevel(f)
     f:SetClampedToScreen(true)
     f:SetMovable(true)
     f:EnableMouse(true)
@@ -470,15 +711,29 @@ local function buildWindow()
     local content = CF("Frame", nil, f)
     content:SetPoint("TOPLEFT", 4, -22)
     content:SetPoint("BOTTOMRIGHT", -4, 4)
-    buildContent(content)
+    f.content = buildContent(content)
+    if UISpecialFrames then tinsert(UISpecialFrames, "GrupoFacilOptionsFrame") end -- Esc fecha
+    f:SetScript("OnHide", function()
+        if langMenu then langMenu:Hide() end
+        if shareMenu then shareMenu:Hide() end
+    end)
     f:Hide()
     NS.D.Trace("OPCOES", "janela de opções própria criada")
 end
 
 -- Abre (ou fecha) as opções na janela do addon, ao lado da janela principal se ela estiver aberta.
-function NS.OpenOptions()
+-- section (opcional): abre nessa seção; com a janela aberta em outra seção, só troca.
+function NS.OpenOptions(section)
     if not optWindow then buildWindow() end
-    if optWindow:IsShown() then optWindow:Hide() return end
+    if optWindow:IsShown() then
+        if section and optWindow.content.section ~= section then
+            showSection(optWindow.content, section); refreshOne(optWindow.content)
+            return
+        end
+        optWindow:Hide()
+        return
+    end
+    showSection(optWindow.content, section or lastSection)
     optWindow:ClearAllPoints()
     local main = _G.GrupoFacilFrame
     if main and main:IsShown() then

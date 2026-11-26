@@ -98,6 +98,14 @@ function NS.GuardTag(tag, fn, ...)
     return D.Call(tag, fn, ...)
 end
 
+-- Janela do GrupoFacil que vem para a frente quando abre ou é clicada (com as outras janelas
+-- do addon no mesmo strata, os botões da de trás vazavam por cima: print do Fraga, 26/11).
+function NS.Toplevel(f)
+    if not f then return end
+    if f.SetToplevel then f:SetToplevel(true) end
+    if f.HookScript then f:HookScript("OnShow", function(self) if self.Raise then self:Raise() end end) end
+end
+
 local function normName(name)
     if type(name) ~= "string" or isSecret(name) then return nil end
     if Ambiguate then name = Ambiguate(name, "none") end
@@ -246,6 +254,18 @@ end
 
 local function rememberSearch(category, filter, preferred, language, crossFaction, advanced, activities)
     if isSecret(category) or type(category) ~= "number" or category <= 0 then return end
+    -- A busca da lupa (aba Missões) não vira a "última busca" da aba Masmorras: senão o Buscar de novo
+    -- de lá repetia a busca da missão e a lista de masmorras ficava vazia (teste do Fraga, 26/11).
+    -- Também a busca NATIVA em "Missões e Zonas": listar para uma missão deixa a categoria da janela do
+    -- jogo em Missões e Zonas, e ela continua assim depois de tirar a listagem (teste do Fraga, 26/11).
+    -- O addon não mexe na janela do jogo; só não deixa essa busca virar a da aba Masmorras.
+    local quest = NS.questSearching or (NS.Quest and category == NS.Quest.CATEGORY)
+    NS.resultsFromQuest = quest and true or false
+    if quest then
+        Trace("BUSCA", "origem=%s (missões) categoria=%s atividades=%s", NS.questSearching and "lupa" or "nativa",
+            tostring(category), D.str(copyList(activities)))
+        return
+    end
     NS.lastSearch = {
         category = category,
         filter = (not isSecret(filter) and filter) or 0,
@@ -271,11 +291,20 @@ local function searchFromBlizzardDropdowns()
     return { category = category, filter = 0, preferred = 0, language = nil, crossFaction = false, activities = acts }
 end
 
+local DUNGEON_CATEGORY = 2
+-- Sem busca anterior (ou a única foi a da lupa): masmorras, todas, como o Looking For Group faz
+-- quando nenhuma atividade está marcada.
+local function dungeonSearch()
+    local acts = LFGUtil_GetFilteredActivities and copyList(LFGUtil_GetFilteredActivities(DUNGEON_CATEGORY))
+    return { category = DUNGEON_CATEGORY, filter = 0, preferred = 0, language = nil, crossFaction = false, activities = acts }
+end
+
 function NS.GetSearchArgs()
     if NS.lastSearch then return NS.lastSearch end
     local ok, s = NS.Guard(searchFromBlizzardDropdowns)
-    if ok and s then return s end
-    return nil
+    -- a janela nativa pode ter ficado na categoria de Missões depois da lupa
+    if ok and s and not (NS.Quest and s.category == NS.Quest.CATEGORY) then return s end
+    return dungeonSearch()
 end
 
 -- O servidor responde "throttled" a buscas muito seguidas (visto no jogo: 3 buscas em ~2 s).
@@ -329,6 +358,7 @@ function NS.SearchAgain()
     NS.addonSearching = false
     if not ok then return false, L["the search failed (see /gf diag)"] end
     if not NS.searching then NS.MarkSearching() end -- com o hook desligado
+    NS.resultsFromQuest = false -- buscou masmorras (mesmo sem o hook, o aviso da missão sai)
     return true
 end
 
@@ -491,6 +521,8 @@ local function readResult(id)
         age = info.age,
     }
     e.solo = e.numMembers <= 1
+    -- listagem com missão (o jogo aceita questID na criação): a lupa põe esses grupos no topo
+    if type(info.questID) == "number" and not isSecret(info.questID) and info.questID > 0 then e.questID = info.questID end
     if e.name then
         e.relation = relationOf(e.name, NS.relLookup)
         e.ignored = isIgnored(e.name)
@@ -825,6 +857,153 @@ function NS.PrefillWho(e)
     Trace("WHO", "chat aberto com /who (o jogador envia): ok=%s", tostring(ok))
 end
 
+------------------------------------------------------------------------
+-- Listas de escolha (menus) e tooltips do addon (Fraga, 26/11: uma lista ficou aberta ao trocar
+-- de seção, e um tooltip ficou preso). Regras para TODA lista do addon:
+--  * fecha com Esc (UISpecialFrames), ao clicar fora dela e do botão que a abriu,
+--    e quando a janela, a aba ou a seção de onde ela saiu muda ou some (NS.CloseMenus);
+--  * um tooltip aberto por um quadro do addon some quando esse quadro some.
+------------------------------------------------------------------------
+local menus = {}
+function NS.RegisterMenu(m)
+    for _, x in ipairs(menus) do if x == m then return end end
+    menus[#menus + 1] = m
+    local name = m.GetName and m:GetName()
+    if name and UISpecialFrames then tinsert(UISpecialFrames, name) end
+end
+function NS.CloseMenus(why)
+    for _, m in ipairs(menus) do
+        if m:IsShown() then
+            m:Hide()
+            Trace("UI", "lista %s fechada (%s)", tostring(m.GetName and m:GetName()), tostring(why))
+        end
+    end
+end
+local mouseWatch = CreateFrame("Frame")
+pcall(mouseWatch.RegisterEvent, mouseWatch, "GLOBAL_MOUSE_DOWN") -- pode não existir neste cliente
+mouseWatch:SetScript("OnEvent", NS.D.Wrap("menus.GLOBAL_MOUSE_DOWN", function()
+    for _, m in ipairs(menus) do
+        if m:IsShown() and not m:IsMouseOver() then
+            local o = m.owner
+            local onOwner = o and o.IsShown and o:IsShown() and o:IsMouseOver()
+            if not onOwner then m:Hide() end -- o clique no próprio botão abre/fecha pelo OnClick
+        end
+    end
+end))
+
+-- O dono do tooltip é do addon? (nome GrupoFacil* nele ou num pai; nunca mexe em quadro alheio)
+local tipHooked = setmetatable({}, { __mode = "k" })
+local function ours(f)
+    for _ = 1, 15 do
+        if type(f) ~= "table" then return false end
+        local okF, forbidden = pcall(function() return f.IsForbidden and f:IsForbidden() end)
+        if not okF or forbidden then return false end
+        local okN, name = pcall(function() return f.GetName and f:GetName() end)
+        if okN and type(name) == "string" and name:find("^GrupoFacil") then return true end
+        local okP, parent = pcall(function() return f.GetParent and f:GetParent() end)
+        if not okP then return false end
+        f = parent
+    end
+    return false
+end
+if GameTooltip and hooksecurefunc then
+    hooksecurefunc(GameTooltip, "SetOwner", function(tip, owner)
+        if tip ~= GameTooltip or not owner or tipHooked[owner] or not owner.HookScript or not ours(owner) then return end
+        tipHooked[owner] = true
+        owner:HookScript("OnHide", function(self)
+            if GameTooltip:IsOwned(self) then GameTooltip:Hide() end
+        end)
+    end)
+end
+
+------------------------------------------------------------------------
+-- Indicar a um amigo (plano de adesão do Fraga, 26/11): os grupos por missão só funcionam com
+-- mais gente usando o addon. O addon não posta no chat (o Forever restringe mensagens de addon):
+-- só põe a frase pronta na caixa do chat, no canal da guilda quando há guilda, e o jogador aperta Enter.
+------------------------------------------------------------------------
+NS.SHARE_URL = "curseforge.com/wow/addons/grupofacil"
+
+function NS.ShareText()
+    return format(L["I use GrupoFacil, a free addon: it finds dungeon and quest groups in Looking For Group in 2 clicks, and players who have it find each other. Get it at %s"], NS.SHARE_URL)
+end
+
+-- Para onde a frase vai (pedido do Fraga, 26/11): sussurro a um amigo (nome completo, com
+-- sobrenome), guilda, grupo, raide, dizer ou um canal numerado (/1, /2...). Só os que valem agora.
+local SHARE_PREFIX = { guild = "/g ", party = "/p ", raid = "/ra ", say = "/s " }
+
+function NS.ShareTargets()
+    local out = { { key = "whisper", label = L["Whisper a friend"] } }
+    if IsInGuild and IsInGuild() then out[#out + 1] = { key = "guild", label = L["Guild"] } end
+    if IsInGroup and IsInGroup() then out[#out + 1] = { key = "party", label = L["Group"] } end
+    if IsInRaid and IsInRaid() then out[#out + 1] = { key = "raid", label = L["Raid"] } end
+    out[#out + 1] = { key = "say", label = L["Say"] }
+    -- pcall direto: "x and f()" cortaria os vários valores de volta
+    local list = GetChannelList and { pcall(GetChannelList) } or {}
+    if list[1] then
+        -- GetChannelList devolve id, nome, desativado, id, nome, desativado...
+        for i = 2, #list, 3 do
+            local id, name, disabled = tonumber(list[i]), list[i + 1], list[i + 2]
+            if id and type(name) == "string" and not disabled then
+                out[#out + 1] = { key = "ch:" .. id, label = format("/%d %s", id, name) }
+            end
+        end
+    end
+    return out
+end
+
+local function shareDB()
+    local db = GrupoFacilDB
+    if not db then return {} end
+    if type(db.share) ~= "table" then db.share = {} end
+    return db.share
+end
+
+-- O alvo escolhido, se ainda vale (saiu da guilda, do grupo, do canal: cai para guilda ou dizer).
+function NS.ShareTarget()
+    local want = shareDB().target
+    local targets = NS.ShareTargets()
+    for _, t in ipairs(targets) do if t.key == want then return t end end
+    for _, t in ipairs(targets) do if t.key == "guild" then return t end end
+    for _, t in ipairs(targets) do if t.key == "say" then return t end end
+    return targets[1]
+end
+
+function NS.SetShareTarget(key)
+    shareDB().target = key
+    Trace("SHARE", "destino da indicação: %s", tostring(key))
+end
+
+-- from: de onde veio o clique (diagnóstico). friend: nome completo do personagem, para o sussurro.
+function NS.RecommendAddon(from, friend)
+    local text = NS.ShareText()
+    local target = NS.ShareTarget()
+    local key = target and target.key or "say"
+    if friend and friend:gsub("%s", "") ~= "" then key = "whisper" end
+    local ok
+    if key == "whisper" then
+        friend = friend and friend:gsub("^%s+", ""):gsub("%s+$", ""):gsub("%s+", " ") or ""
+        if friend == "" then
+            NS.Print(L["type your friend's full character name first (name and surname)."])
+            return false
+        end
+        -- o mesmo caminho do sussurro ao líder: o jogo trata o nome com sobrenome
+        if ChatFrameUtil and ChatFrameUtil.SendTellWithMessage then
+            ok = NS.GuardTag("SendTellWithMessage(indicar)", ChatFrameUtil.SendTellWithMessage, friend, text)
+        else
+            local open = (ChatFrameUtil and ChatFrameUtil.OpenChat) or ChatFrame_OpenChat
+            if not open then NS.Print(text) return false end
+            ok = NS.GuardTag("OpenChat(indicar)", open, "/w " .. friend .. " " .. text)
+        end
+    else
+        local prefix = SHARE_PREFIX[key] or (key:match("^ch:(%d+)$") and ("/" .. key:match("^ch:(%d+)$") .. " ")) or ""
+        local open = (ChatFrameUtil and ChatFrameUtil.OpenChat) or ChatFrame_OpenChat
+        if not open then NS.Print(text) return false end
+        ok = NS.GuardTag("OpenChat(indicar)", open, prefix .. text)
+    end
+    Trace("SHARE", "frase de indicação na caixa do chat (%s, destino=%s): ok=%s", tostring(from), key, tostring(ok))
+    return ok
+end
+
 function NS.WhoInfo(e)
     local c = e and e.key and NS.whoCache[e.key]
     if c and time() - c.t <= WHO_TTL then return c end
@@ -1022,7 +1201,8 @@ function NS.CanAskToJoin(e)
     return true
 end
 
-function NS.AskToJoin(e)
+-- text: texto pronto (a janela de missões manda o pedido com o nome da missão)
+function NS.AskToJoin(e, text)
     local ok, why = NS.CanAskToJoin(e)
     if not ok then
         NS.Print(format(L["not sent: %s."], why))
@@ -1030,7 +1210,7 @@ function NS.AskToJoin(e)
         return
     end
     if GetTime() < NS.sendReadyAt then NS.Print(L["wait a few seconds between requests."]) return end
-    local text = NS.BuildMessage(e)
+    text = text or NS.BuildMessage(e)
     NS.sendReadyAt = GetTime() + SEND_INTERVAL
     if GrupoFacilDB.sendMode == "preencher" then
         Trace("PEDIDO", "modo preencher, grupo de %d", e.numMembers)
@@ -1236,7 +1416,11 @@ local HELP = {
     "/gf bug - report a problem to the author (window); /gf bug <text> - report right away; /gf bug list - your reports",
     "/gf bug link - link to the comments on CurseForge (for other rulesets or factions)",
     "/gf news - what's new in this version",
+    "/gf quests - quest groups window (or click the magnifier next to a quest)",
+    "/gf share - put a ready message recommending GrupoFacil in the chat box (you press Enter); /gf share <name> - whisper it to a friend",
     "/gf debug on | off - show the trace in chat as it happens",
+    "/gf debug demo | demo off - fake quest groups to try the Quests tab alone (nothing goes to the game)",
+    "/gf debug ping [name] - test the silent message: to yourself, or to a friend who has this version",
 }
 
 local ALIAS = {
@@ -1245,6 +1429,8 @@ local ALIAS = {
     classe = "class", modo = "mode", minimapa = "minimap", encaixar = "dock", erros = "diag", idioma = "lang", language = "lang",
     bloqueados = "blocked", desbloquear = "unblock",
     report = "bug", reportar = "bug", problema = "bug", reports = "bugs",
+    missoes = "quests", ["missões"] = "quests", quest = "quests", misiones = "quests", quetes = "quests", ["quêtes"] = "quests",
+    indicar = "share", recomendar = "share", recommend = "share", compartilhar = "share", invitar = "share", empfehlen = "share", partager = "share",
     novidades = "news", whatsnew = "news", notes = "news", changelog = "news", novedades = "news", neuigkeiten = "news", ["nouveautés"] = "news",
 }
 local ON_OFF = function(v) return v and L["on"] or L["off"] end
@@ -1261,9 +1447,17 @@ SlashCmdList.GRUPOFACIL = function(input)
     if cmd == "" then
         if NS.TogglePanel then NS.TogglePanel() end
     elseif cmd == "options" then
-        if NS.OpenOptions then NS.OpenOptions() end
+        local SEC = { general = "general", geral = "general", messages = "messages", mensagens = "messages", msg = "messages",
+            quests = "quests", missoes = "quests", ["missões"] = "quests", invite = "invite", convide = "invite", share = "invite",
+            help = "help", ajuda = "help" }
+        if NS.OpenOptions then NS.OpenOptions(SEC[l]) end
     elseif cmd == "tour" then
         if NS.StartTour then NS.StartTour() end
+    elseif cmd == "quests" then
+        if NS.ToggleQuestWindow then NS.ToggleQuestWindow() end
+    elseif cmd == "share" then
+        -- /gf share <nome sobrenome> sussurra a frase para esse amigo
+        NS.RecommendAddon("/gf share", rest ~= "" and rest or nil)
     elseif cmd == "news" then
         if NS.OpenNews then NS.OpenNews("/gf news") end
     elseif cmd == "lang" then
@@ -1342,8 +1536,26 @@ SlashCmdList.GRUPOFACIL = function(input)
     elseif cmd == "bug" or cmd == "bugs" then
         if NS.BugCommand then NS.BugCommand(cmd, rest) end
     elseif cmd == "debug" then
-        db.debug = (l == "on")
-        NS.Print(format(L["debug: %s"], db.debug and L["on (trace in chat)"] or L["off"]))
+        local sub = l:match("^(%S*)")
+        if sub == "demo" or sub == "demonstracao" or sub == "demonstração" then
+            local Q = NS.Quest
+            if l:match("%s(%S+)$") == "off" then
+                Q.StopDemo()
+                NS.Print(L["demo off."])
+            else
+                local ok, why = Q.StartDemo()
+                if not ok then NS.Print(why) return end
+                NS.Print(L["demo on: fake players in the Quests tab, nothing goes to the game. /gf debug demo off to leave."])
+                if NS.ShowQuestWindow then NS.ShowQuestWindow(true) end
+                if NS.QuestPick then NS.QuestPick(false) end
+                if NS.RefreshQuest then NS.RefreshQuest("demo") end
+            end
+        elseif sub == "ping" or sub == "selftest" then
+            NS.Quest.Ping((rest or ""):match("^%S+%s+(.+)$"))
+        else
+            db.debug = (l == "on")
+            NS.Print(format(L["debug: %s"], db.debug and L["on (trace in chat)"] or L["off"]))
+        end
     else
         for _, line in ipairs(HELP) do print(L[line]) end
         if NS.bugAdmin then print(L["/gf bugs - bug report inbox (author only); /gf bugs fix <id> [note]; /gf bugs flush"]) end

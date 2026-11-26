@@ -144,6 +144,11 @@ function M.new(client)
             end
         end
         guard[f] = nil
+        -- filho de rolagem sem âncoras: o ScrollFrame põe no canto de cima, deslocado pela rolagem
+        if #s.points == 0 and s.parent and S[s.parent] and S[s.parent].scrollChild == f then
+            local pr = rectOf(s.parent, guard, memo)
+            if pr then L, T = pr.l, pr.t + (S[s.parent].vscroll or 0) end
+        end
         local w = s.width
         local h = s.height
         if (not w or w == 0) and s.kind == "FontString" then w = textWidth(s.text, charWidth(s.template or s.fontObject)) end
@@ -284,7 +289,16 @@ function M.new(client)
     function regionM:SetScale(v) st(self).scale = v end
     function regionM:GetScale() return st(self).scale or 1 end
     function regionM:GetEffectiveScale() return st(self).scale or 1 end
-    function regionM:IsMouseOver() return ui.mouseOver == self end
+    -- como no jogo: o mouse sobre um filho também está sobre o pai (a área do pai contém o filho)
+    function regionM:IsMouseOver()
+        local f = ui.mouseOver
+        for _ = 1, 30 do
+            if not f then return false end
+            if f == self then return true end
+            f = st(f).parent
+        end
+        return false
+    end
     function regionM:SetIgnoreParentAlpha() end
     function regionM:SetIgnoreParentScale() end
 
@@ -417,8 +431,13 @@ function M.new(client)
     function frameM:GetFrameStrata() return st(self).strata or "MEDIUM" end
     function frameM:SetFrameLevel(v) st(self).level = v end
     function frameM:GetFrameLevel() return st(self).level or 1 end
-    function frameM:SetToplevel() end
-    function frameM:Raise() end
+    -- Raise: o quadro (e os filhos, que contam a partir dele) vai para cima de tudo no strata
+    function frameM:SetToplevel(v) st(self).toplevel = v and true or false end
+    function frameM:IsToplevel() return st(self).toplevel or false end
+    function frameM:Raise()
+        ui.raiseTop = (ui.raiseTop or 100) + 50
+        st(self).level = ui.raiseTop
+    end
     function frameM:Lower() end
     function frameM:SetClampedToScreen(v) st(self).clamped = v end
     function frameM:SetClampRectInsets() end
@@ -514,8 +533,19 @@ function M.new(client)
         if not visible(self) and not ui.allowHiddenClick then return end
         mouse = mouse or "LeftButton"
         if s.kind == "CheckButton" then s.checked = not s.checked end
+        -- clique dentro de uma janela "toplevel": ela vem para a frente (como no jogo)
+        local anc = self
+        while anc do
+            local as = S[anc]
+            if as and as.toplevel then anc:Raise() break end
+            anc = as and as.parent
+        end
+        -- evento de hardware: o clique libera UMA ação protegida (busca, criar/tirar listagem)
+        local hw = client.hw
+        client.hw = { left = 1 }
         fire(self, "PreClick", mouse, down or false)
         fire(self, "OnClick", mouse, down or false)
+        client.hw = hw
         if s.protected and s.attributes.type == "macro" and s.attributes.macrotext then
             client:runMacro(s.attributes.macrotext, true)
         end
