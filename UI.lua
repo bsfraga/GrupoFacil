@@ -1065,8 +1065,6 @@ function NS.SelectTab(key)
     if frame:IsShown() and NS.OnPanelShown then NS.OnPanelShown() end
     if NS.UpdateQuestTab then NS.UpdateQuestTab() end
     if key == "dungeons" and frame:IsShown() then NS.Refresh("tab") end
-    -- a categoria da janela do jogo acompanha a aba em foco (Dungeons / Quests & Zones)
-    if frame:IsShown() and NS.SyncNativeCategory then NS.SyncNativeCategory(key, "aba") end
 end
 function NS.CurrentTab() return frame and frame:IsShown() and NS.tab or nil end
 

@@ -630,16 +630,8 @@ function Client:loadBlizzard(name)
     parent:Hide()
     local browse = ui.CreateFrame("Frame", "LFGBrowseFrame", parent)
     browse:SetAllPoints(parent)
-    -- dropdowns da janela do jogo: os métodos dos mixins da Blizzard (Blizzard_LFGVanilla_Browse.lua)
-    browse.CategoryDropdown = {
-        GetValue = function() return self.nativeCategory end,
-        SetValue = function(_, v) self.nativeCategory = v; self.data.nativeCategorySets = (self.data.nativeCategorySets or 0) + 1 end,
-    }
-    browse.ActivityDropdown = { selectedValues = self.nativeActivities or {} }
-    function browse.ActivityDropdown.ValueReset(d) for i = #d.selectedValues, 1, -1 do d.selectedValues[i] = nil end end
-    function browse.ActivityDropdown.ValueSetSelected(d, v, on)
-        if on then table.insert(d.selectedValues, v) end
-    end
+    browse.CategoryDropdown = { GetValue = function() return self.nativeCategory end }
+    browse.ActivityDropdown = { selectedValues = self.nativeActivities }
     -- grava quem escreve na janela da Blizzard (o addon nunca pode)
     world:watchWrites(self, parent, "LFGParentFrame")
     world:watchWrites(self, browse, "LFGBrowseFrame")
