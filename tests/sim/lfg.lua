@@ -208,7 +208,8 @@ function LFG:api(c)
         -- Forever: sem estilo de jogo o jogo aceita a chamada e não cria nada, sem evento nenhum
         -- (o "Criar grupo não faz nada" do teste do Fraga, 26/11)
         if world.config.requirePlaystyle ~= false and data.generalPlaystyle == nil then return end
-        if world.config.silentListing then return end
+        if world.config.silentListing then return true end
+        if world.config.refuseListing then return false end
         if data.questID and world.config.rejectListingQuestID then
             world:after(world.config.lfgLatency, function()
                 if c.state == "online" then c:fireEvent("LFG_LIST_ENTRY_CREATION_FAILED") end
@@ -228,6 +229,8 @@ function LFG:api(c)
         end)
         return true
     end
+    function api.GetLfgCategoryInfo(id) return { name = "Cat" .. tostring(id), autoChooseActivity = false } end
+    function api.IsPlayerAuthenticatedForLFG() return true end
     function api.RemoveListing()
         if not protected("RemoveListing") then return end
         lfg:removeActive(c)

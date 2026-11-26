@@ -488,42 +488,51 @@ function Q.Create()
     local ok, why = Q.CanCreate()
     if not ok then NS.Print(format(L["not listed: %s."], why)) return false end
     local cur = Q.current
-    -- Mesmos campos que o botão "Listar" do Looking For Group do Forever manda. O estilo de jogo é
-    -- obrigatório lá ("Select Playstyle (required)"): sem ele o jogo não cria a listagem e não avisa
-    -- (teste do Fraga, 26/11). "Divertido, sem pressa" combina com grupo de missão.
-    local data = { activityIDs = { cur.activity.id }, newPlayerFriendly = false }
+    -- Exatamente os campos que o botão "Listar" do Looking For Group do Forever manda
+    -- (Blizzard_LFGVanilla_Listing.lua, CreateOrUpdateListing): atividades, novato, estilo de jogo
+    -- (obrigatório: "Select Playstyle (required)") e voz. O ID da missão (questID) ficou de fora: no
+    -- teste do Fraga (26/11) toda chamada com ele foi aceita e nada foi listado. Quem usa o GrupoFacil
+    -- acha a missão do grupo pelo sussurro de addon, não pela listagem.
     local styles = Enum and Enum.LFGEntryGeneralPlaystyle
-    data.generalPlaystyle = (styles and styles.FunRelaxed) or PLAYSTYLE_FUN_RELAXED
+    local voice = Enum and Enum.LFGEntryVoiceMode
+    local data = {
+        activityIDs = { cur.activity.id },
+        newPlayerFriendly = false,
+        generalPlaystyle = (styles and styles.FunRelaxed) or PLAYSTYLE_FUN_RELAXED,
+    }
+    if voice and voice.None then data.voiceMode = voice.None end
     local db = Q.DB()
-    -- missão de masmorra: grupo de masmorra normal, como o botão do jogo cria (sem o ID da missão)
     local dungeon = cur.category == Q.DUNGEON_CATEGORY
-    if not (dungeon or db.noQuestIDListing or Q.noQuestIDSession) then data.questID = cur.questID end
+    if db.listWithQuestID and not dungeon then data.questID = cur.questID end -- só para teste
     local p = { questID = cur.questID, at = GetTime(), withQuest = data.questID ~= nil,
-        dungeon = dungeon and (cur.activity.label or cur.activity.name) or nil }
+        dungeon = dungeon and (cur.activity.label or cur.activity.name) or nil, errors = {} }
     Q.pendingCreate = p
-    local called = NS.GuardTag("C_LFGList.CreateListing", C_LFGList.CreateListing, data)
-    Trace("MISSAO", "criar listagem: missão=%d atividade=%d comID=%s estilo=%s chamada=%s", cur.questID, cur.activity.id,
-        tostring(data.questID ~= nil), tostring(data.generalPlaystyle), tostring(called))
-    if not called then
+    local called, created = NS.GuardTag("C_LFGList.CreateListing", C_LFGList.CreateListing, data)
+    local cat = C_LFGList.GetLfgCategoryInfo and select(2, pcall(C_LFGList.GetLfgCategoryInfo, cur.category))
+    local auth = C_LFGList.IsPlayerAuthenticatedForLFG and select(2, pcall(C_LFGList.IsPlayerAuthenticatedForLFG, cur.category))
+    Trace("MISSAO", "criar listagem: missão=%d categoria=%d atividade=%d comID=%s estilo=%s voz=%s chamada=%s resposta=%s autoEscolha=%s autenticado=%s",
+        cur.questID, cur.category or 0, cur.activity.id, tostring(data.questID ~= nil), tostring(data.generalPlaystyle),
+        tostring(data.voiceMode), tostring(called), tostring(created),
+        tostring(type(cat) == "table" and cat.autoChooseActivity), tostring(auth))
+    if not called or created == false then
         Q.pendingCreate = nil
         NS.Print(L["the game did not accept the listing. Send /gf diag to the author."])
+        refresh("create-refused")
         return false
     end
     Q.myQuest = cur.questID
-    -- Sem resposta do jogo (nem criada nem recusada) em CREATE_WAIT s: avisa em vez de ficar mudo.
+    -- Sem resposta do jogo (nem criada nem recusada) em CREATE_WAIT s: avisa em vez de ficar mudo e
+    -- guarda no /gf diag as mensagens de erro do jogo que vieram nesse tempo.
     C_Timer.After(CREATE_WAIT, function()
         if Q.pendingCreate ~= p then return end
         Q.pendingCreate = nil
         if Q.HasListing() then return end
         if not IsInGroup() then Q.myQuest = nil end
-        if p.withQuest then
-            -- o botão nativo não manda o ID da missão: a próxima tentativa (nesta sessão) vai sem ele
-            Q.noQuestIDSession = true
-            NS.Print(L["the game did not create the listing. Click Create group again (it goes without the quest)."])
-        else
-            NS.Print(L["the game did not create the listing. Open Looking For Group to list by hand, and send /gf diag to the author."])
-        end
-        Trace("MISSAO", "listagem sem resposta do jogo em %ds (com ID=%s)", CREATE_WAIT, tostring(p.withQuest))
+        NS.Print(L["the game did not create the listing. Open Looking For Group to list by hand, and send /gf diag to the author."])
+        -- para listar à mão: a descrição pronta já fica aberta para copiar
+        if NS.ShowQuestDescription then NS.ShowQuestDescription(p.questID) end
+        Trace("MISSAO", "listagem sem resposta do jogo em %ds (com ID=%s) erros do jogo: %s", CREATE_WAIT, tostring(p.withQuest),
+            #p.errors > 0 and table.concat(p.errors, " / ") or "nenhum")
         refresh("create-timeout")
     end)
     refresh("create")
@@ -828,7 +837,7 @@ for _, e in ipairs({ "CHAT_MSG_ADDON", "PARTY_INVITE_REQUEST", "GROUP_ROSTER_UPD
     pcall(ev.RegisterEvent, ev, e)
 end
 for _, e in ipairs({ "LFG_LIST_ACTIVE_ENTRY_UPDATE", "LFG_LIST_ENTRY_CREATION_FAILED", "QUEST_LOG_UPDATE", "QUEST_TURNED_IN",
-    "QUEST_REMOVED", "GROUP_LEFT" }) do
+    "QUEST_REMOVED", "GROUP_LEFT", "UI_ERROR_MESSAGE", "ADDON_ACTION_BLOCKED", "ADDON_ACTION_FORBIDDEN" }) do
     if not pcall(ev.RegisterEvent, ev, e) then Trace("CARGA", "evento %s indisponível", e) end
 end
 
@@ -878,6 +887,15 @@ local function onEvent(_, event, ...)
         end
         Trace("MISSAO", "criação da listagem recusada (com ID=%s)", tostring(p and p.withQuest))
         refresh("entry-failed")
+    elseif event == "UI_ERROR_MESSAGE" or event == "ADDON_ACTION_BLOCKED" or event == "ADDON_ACTION_FORBIDDEN" then
+        -- só enquanto espera a criação da listagem: o motivo de o jogo não listar vai para o /gf diag
+        local p = Q.pendingCreate
+        if p then
+            local a, b = ...
+            local txt = event == "UI_ERROR_MESSAGE" and (str(b) or tostring(a)) or (event .. " " .. tostring(a) .. " " .. tostring(b))
+            if not isSecret(txt) then p.errors[#p.errors + 1] = txt end
+            Trace("MISSAO", "durante a criação: %s", isSecret(txt) and "(segredo)" or txt)
+        end
     elseif event == "QUEST_TURNED_IN" then
         local qid = ...
         Q.CheckDone(num(qid), true)

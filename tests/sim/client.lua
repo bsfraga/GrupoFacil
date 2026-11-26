@@ -14,7 +14,7 @@ for _, e in ipairs({ "ADDON_LOADED", "PLAYER_LOGIN", "PLAYER_LOGOUT", "PLAYER_EN
     "FRIENDLIST_UPDATE", "IGNORELIST_UPDATE", "BN_FRIEND_INFO_CHANGED", "WHO_LIST_UPDATE", "LFG_LIST_ROLE_UPDATE",
     "LUA_WARNING", "PLAYER_REGEN_DISABLED", "PLAYER_REGEN_ENABLED", "PARTY_INVITE_REQUEST", "ZONE_CHANGED_NEW_AREA",
     "QUEST_LOG_UPDATE", "QUEST_TURNED_IN", "QUEST_REMOVED", "QUEST_ACCEPTED", "GROUP_LEFT", "GROUP_JOINED",
-    "LFG_LIST_ACTIVE_ENTRY_UPDATE", "LFG_LIST_ENTRY_CREATION_FAILED" }) do
+    "LFG_LIST_ACTIVE_ENTRY_UPDATE", "LFG_LIST_ENTRY_CREATION_FAILED", "UI_ERROR_MESSAGE" }) do
     KNOWN_EVENTS[e] = true
 end
 
@@ -375,6 +375,7 @@ function Client:buildEnv()
     env.C_Texture = { GetAtlasInfo = function(a) if world.config.atlases ~= false and a and a:find("^roleicon") then return { width = 16, height = 16 } end end }
     env.Enum = {
         LFGEntryGeneralPlaystyle = { None = 0, Learning = 1, FunRelaxed = 2, FunSerious = 3, Expert = 4 },
+        LFGEntryVoiceMode = { None = 0, Required = 1, Optional = 2 },
         SendAddonMessageResult = { Success = 0, InvalidPrefix = 1, InvalidMessage = 2, AddonMessageThrottle = 3, InvalidChatType = 4,
             NotInGroup = 5, TargetRequired = 6, InvalidChannel = 7, ChannelThrottle = 8, GeneralError = 9, NotInGuild = 10,
             AddOnMessageLockdown = 11, TargetOffline = 12 },

@@ -143,6 +143,7 @@ end
 ------------------------------------------------------------------------
 local function rectOf(f)
     if not (f and f.GetRect) then return nil end
+    if f.IsForbidden and f:IsForbidden() then return nil end
     local ok, l, b, w, h = pcall(f.GetRect, f)
     if not ok or type(l) ~= "number" or NS.isSecret(l) or not w or w <= 0 or h <= 0 then return nil end
     return { l = l, r = l + w, b = b, t = b + h }
@@ -162,13 +163,19 @@ local function collectObstacles(roots, depth)
         local ok, kids = pcall(function() return { f:GetChildren() } end)
         if not ok then return end
         for _, ch in ipairs(kids) do
-            if not mine[ch] and ch.IsVisible and ch:IsVisible() then
-                local r = rectOf(ch)
-                local kind = ch.GetObjectType and ch:GetObjectType()
-                local small = r and (r.r - r.l) <= 220 and (r.t - r.b) <= 60
-                local mouse = ch.IsMouseEnabled and ch:IsMouseEnabled()
-                if r and small and (CLICKABLE[kind] or mouse) then out[#out + 1] = { f = ch, r = r } end
-                if d < depth then walk(ch, d + 1) end
+            -- quadros proibidos (seguros da Blizzard) não podem nem ser lidos por addon: pula
+            -- (erro "calling 'IsVisible' on bad self" no teste do Fraga, 26/11)
+            local forbidden = type(ch) ~= "table" or (ch.IsForbidden and ch:IsForbidden())
+            if not forbidden and not mine[ch] then
+                local okv, vis = pcall(ch.IsVisible, ch)
+                if okv and vis then
+                    local r = rectOf(ch)
+                    local okk, kind = pcall(ch.GetObjectType, ch)
+                    local okm, mouse = pcall(ch.IsMouseEnabled, ch)
+                    local small = r and (r.r - r.l) <= 220 and (r.t - r.b) <= 60
+                    if r and small and ((okk and CLICKABLE[kind]) or (okm and mouse)) then out[#out + 1] = { f = ch, r = r } end
+                    if d < depth then walk(ch, d + 1) end
+                end
             end
         end
     end
@@ -770,7 +777,8 @@ function NS.RenderQuest()
     win.search:SetEnabled(cur ~= nil and GetTime() >= NS.searchReadyAt and not NS.searching and not NS.InLockdown())
     local has = Q.HasListing()
     win.create:SetText(has and L["Remove listing"] or L["Create group"])
-    win.create:SetEnabled(has or (Q.CanCreate()))
+    -- esperando o jogo responder à criação: um clique por vez (no teste, 9 cliques seguidos)
+    win.create:SetEnabled(not Q.pendingCreate and (has or (Q.CanCreate())))
     win.desc:SetEnabled(cur ~= nil)
 end
 
