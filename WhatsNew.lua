@@ -55,6 +55,7 @@ NS.NEWS_VERSION = NEWS.version
 
 local W, PAD = 520, 16
 local INNER = W - 2 * PAD
+local FOOT_LINE = 16 -- a linha de versão e página, acima dos botões do rodapé
 local DELAY = 3 -- segundos depois de entrar no mundo (deixa a tela de carregamento sumir)
 
 local n = 0
@@ -111,7 +112,7 @@ local function showPage(i)
     f.newer:SetEnabled(i > 1)
     f.older:SetEnabled(i < #PAGES)
     -- cabe na tela (768 px de altura ou menos): a janela para na altura da tela e o texto rola
-    local want = 32 + f.pages[i].h + 14 + 22 + 12 + 8
+    local want = 32 + f.pages[i].h + 14 + 22 + 12 + 8 + FOOT_LINE
     local screen = (UIParent and UIParent.GetHeight and UIParent:GetHeight()) or 768
     local h = math.min(want, math.max(300, screen - 40))
     f:SetHeight(h)
@@ -191,7 +192,7 @@ local function build()
     -- área rolável entre o título e o rodapé (a roda do mouse rola quando não cabe na tela)
     f.scroll = CF("ScrollFrame", nil, f)
     f.scroll:SetPoint("TOPLEFT", f, "TOPLEFT", PAD - 6, -32)
-    f.scroll:SetPoint("BOTTOMRIGHT", f, "BOTTOMRIGHT", -(PAD - 6), 12 + 22 + 12)
+    f.scroll:SetPoint("BOTTOMRIGHT", f, "BOTTOMRIGHT", -(PAD - 6), 12 + 22 + 12 + FOOT_LINE)
     f.holder = CF("Frame", nil, f.scroll)
     f.holder:SetSize(INNER + 12, 400)
     f.scroll:SetScrollChild(f.holder)
@@ -291,8 +292,10 @@ local function build()
     f.close:SetPoint("BOTTOMRIGHT", -12, 12)
     f.close:SetScript("OnClick", function() f:Hide() end)
     f.pageFS = text(f, "", "GameFontDisableSmall")
-    f.pageFS:SetPoint("LEFT", f.older, "RIGHT", 8, 0)
-    f.pageFS:SetPoint("RIGHT", f.close, "LEFT", -8, 0)
+    -- linha própria acima dos botões: entre eles sobravam ~100 px e "Versão … · página 1 de 2 ·
+    -- role para ver mais" passava das bordas
+    f.pageFS:SetPoint("BOTTOMLEFT", f, "BOTTOMLEFT", PAD, 12 + 22 + 8)
+    f.pageFS:SetPoint("BOTTOMRIGHT", f, "BOTTOMRIGHT", -PAD, 12 + 22 + 8)
     f.pageFS:SetJustifyH("CENTER")
     f.pageFS:SetWordWrap(false)
 

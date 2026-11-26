@@ -315,7 +315,13 @@ local function refreshOne(w)
     w.blockedLabel:SetText(format(L["Blocked players: %d"], nb))
     w.unblock:SetEnabled(nb > 0)
     w.bugInbox:SetShown(NS.bugAdmin == true)
-    if NS.bugAdmin and NS.BugInbox then w.bugInbox:SetText(format(L["Bug reports (new: %d)"], #NS.BugInbox("new"))) end
+    if NS.bugAdmin and NS.BugInbox then
+        w.bugInbox:SetText(format(L["Bug reports (new: %d)"], #NS.BugInbox("new")))
+        -- com a contagem o texto cresce ("Reports de bug (novos: 0)" passava do botão de 150)
+        local fs = w.bugInbox.GetFontString and w.bugInbox:GetFontString()
+        local tw = fs and fs:GetStringWidth()
+        if tw then w.bugInbox:SetWidth(math.max(150, tw + 22)) end
+    end
 end
 
 local function refresh()

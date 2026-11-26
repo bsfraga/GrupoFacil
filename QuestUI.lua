@@ -764,7 +764,9 @@ local function renderPicker(n)
             r:Hide()
         end
     end
-    win.listTitle:SetText(format(L["Your quests (%d)"], total))
+    -- o título de cima já diz "Suas missões": com a contagem ali, a lista não repete o título
+    win.quest:SetText(format(L["Your quests (%d)"], total))
+    win.listTitle:SetText("")
     if total == 0 then
         win.empty:SetText(L["Your quest log is empty. Pick up a quest and come back, or click the magnifier next to a quest."])
         win.empty:Show()
@@ -884,9 +886,18 @@ function NS.RenderQuest()
             if e.qScore == 3 then doing = doing + 1 end
             if e.qPeer then peers = peers + 1 end
         end
-        status = format(L["%d groups in the zone, %d doing this quest. %d use GrupoFacil."], total, doing, peers)
+        -- singular e plural separados ("1 grupos na zona" lia errado)
+        local function n(count, one, many) return count == 1 and L[one] or format(L[many], count) end
+        status = n(total, "1 group in the zone", "%d groups in the zone") .. ", "
+            .. n(doing, "1 doing this quest.", "%d doing this quest.") .. " "
+            .. n(peers, "1 uses GrupoFacil.", "%d use GrupoFacil.")
     end
-    if Q.demo then status = "|cff66ccff" .. L["Demo: fake players, nothing goes to the game."] .. "|r  " .. status end
+    -- o aviso da demonstração vai na linha de baixo (a do aviso laranja), que quase sempre está
+    -- vazia: na mesma linha da contagem, o rodapé passava da largura e cortava
+    local demo = Q.demo and ("|cff66ccff" .. L["Demo: fake players, nothing is sent."] .. "|r") or nil
+    local warn = Q.JoinWarning()
+    if demo and not warn then win.warn:SetText(demo)
+    elseif demo then status = demo .. "  " .. status end
     win.status:SetText(status)
 
     win.search:SetEnabled(GetTime() >= NS.searchReadyAt and not NS.searching and not NS.InLockdown())

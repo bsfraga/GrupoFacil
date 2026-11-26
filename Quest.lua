@@ -899,16 +899,28 @@ function Q.DemoEntries(cur)
     local zone = (cur.activity and (cur.activity.label or cur.activity.name)) or q.zone
     local lvl = UnitLevel("player") or 1
     local out = {}
-    for i, d in ipairs(DEMO) do
+    -- um jogador real com o mesmo nome de um falso: o real fica e o falso sai da demonstração
+    -- (antes os dois apareciam e o Entrar de um marcava os dois como Enviado)
+    local real = {}
+    for _, re in pairs(NS.entries or {}) do if re.key and not re.demo then real[re.key] = true end end
+    local function persona(i, d)
+        local k = key(d.name)
+        if real[k] and demo.keys[k] then
+            demo.keys[k], demo.entries[i] = nil, nil
+            demo.gone = demo.gone or {}
+            demo.gone[k] = true
+            Q.peers[k], Q.asked[k], Q.answers[k] = nil, nil, nil
+        end
+        if demo.gone and demo.gone[k] then return nil end
         local e = demo.entries[i]
         if not e then
-            e = { id = -i, name = d.name, key = key(d.name), class = d.class, level = lvl, solo = d.solo or nil, demo = true,
+            e = { id = -i, name = d.name, key = k, class = d.class, level = lvl, solo = d.solo or nil, demo = true,
                 numMembers = d.members or 1, maxPlayers = not d.solo and 5 or nil, age = i * 60, activityIDs = {} }
             demo.entries[i] = e
         end
         e.activity = zone or ""
         if d.role then
-            local p = Q.peers[e.key] or { gf = true, has = {} }
+            local p = Q.peers[k] or { gf = true, has = {} }
             p.at, p.listed, p.has = GetTime(), nil, {}
             if d.role == "listed" then
                 p.listed = cur.questID
@@ -917,9 +929,13 @@ function Q.DemoEntries(cur)
                 p.has[cur.questID] = true
                 p.info = nil
             end
-            Q.peers[e.key] = p
+            Q.peers[k] = p
         end
-        out[#out + 1] = e
+        return e
+    end
+    for i, d in ipairs(DEMO) do
+        local e = persona(i, d)
+        if e then out[#out + 1] = e end
     end
     return out
 end

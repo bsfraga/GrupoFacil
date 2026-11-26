@@ -630,7 +630,7 @@ describe("quest groups - tirar a listagem e a lista das suas missões", function
         T.eq(Q.current, nil, "a missão escolhida foi limpa")
         T.ok(qwin(lead).picking, "de volta para a lista das suas missões")
         T.no(lead:isVisible(qwin(lead).create), "sem Criar grupo na lista")
-        T.eq(lead:text(qwin(lead).quest), "Your quests")
+        T.match(lead:text(qwin(lead).quest), "^Your quests %(%d+%)$")
         T.no(lead:chatLines()[1] and lead:chatLines()[#lead:chatLines()]:find("did not take your group out"), "o jogo tirou")
         T.clean(lead)
     end)
@@ -670,8 +670,8 @@ describe("quest groups - tirar a listagem e a lista das suas missões", function
         c:slash("/gf quests")
         local win = qwin(c)
         T.ok(win.picking)
-        T.eq(c:text(win.quest), "Your quests")
-        T.eq(c:text(win.listTitle), "Your quests (2)")
+        T.eq(c:text(win.quest), "Your quests (2)")
+        T.eq(c:text(win.listTitle), "", "o título não se repete na lista")
         local rs = pickRowsOf(c)
         T.eq(#rs, 2)
         local target
@@ -972,7 +972,7 @@ describe("quest groups - testar sem outro jogador com o addon", function()
         T.has(c:chatLines(), "demo on: fake players in the Quests tab")
         local win = qwin(c)
         T.ok(c:isVisible(win), "abre a aba Missões")
-        T.match(c:text(win.status), "^.*Demo: fake players, nothing goes to the game%.")
+        T.match(c:text(win.warn), "^.*Demo: fake players, nothing is sent%.")
         local names = {}
         for _, r in ipairs(qrows(c)) do names[#names + 1] = r.name end
         T.match(names[1], "^Aldren Ventobravo") -- faz a missão (listado) vem antes
@@ -1307,9 +1307,29 @@ describe("quest groups - layout que outro simulador apontou", function()
             local st = c.ui.state(f)
             if not st then return end
             if st.kind == "FontString" and st.points and #st.points > 1 then
-                local k, ps = {}, {}
-                for _, p in ipairs(st.points) do k[VERT[p.point] or "?"] = true; ps[#ps + 1] = p.point end
-                if k.C and (k.T or k.B) then bad[#bad + 1] = table.concat(ps, "+") .. " " .. tostring(st.text):sub(1, 30) end
+                -- cada ponto dá uma restrição vertical; com centro (LEFT/RIGHT/CENTER) só vale se todas
+                -- forem a MESMA (mesmo quadro, mesmo ponto vertical, mesmo y): LEFT + RIGHT em quadros
+                -- diferentes põe o texto no centro do outro quadro (lista de masmorras empilhada)
+                -- e duas bordas do mesmo lado (TOPLEFT + TOPRIGHT) também têm de cair na mesma altura
+                local k, ps, ys = {}, {}, { T = {}, C = {}, B = {} }
+                for _, p in ipairs(st.points) do
+                    local v = VERT[p.point] or "?"
+                    k[v] = true
+                    ps[#ps + 1] = p.point
+                    local r = p.rel and c.ui.rect(p.rel)
+                    local rv = VERT[p.relPoint]
+                    if r and ys[v] then
+                        local y = (rv == "T" and r.t) or (rv == "B" and r.b) or (r.t + r.b) / 2
+                        ys[v][#ys[v] + 1] = y + (p.y or 0)
+                    end
+                end
+                local spread = 0
+                for _, list in pairs(ys) do
+                    for _, a in ipairs(list) do for _, b in ipairs(list) do spread = math.max(spread, math.abs(a - b)) end end
+                end
+                if (k.C and (k.T or k.B)) or spread > 2 then
+                    bad[#bad + 1] = table.concat(ps, "+") .. " " .. tostring(st.text):sub(1, 30) .. (spread > 2 and (" (centros a " .. spread .. " px)") or "")
+                end
             end
             for _, ch in ipairs(st.children or {}) do walk(ch) end
             for _, rg in ipairs(st.regions or {}) do walk(rg) end
@@ -1324,11 +1344,22 @@ describe("quest groups - layout que outro simulador apontou", function()
         magnify(w, c, ELITE.id)
         H.ns(c).Quest.OnAddonMessage("GFQ", "J1 155 18 MAGE d The Defias Brotherhood", "WHISPER", "Pedinte")
         w:advance(0.5)
+        -- abre o que cria texto sob demanda: listas, menus, report, opções, novidades
+        H.sampleListings(w)
+        H.search(w, c, 2, { 1, 2, 3, 4, 5 })
+        w:advance(4)
+        local f = c.env.GrupoFacilFrame
+        c:click(f.tabDungeons)
+        c:click(H.find(c, f, "^All dungeons$", true))
+        local ns = H.ns(c)
+        c:slash("/gf bug")
         c:slash("/gf options")
-        H.ns(c).OpenNews("teste")
+        ns.OpenNews("teste")
         local bad = {}
-        for _, n in ipairs({ "GrupoFacilFrame", "GrupoFacilOptionsFrame", "GrupoFacilWhatsNew" }) do
-            for _, b in ipairs(ambiguous(c, c.env[n])) do bad[#bad + 1] = n .. ": " .. b end
+        for name, fr in pairs(c.ui.byName) do
+            if type(name) == "string" and name:find("^GrupoFacil") and c.ui.state(fr) then
+                for _, b in ipairs(ambiguous(c, fr)) do bad[#bad + 1] = name .. ": " .. b end
+            end
         end
         T.eq(#bad, 0, table.concat(bad, "\n"))
         T.clean(c)
@@ -1366,6 +1397,105 @@ describe("quest groups - layout que outro simulador apontou", function()
         H.ns(c).OpenNews("teste")
         T.eq(f.scrollMax, 0)
         T.no(c:text(f.pageFS):find("scroll"))
+        T.clean(c)
+    end)
+
+    -- o texto cabe na caixa (sem "..." cortando): largura do texto <= largura entre as âncoras
+    local function fits(c, fs, what)
+        local r = c.ui.rect(fs)
+        local tw = fs:GetStringWidth()
+        T.ok(r and tw <= (r.r - r.l) + 1, what .. ": texto de " .. tostring(tw) .. " px numa caixa de " .. tostring(r and (r.r - r.l)))
+    end
+    local function pt(w, c, lang)
+        H.db(c).language = lang or "pt"
+        c:reload()
+        w:advance(8)
+    end
+
+    it("rodapé da aba Missões em português com a demonstração: o aviso vai na linha de baixo e nada corta", function()
+        local w = world()
+        w.lfg:add({ leader = "Zona", activityIDs = { 20 }, members = { { name = "Zona", level = 18, class = "PRIEST" },
+            { name = "Z2", level = 18, class = "MAGE" } } })
+        local c = login(w, "Jogador", { ELITE })
+        pt(w, c)
+        magnify(w, c, ELITE.id)
+        c:slash("/gf debug demo")
+        w:advance(0.5)
+        local win = qwin(c)
+        T.match(c:text(win.warn), "Demonstração: jogadores falsos")
+        T.no(c:text(win.status):find("Demonstração"), "a contagem fica sozinha na linha dela")
+        for _, lang in ipairs({ "pt", "es", "de", "fr", "en" }) do
+            pt(w, c, lang)
+            magnify(w, c, ELITE.id)
+            c:slash("/gf debug demo")
+            w:advance(0.5)
+            win = qwin(c)
+            fits(c, win.status, lang .. " contagem")
+            fits(c, win.warn, lang .. " aviso da demonstração")
+        end
+        T.clean(c)
+    end)
+
+    it("contagem no singular: 1 grupo, 1 fazendo, 1 usa o GrupoFacil", function()
+        local w = world()
+        listedLeader(w, "Lider", ELITE)
+        local c = login(w, "Jogador", { ELITE })
+        magnify(w, c, ELITE.id)
+        T.match(c:text(qwin(c).status), "^1 group in the zone, 1 doing this quest%. 1 uses GrupoFacil%.$")
+        pt(w, c)
+        magnify(w, c, ELITE.id)
+        T.match(c:text(qwin(c).status), "^1 grupo na zona, 1 fazendo esta missão%. 1 usa o GrupoFacil%.$")
+        T.clean(c)
+    end)
+
+    it("Novidades em português numa tela baixa: versão, página e 'role para ver mais' cabem no rodapé", function()
+        local w = world()
+        local c = login(w, "Jogador", {})
+        pt(w, c)
+        c.ui.state(c.env.UIParent).fixedRect = { l = 0, r = 1024, t = 768, b = 0 }
+        H.ns(c).OpenNews("teste")
+        local f = H.ns(c).NewsFrame()
+        T.match(c:text(f.pageFS), "role para ver mais")
+        fits(c, f.pageFS, "rodapé das Novidades")
+        local fr, pr = c.ui.rect(f), c.ui.rect(f.pageFS)
+        T.ok(pr.l >= fr.l and pr.r <= fr.r, "dentro da janela")
+        T.ok(pr.b >= c.ui.rect(f.close).t, "acima dos botões")
+        T.ok(pr.t <= c.ui.rect(f.scroll).b + 0.5, "abaixo do texto que rola")
+        T.clean(c)
+    end)
+
+    it("botão Reports de bug das opções cresce com a contagem (admin, português)", function()
+        local w = world({ beforeAddonLoaded = function(_, ns) ns.BUG_ADMINS = { "Jogador" } end })
+        local c = login(w, "Jogador", {})
+        pt(w, c)
+        c:slash("/gf options help")
+        local b = H.find(c, c.env.GrupoFacilOptionsFrame, "^Reports de bug %(novos")
+        T.ok(b and H.shown(c, b), "botão da caixa")
+        local fs = b:GetFontString()
+        T.ok(b:GetWidth() >= fs:GetStringWidth() + 16, "texto de " .. fs:GetStringWidth() .. " px num botão de " .. b:GetWidth())
+        T.clean(c)
+    end)
+
+    it("demonstração com um líder real de mesmo nome: só o real aparece e o Entrar vai para ele", function()
+        local w = world()
+        w.lfg:add({ leader = "Aldren Ventobravo", activityIDs = { 20 }, members = { { name = "Aldren Ventobravo", level = 18, class = "WARRIOR" },
+            { name = "Z2", level = 18, class = "MAGE" } } })
+        local c = login(w, "Jogador", { ELITE })
+        magnify(w, c, ELITE.id)
+        c:slash("/gf debug demo")
+        w:advance(0.5)
+        local n = 0
+        for _, r in ipairs(qrows(c)) do if r.name:find("^Aldren Ventobravo") then n = n + 1 end end
+        T.eq(n, 1, "uma linha só")
+        T.no(H.ns(c).Quest.IsDemoName("Aldren Ventobravo"), "o nome é do jogador real")
+        T.ok(rowOf(c, "Brisa Luzclara"), "os outros falsos continuam")
+        c:click(rowOf(c, "Aldren Ventobravo").b1)
+        w:advance(0.5)
+        T.eq(#c.data.whispersSent, 1, "o sussurro foi de verdade para o líder real")
+        T.match(c.data.whispersSent[1].to, "^Aldren Ventobravo")
+        local sent = 0
+        for _, r in ipairs(qrows(c)) do if r.row.b1 and c:text(r.row.b1) == "Sent" then sent = sent + 1 end end
+        T.eq(sent, 1, "só uma linha virou Enviado")
         T.clean(c)
     end)
 
