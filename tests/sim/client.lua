@@ -630,7 +630,12 @@ function Client:loadBlizzard(name)
     parent:Hide()
     local browse = ui.CreateFrame("Frame", "LFGBrowseFrame", parent)
     browse:SetAllPoints(parent)
-    browse.CategoryDropdown = { GetValue = function() return self.nativeCategory end }
+    -- SetValue existe (é do mixin da Blizzard) só para o teste ver se o addon chamou: chamar contamina
+    -- a busca que o jogo faz ao criar uma listagem (ADDON_ACTION_BLOCKED no BugSack do Fraga, 26/11)
+    browse.CategoryDropdown = {
+        GetValue = function() return self.nativeCategory end,
+        SetValue = function(_, v) self.data.nativeCategorySets = (self.data.nativeCategorySets or 0) + 1; self.nativeCategory = v end,
+    }
     browse.ActivityDropdown = { selectedValues = self.nativeActivities }
     -- grava quem escreve na janela da Blizzard (o addon nunca pode)
     world:watchWrites(self, parent, "LFGParentFrame")
