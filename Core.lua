@@ -835,6 +835,28 @@ function NS.PrefillWho(e)
     Trace("WHO", "chat aberto com /who (o jogador envia): ok=%s", tostring(ok))
 end
 
+------------------------------------------------------------------------
+-- Indicar a um amigo (plano de adesão do Fraga, 26/11): os grupos por missão só funcionam com
+-- mais gente usando o addon. O addon não posta no chat (o Forever restringe mensagens de addon):
+-- só põe a frase pronta na caixa do chat, no canal da guilda quando há guilda, e o jogador aperta Enter.
+------------------------------------------------------------------------
+NS.SHARE_URL = "curseforge.com/wow/addons/grupofacil"
+
+function NS.ShareText()
+    return format(L["I use GrupoFacil, a free addon: it finds dungeon and quest groups in Looking For Group in 2 clicks, and players who have it find each other. Get it at %s"], NS.SHARE_URL)
+end
+
+function NS.RecommendAddon(from)
+    local text = NS.ShareText()
+    local inGuild = IsInGuild and IsInGuild()
+    if inGuild then text = "/g " .. text end
+    local open = (ChatFrameUtil and ChatFrameUtil.OpenChat) or ChatFrame_OpenChat
+    if not open then NS.Print(text) return false end
+    local ok = NS.GuardTag("OpenChat(indicar)", open, text)
+    Trace("SHARE", "frase de indicação na caixa do chat (%s, guilda=%s): ok=%s", tostring(from), tostring(inGuild), tostring(ok))
+    return ok
+end
+
 function NS.WhoInfo(e)
     local c = e and e.key and NS.whoCache[e.key]
     if c and time() - c.t <= WHO_TTL then return c end
@@ -1248,6 +1270,7 @@ local HELP = {
     "/gf bug link - link to the comments on CurseForge (for other rulesets or factions)",
     "/gf news - what's new in this version",
     "/gf quests - quest groups window (or click the magnifier next to a quest)",
+    "/gf share - put a ready message recommending GrupoFacil in the chat box (you press Enter)",
     "/gf debug on | off - show the trace in chat as it happens",
 }
 
@@ -1258,6 +1281,7 @@ local ALIAS = {
     bloqueados = "blocked", desbloquear = "unblock",
     report = "bug", reportar = "bug", problema = "bug", reports = "bugs",
     missoes = "quests", ["missões"] = "quests", quest = "quests", misiones = "quests", quetes = "quests", ["quêtes"] = "quests",
+    indicar = "share", recomendar = "share", recommend = "share", compartilhar = "share", invitar = "share", empfehlen = "share", partager = "share",
     novidades = "news", whatsnew = "news", notes = "news", changelog = "news", novedades = "news", neuigkeiten = "news", ["nouveautés"] = "news",
 }
 local ON_OFF = function(v) return v and L["on"] or L["off"] end
@@ -1279,6 +1303,8 @@ SlashCmdList.GRUPOFACIL = function(input)
         if NS.StartTour then NS.StartTour() end
     elseif cmd == "quests" then
         if NS.ToggleQuestWindow then NS.ToggleQuestWindow() end
+    elseif cmd == "share" then
+        NS.RecommendAddon("/gf share")
     elseif cmd == "news" then
         if NS.OpenNews then NS.OpenNews("/gf news") end
     elseif cmd == "lang" then

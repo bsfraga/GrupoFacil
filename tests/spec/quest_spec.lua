@@ -790,3 +790,69 @@ describe("quest groups - tour da aba Missões", function()
         T.clean(c)
     end)
 end)
+
+-- plano de adesão (26/11): indicar a um amigo e o TOC citando missões
+describe("quest groups - indicar a um amigo", function()
+    it("/gf share só põe a frase na caixa do chat; com guilda, já no /g", function()
+        local w = world()
+        local c = login(w, "Jogador", {})
+        c:slash("/gf share")
+        T.match(c.data.chatInput, "^I use GrupoFacil, a free addon")
+        T.match(c.data.chatInput, "curseforge%.com/wow/addons/grupofacil$")
+        T.eq(#c.data.whispersSent, 0, "o addon não envia nada sozinho")
+        local g = login(w, "Guildeiro", {}, { guild = "Os Bons" })
+        g:slash("/gf indicar")
+        T.match(g.data.chatInput, "^/g I use GrupoFacil")
+        T.eq(#g.data.whispersSent, 0)
+        T.clean(c); T.clean(g)
+    end)
+
+    it("o botão fica na aba Missões e nas opções", function()
+        local w = world()
+        local c = login(w, "Jogador", { ELITE })
+        c:slash("/gf quests")
+        local b = qwin(c).share
+        T.ok(c:isVisible(b))
+        T.match(c:hover(b)[2], "Quest groups work better the more players use GrupoFacil")
+        c:click(b)
+        T.match(c.data.chatInput, "^I use GrupoFacil")
+        c.data.chatInput = nil
+        c:slash("/gf options")
+        local ob = H.find(c, c.env.GrupoFacilOptionsFrame, "^Recommend to a friend$", true)
+        T.ok(ob, "botão nas opções")
+        c:click(ob)
+        T.match(c.data.chatInput, "^I use GrupoFacil")
+        T.clean(c)
+    end)
+
+    it("em todo idioma a frase cabe numa mensagem do chat (255 bytes, com /g) e leva o link", function()
+        for _, lang in ipairs({ "en", "pt", "es", "mx", "de", "fr" }) do
+            local w = world()
+            local c = login(w, "Jogador", {}, { guild = "G" })
+            H.db(c).language = lang
+            c:reload()
+            w:advance(1)
+            c:slash("/gf share")
+            local t = c.data.chatInput or ""
+            T.ok(#t <= 255, lang .. ": " .. #t .. " bytes")
+            T.match(t, "^/g ")
+            T.match(t, "curseforge%.com/wow/addons/grupofacil")
+            if lang == "pt" then T.match(t, "^/g Uso o GrupoFacil", "frase traduzida") end
+            if lang == "de" then T.match(t, "^/g Ich nutze GrupoFacil", "frase traduzida") end
+            T.clean(c)
+        end
+    end)
+
+    it("o TOC cita missões e usa a categoria Group Finder", function()
+        local f = assert(io.open("GrupoFacil.toc", "r"))
+        local toc = f:read("*a"); f:close()
+        T.match(toc, "\n## Category: Group Finder\n")
+        T.match(toc, "\n## Category%-enUS: Group Finder\n")
+        T.match(toc, "\n## Notes: [^\n]*quests")
+        T.match(toc, "\n## Notes%-ptBR: [^\n]*missões")
+        for _, loc in ipairs({ "ptBR", "esES", "esMX", "deDE", "frFR" }) do
+            T.match(toc, "\n## Notes%-" .. loc .. ": ", "Notes em " .. loc)
+            T.match(toc, "\n## Category%-" .. loc .. ": ", "Category em " .. loc)
+        end
+    end)
+end)

@@ -29,6 +29,7 @@ local PAGES = {
             "When the quest is done, the addon offers to leave the group and take it out of Looking For Group. It never does it on its own.",
             "A warning when you get close to the game's limit of about 16 groups joined per hour.",
             "Dungeons and Quests are tabs of the same window. The Quests tab starts with the quests in your log and has its own tour (/gf tour).",
+            "Recommend to a friend (Quests tab, options or /gf share) puts a ready message in your chat box: quest groups work better the more players use GrupoFacil.",
         },
     },
     {

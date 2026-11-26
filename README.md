@@ -1,5 +1,7 @@
 # GrupoFacil
 
+[![Sponsor on GitHub](https://img.shields.io/static/v1?label=Sponsor&message=%E2%9D%A4&logo=GitHub&color=%23fe8e86)](https://github.com/sponsors/bsfraga)
+
 **Find the right players for your group, and join groups faster, in World of Warcraft: Forever.**
 
 The native Looking For Group window lists every player and group with no filters, so you have to scroll through all of them. GrupoFacil opens next to it and lets you filter the list by level, class and role. It also asks a group leader to let you in with one ready-made whisper.

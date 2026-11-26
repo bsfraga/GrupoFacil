@@ -643,9 +643,14 @@ function NS.BuildQuestUI()
     win.optBtn:SetPoint("BOTTOMLEFT", 12, 12)
     win.optBtn:SetScript("OnClick", function() win.opts:SetShown(not win.opts:IsShown()) end)
     tooltip(win.optBtn, L["Options"], L["Auto-invite, auto-accept and the magnifier next to quests."])
+    -- quanto mais gente com o addon, mais grupos por missão se acham: indicar fica à mão aqui
+    win.share = button(win, L["Recommend to a friend"], 150, 22)
+    win.share:SetPoint("BOTTOMRIGHT", -24, 12)
+    win.share:SetScript("OnClick", function() NS.RecommendAddon("aba Missões") end)
+    tooltip(win.share, L["Recommend to a friend"], L["Quest groups work better the more players use GrupoFacil. Puts a ready message in the chat box (in your guild chat if you have one). Change the channel if you want, and press Enter to send it."])
     win.warn = label(win, "", "GameFontNormalSmall")
     win.warn:SetPoint("LEFT", win.optBtn, "RIGHT", 10, 0)
-    win.warn:SetPoint("RIGHT", win, "RIGHT", -26, 0)
+    win.warn:SetPoint("RIGHT", win.share, "LEFT", -8, 0)
     win.warn:SetJustifyH("LEFT")
     win.warn:SetWordWrap(false)
     win.warn:SetTextColor(1, 0.53, 0)
@@ -682,7 +687,7 @@ function NS.BuildQuestUI()
     win:SetScript("OnShow", function() NS.RenderQuest() end)
     win:SetScript("OnHide", function() if win.opts then win.opts:Hide() end end)
     NS.QuestRefs = { back = win.back, search = win.search, quest = win.quest, obj = win.obj, create = win.create,
-        group = win.group, list = win.list, listTitle = win.listTitle, options = win.optBtn, panel = win }
+        group = win.group, list = win.list, listTitle = win.listTitle, options = win.optBtn, share = win.share, panel = win }
     Trace("CARGA", "janela de missões criada")
 end
 

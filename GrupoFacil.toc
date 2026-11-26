@@ -1,7 +1,11 @@
 ## Interface: 16001
 ## Title: GrupoFacil
-## Notes: Filters the Looking For Group list by level, class and role, and asks group leaders to join with a ready-made message.
-## Notes-ptBR: Filtra a lista do Looking For Group por level, classe e role, e pede vaga ao líder com uma mensagem pronta.
+## Notes: Find groups for your dungeons and quests in Looking For Group: filter by level, class and role, a magnifier next to each quest, and a ready-made message to the leader.
+## Notes-ptBR: Ache grupo para masmorras e missões no Looking For Group: filtros por level, classe e role, uma lupa ao lado de cada missão e uma mensagem pronta para o líder.
+## Notes-esES: Encuentra grupo para mazmorras y misiones en Buscar grupo: filtros por nivel, clase y rol, una lupa junto a cada misión y un mensaje listo para el líder.
+## Notes-esMX: Encuentra grupo para calabozos y misiones en Buscar grupo: filtros por nivel, clase y rol, una lupa junto a cada misión y un mensaje listo para el líder.
+## Notes-deDE: Finde Gruppen für Dungeons und Quests im Dungeonbrowser: Filter nach Stufe, Klasse und Rolle, eine Lupe neben jeder Quest und eine fertige Nachricht an den Anführer.
+## Notes-frFR: Trouvez un groupe pour vos donjons et vos quêtes dans la recherche de groupe : filtres par niveau, classe et rôle, une loupe à côté de chaque quête et un message prêt pour le chef.
 ## Author: Bael (Bagael Bagacera)
 ## Version: @project-version@
 ## X-License: MIT
@@ -14,8 +18,13 @@
 ## AddonCompartmentFuncOnLeave: GrupoFacil_OnAddonCompartmentLeave
 ## SavedVariables: GrupoFacilDB
 ## SavedVariablesPerCharacter: GrupoFacilCharDB
-## Category-enUS: Social
-## Category-ptBR: Social
+## Category: Group Finder
+## Category-enUS: Group Finder
+## Category-ptBR: Localizador de Grupo
+## Category-esES: Buscador de grupos
+## Category-esMX: Buscador de grupos
+## Category-deDE: Gruppensuche
+## Category-frFR: Recherche de groupe
 
 Locale.lua
 Locale_es.lua
