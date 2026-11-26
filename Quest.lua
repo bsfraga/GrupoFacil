@@ -324,11 +324,12 @@ function Q.Search(questID)
     if NS.InLockdown() then return false, L["the game's chat restriction is active"] end
     Trace("MISSAO", "busca: missão=%d categoria=%d atividade=%s zona=%s (%s)", info.id, category,
         tostring(act and act.id), tostring(info.zone), tostring(from))
-    NS.addonSearching = true
+    NS.addonSearching, NS.questSearching = true, true
     local ok = NS.GuardTag("C_LFGList.Search(quest)", C_LFGList.Search, category, 0, 0, nil, false, nil, act and { act.id } or nil)
-    NS.addonSearching = false
+    NS.addonSearching, NS.questSearching = false, false
     if not ok then return false, L["the search failed (see /gf diag)"] end
     if not NS.searching then NS.MarkSearching() end
+    NS.resultsFromQuest = true
     Q.searchedAt = GetTime()
     Q.queried = false
     return true
@@ -845,12 +846,12 @@ end
 -- sozinho. Nada sai para o jogo: Q.Send, o convite e o sussurro para um nome da demonstração param
 -- aqui, e as respostas são simuladas. /gf debug demo off (ou /reload) tira tudo.
 local DEMO = {
-    { name = "Aldren Demo", class = "WARRIOR", members = 3, role = "listed", reply = "wait" },
-    { name = "Brisa Demo", class = "PRIEST", members = 4, role = "has", reply = "full" },
-    { name = "Corvo Demo", class = "HUNTER", solo = true, role = "listed", reply = "wait" },
-    { name = "Duna Demo", class = "ROGUE", members = 2 },             -- sem o GrupoFacil
+    { name = "Aldren Ventobravo", class = "WARRIOR", members = 3, role = "listed", reply = "wait" },
+    { name = "Brisa Luzclara", class = "PRIEST", members = 4, role = "has", reply = "full" },
+    { name = "Corvo Pedranegra", class = "HUNTER", solo = true, role = "listed", reply = "wait" },
+    { name = "Duna Areiafina", class = "ROGUE", members = 2 },             -- sem o GrupoFacil
 }
-local DEMO_ASKER = { name = "Eira Demo", class = "MAGE", roles = "d" } -- pede vaga a você
+local DEMO_ASKER = { name = "Eira Folhaverde", class = "MAGE", roles = "d" } -- pede vaga a você
 
 function Q.IsDemoName(name)
     local k = type(name) == "string" and key(name)

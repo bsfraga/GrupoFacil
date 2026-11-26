@@ -957,7 +957,10 @@ end)
 describe("quest groups - testar sem outro jogador com o addon", function()
     local function demoNet(w)
         local n = 0
-        for _, r in ipairs(w.net.log) do if tostring(r.to):find("Demo") then n = n + 1 end end
+        local fake = { "Aldren", "Brisa", "Corvo", "Duna", "Eira" }
+        for _, r in ipairs(w.net.log) do
+            for _, f in ipairs(fake) do if tostring(r.to):find("^" .. f) then n = n + 1 end end
+        end
         return n
     end
 
@@ -972,41 +975,41 @@ describe("quest groups - testar sem outro jogador com o addon", function()
         T.match(c:text(win.status), "^.*Demo: fake players, nothing goes to the game%.")
         local names = {}
         for _, r in ipairs(qrows(c)) do names[#names + 1] = r.name end
-        T.match(names[1], "^Aldren Demo") -- faz a missão (listado) vem antes
-        T.ok(rowOf(c, "Brisa Demo") and rowOf(c, "Corvo Demo") and rowOf(c, "Duna Demo"), "os quatro jogadores falsos")
+        T.match(names[1], "^Aldren Ventobravo") -- faz a missão (listado) vem antes
+        T.ok(rowOf(c, "Brisa Luzclara") and rowOf(c, "Corvo Pedranegra") and rowOf(c, "Duna Areiafina"), "os quatro jogadores falsos")
         -- tooltip do líder listado mostra a missão que veio "pelo addon"
-        local tip = c:hover(rowOf(c, "Aldren Demo"))
+        local tip = c:hover(rowOf(c, "Aldren Ventobravo"))
         T.has(tip, "uses GrupoFacil")
         T.has(tip, "Quest: The Defias Brotherhood")
         -- pedir vaga ao líder com o addon: resposta e convite simulados
-        c:click(rowOf(c, "Aldren Demo").b1)
+        c:click(rowOf(c, "Aldren Ventobravo").b1)
         w:advance(1.5)
-        T.has(c:chatLines(), "Aldren Demo got your request and will decide")
+        T.has(c:chatLines(), "Aldren Ventobravo got your request and will decide")
         w:advance(2.5)
-        T.has(c:chatLines(), "%[demo%] Aldren Demo would invite you now")
+        T.has(c:chatLines(), "%[demo%] Aldren Ventobravo would invite you now")
         -- grupo cheio
-        c:click(rowOf(c, "Brisa Demo").b1)
+        c:click(rowOf(c, "Brisa Luzclara").b1)
         w:advance(1.5)
-        T.has(c:chatLines(), "Brisa Demo: the group is full")
+        T.has(c:chatLines(), "Brisa Luzclara: the group is full")
         -- líder sem o addon: mostra o sussurro, não manda
-        c:click(rowOf(c, "Duna Demo").b1)
+        c:click(rowOf(c, "Duna Areiafina").b1)
         w:advance(0.3)
-        T.has(c:chatLines(), "%[demo%] whisper that would go to Duna Demo: .*%(via GrupoFacil%)")
+        T.has(c:chatLines(), "%[demo%] whisper that would go to Duna Areiafina: .*%(via GrupoFacil%)")
         T.eq(#c.data.whispersSent, 0, "nenhum sussurro de chat")
         -- alguém pede vaga a você; Convidar não convida ninguém de verdade
-        T.has(c:chatLines(), "Eira Demo wants to join your group for The Defias Brotherhood")
+        T.has(c:chatLines(), "Eira Folhaverde wants to join your group for The Defias Brotherhood")
         local yes = H.find(c, win.reqBox, "^Invite$", true)
         c:click(yes)
         w:advance(0.3)
-        T.has(c:chatLines(), "%[demo%] invite that would go to Eira Demo %(simulated%)")
+        T.has(c:chatLines(), "%[demo%] invite that would go to Eira Folhaverde %(simulated%)")
         T.eq(#c.data.invites, 0, "nenhum convite do jogo")
         T.eq(demoNet(w), 0, "nenhuma mensagem de addon para os jogadores falsos")
         -- desligar tira tudo
         c:slash("/gf debug demo off")
         w:advance(0.3)
         T.has(c:chatLines(), "demo off%.")
-        T.eq(rowOf(c, "Aldren Demo"), nil)
-        T.ok(not c:text(win.status):find("Demo"), "sem o aviso de demonstração")
+        T.eq(rowOf(c, "Aldren Ventobravo"), nil)
+        T.ok(not c:text(win.status):find("Demo:"), "sem o aviso de demonstração")
         T.eq(#H.ns(c).Quest.Requests(), 0, "o pedido falso saiu")
         T.eq(#c.blocked, 0)
         T.clean(c)
@@ -1023,7 +1026,7 @@ describe("quest groups - testar sem outro jogador com o addon", function()
         c:slash("/gf debug demo")
         w:advance(0.3)
         T.eq(H.ns(c).Quest.current.questID, PLAIN.id)
-        T.ok(rowOf(c, "Aldren Demo"))
+        T.ok(rowOf(c, "Aldren Ventobravo"))
         T.clean(c)
     end)
 
@@ -1056,5 +1059,81 @@ describe("quest groups - testar sem outro jogador com o addon", function()
         w:advance(7)
         T.has(c:chatLines(), "did not come back from Bagael Bagacera in 6 s")
         T.clean(c); T.clean(f)
+    end)
+end)
+
+describe("quest groups - a busca da lupa e a aba Masmorras", function()
+    it("depois da lupa, Buscar de novo na aba Masmorras busca masmorras (não repete a missão) e explica", function()
+        local w = world()
+        H.sampleListings(w)
+        w.lfg:add({ leader = "Zonal", activityIDs = { 20 }, members = { { name = "Zonal", level = 18, class = "ROGUE" } } })
+        local c = login(w, "Jogador", { ELITE })
+        magnify(w, c, ELITE.id)
+        T.eq(c.lastSearch.category, 116, "a lupa busca Missões e Zonas")
+        local f = c.env.GrupoFacilFrame
+        c:click(f.tabDungeons)
+        w:advance(4)
+        T.ok(H.find(c, f, "These are the results of a quest search%. Search again searches dungeons%.", true))
+        c:click(H.find(c, f, "^Groups$", true)) -- como no print: modo Grupos, o jogador sozinho da zona sai
+        w:advance(0.2)
+        -- lista de masmorras vazia: explica, e o texto fica dentro da caixa
+        c:click(H.find(c, f, "^All dungeons$", true))
+        local m = c.env.GrupoFacilDungeonMenu
+        local fs = H.find(c, m, "These results are from a quest search", true)
+        T.ok(fs, "explica de onde vêm os resultados")
+        local mr, tr = c.ui.rect(m), c.ui.rect(fs)
+        T.ok(tr.r <= mr.r - 4 and tr.l >= mr.l + 4 and tr.b >= mr.b + 4, "o texto cabe na caixa")
+        local br = c.ui.rect(m.all)
+        T.ok(br.t <= mr.t - 4, "o botão Todas as masmorras não encosta na borda de cima")
+        c:clickOutside() -- clique fora fecha a lista
+        c:click(H.find(c, f, "^Search again$", true))
+        w:advance(1)
+        T.eq(c.lastSearch.category, 2, "Buscar de novo busca masmorras")
+        T.eq(#c.lastSearch.activities, 5, "todas as masmorras")
+        T.ok(not H.find(c, f, "quest search", true), "o aviso sai")
+        c:click(H.find(c, f, "^All dungeons$", true))
+        T.ok(H.find(c, m, "^Deadmines", true), "agora a lista tem masmorras")
+        -- a lupa continua buscando a missão, e Buscar de novo nas masmorras continua nas masmorras
+        w:advance(4)
+        magnify(w, c, ELITE.id)
+        T.eq(c.lastSearch.category, 116)
+        w:advance(4)
+        c:click(f.tabDungeons)
+        c:click(H.find(c, f, "^Search again$", true))
+        w:advance(1)
+        T.eq(c.lastSearch.category, 2)
+        T.clean(c)
+    end)
+
+    it("busca nativa de masmorra antes da lupa: Buscar de novo repete essa busca, não a da missão", function()
+        local w = world()
+        H.sampleListings(w)
+        local c = login(w, "Jogador", { ELITE })
+        H.search(w, c, 2, { 1, 2 })
+        w:advance(4)
+        magnify(w, c, ELITE.id)
+        w:advance(4)
+        local f = c.env.GrupoFacilFrame
+        c:click(f.tabDungeons)
+        c:click(H.find(c, f, "^Search again$", true))
+        w:advance(1)
+        T.eq(c.lastSearch.category, 2)
+        T.eq(table.concat(c.lastSearch.activities, ","), "1,2")
+        T.clean(c)
+    end)
+
+    it("Buscar de novo recusado aparece na janela, não só no chat", function()
+        local w = world()
+        local c = login(w, "Jogador", { ELITE })
+        c:slash("/gf")
+        local f = c.env.GrupoFacilFrame
+        w:advance(4)
+        c.chatLockdown = true
+        H.ns(c).searchReadyAt = 0
+        local sb = H.find(c, f, "^Search again$", true)
+        c.ui.fire(sb, "OnClick")
+        w:advance(0.2)
+        T.ok(H.find(c, f, "chat restriction", true), "o motivo aparece na janela")
+        T.clean(c)
     end)
 end)

@@ -254,6 +254,13 @@ end
 
 local function rememberSearch(category, filter, preferred, language, crossFaction, advanced, activities)
     if isSecret(category) or type(category) ~= "number" or category <= 0 then return end
+    -- A busca da lupa (aba Missões) não vira a "última busca" da aba Masmorras: senão o Buscar de novo
+    -- de lá repetia a busca da missão e a lista de masmorras ficava vazia (teste do Fraga, 26/11).
+    NS.resultsFromQuest = NS.questSearching and true or false
+    if NS.questSearching then
+        Trace("BUSCA", "origem=lupa categoria=%s atividades=%s", tostring(category), D.str(copyList(activities)))
+        return
+    end
     NS.lastSearch = {
         category = category,
         filter = (not isSecret(filter) and filter) or 0,
@@ -279,11 +286,20 @@ local function searchFromBlizzardDropdowns()
     return { category = category, filter = 0, preferred = 0, language = nil, crossFaction = false, activities = acts }
 end
 
+local DUNGEON_CATEGORY = 2
+-- Sem busca anterior (ou a única foi a da lupa): masmorras, todas, como o Looking For Group faz
+-- quando nenhuma atividade está marcada.
+local function dungeonSearch()
+    local acts = LFGUtil_GetFilteredActivities and copyList(LFGUtil_GetFilteredActivities(DUNGEON_CATEGORY))
+    return { category = DUNGEON_CATEGORY, filter = 0, preferred = 0, language = nil, crossFaction = false, activities = acts }
+end
+
 function NS.GetSearchArgs()
     if NS.lastSearch then return NS.lastSearch end
     local ok, s = NS.Guard(searchFromBlizzardDropdowns)
-    if ok and s then return s end
-    return nil
+    -- a janela nativa pode ter ficado na categoria de Missões depois da lupa
+    if ok and s and not (NS.Quest and s.category == NS.Quest.CATEGORY) then return s end
+    return dungeonSearch()
 end
 
 -- O servidor responde "throttled" a buscas muito seguidas (visto no jogo: 3 buscas em ~2 s).

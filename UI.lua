@@ -535,7 +535,10 @@ function NS.BuildUI()
     searchBtn = button(panel, L["Search again"], 120)
     searchBtn:SetScript("OnClick", function()
         local ok, why = NS.SearchAgain()
-        if not ok then NS.Print(why .. ".") end
+        if not ok then
+            NS.Print(why .. ".")
+            NS.status = why -- na janela também: sem isso o clique parecia não fazer nada
+        end
         NS.Refresh("search")
     end)
     tooltip(searchBtn, L["Search again"], L["Repeats the last Looking For Group search (same category and activities)."])
@@ -841,7 +844,7 @@ local function fillDungeonMenu()
         if not it then
             it = CF("CheckButton", nil, m, "UICheckButtonTemplate")
             it:SetSize(22, 22)
-            it:SetPoint("TOPLEFT", 8, -34 - (i - 1) * 22)
+            it:SetPoint("TOPLEFT", 8, -36 - (i - 1) * 22)
             it.text = label(m, "", "GameFontHighlightSmall")
             it.text:SetPoint("LEFT", it, "RIGHT", 2, 0)
             it.text:SetPoint("RIGHT", m, "RIGHT", -10, 0)
@@ -872,7 +875,17 @@ local function fillDungeonMenu()
     m.empty:SetShown(shown == 0)
     m.more:SetShown(#list > shown)
     if #list > shown then m.more:SetText(format(L["+%d more: pick a level range to narrow the list."], #list - shown)) end
-    m:SetSize(min(width, 420), 44 + max(1, shown) * 22 + (#list > shown and 18 or 0))
+    if shown == 0 then
+        -- texto em várias linhas, dentro da caixa (antes saía pela borda)
+        m.empty:SetText(NS.resultsFromQuest and L["These results are from a quest search. Click Search again to list dungeons."]
+            or L["No dungeons in the results yet. Search first."])
+        m:SetWidth(260)
+        local h = (m.empty.GetStringHeight and m.empty:GetStringHeight()) or 14
+        if type(h) ~= "number" or h < 14 then h = 14 end
+        m:SetHeight(40 + h + 14)
+    else
+        m:SetSize(min(width, 420), 46 + shown * 22 + (#list > shown and 18 or 0))
+    end
     dungeonBtn:SetText(dungeonButtonText())
 end
 NS.FillDungeonMenu = function() if dungeonMenu and dungeonMenu:IsShown() then fillDungeonMenu() end end
@@ -890,14 +903,17 @@ function NS.ToggleDungeonMenu(owner)
             m:SetBackdropColor(0.05, 0.05, 0.08, 0.97)
         end
         m.all = button(m, L["All dungeons"], 120, 20)
-        m.all:SetPoint("TOPLEFT", 8, -8)
+        m.all:SetPoint("TOPLEFT", 10, -10)
         m.all:SetScript("OnClick", function()
             wipe(filters().activities)
             onFilterChanged()
             fillDungeonMenu()
         end)
-        m.empty = label(m, L["No dungeons in the results yet. Search first."], "GameFontDisableSmall")
-        m.empty:SetPoint("TOPLEFT", 12, -38)
+        m.empty = label(m, "", "GameFontDisableSmall")
+        m.empty:SetPoint("TOPLEFT", 12, -40)
+        m.empty:SetPoint("RIGHT", m, "RIGHT", -12, 0)
+        m.empty:SetJustifyH("LEFT")
+        m.empty:SetWordWrap(true)
         m.more = label(m, "", "GameFontDisableSmall")
         m.more:SetPoint("BOTTOMLEFT", 12, 10)
         m.more:SetPoint("BOTTOMRIGHT", -10, 10)
@@ -1143,7 +1159,8 @@ function NS.Render()
     end
 
     local status = NS.status or L["Search in the Looking For Group window."]
-    if NS.searching then status = L["Searching..."] end
+    if NS.searching then status = L["Searching..."]
+    elseif NS.resultsFromQuest then status = L["These are the results of a quest search. Search again searches dungeons."] end
     if NS.stale then status = "|cffff8800" .. status .. "|r" end
     if GrupoFacilDB.compact and filtersActive() then status = status .. "  |cffffd200" .. L["(filters on)"] .. "|r" end
     -- botão Escondidos: escondidos nesta sessão + bloqueados (os ignorados do jogo não entram)
