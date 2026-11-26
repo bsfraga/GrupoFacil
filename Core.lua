@@ -256,9 +256,14 @@ local function rememberSearch(category, filter, preferred, language, crossFactio
     if isSecret(category) or type(category) ~= "number" or category <= 0 then return end
     -- A busca da lupa (aba Missões) não vira a "última busca" da aba Masmorras: senão o Buscar de novo
     -- de lá repetia a busca da missão e a lista de masmorras ficava vazia (teste do Fraga, 26/11).
-    NS.resultsFromQuest = NS.questSearching and true or false
-    if NS.questSearching then
-        Trace("BUSCA", "origem=lupa categoria=%s atividades=%s", tostring(category), D.str(copyList(activities)))
+    -- Também a busca NATIVA em "Missões e Zonas": listar para uma missão deixa a categoria da janela do
+    -- jogo em Missões e Zonas, e ela continua assim depois de tirar a listagem (teste do Fraga, 26/11).
+    -- O addon não mexe na janela do jogo; só não deixa essa busca virar a da aba Masmorras.
+    local quest = NS.questSearching or (NS.Quest and category == NS.Quest.CATEGORY)
+    NS.resultsFromQuest = quest and true or false
+    if quest then
+        Trace("BUSCA", "origem=%s (missões) categoria=%s atividades=%s", NS.questSearching and "lupa" or "nativa",
+            tostring(category), D.str(copyList(activities)))
         return
     end
     NS.lastSearch = {
