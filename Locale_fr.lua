@@ -361,6 +361,8 @@ NS.LOCALES.fr = {
     ["/gf diag - error and trace summary; /gf diag snap - save a snapshot now; /gf diag clear"] =
         "/gf diag - résumé des erreurs et de la trace ; /gf diag snap - enregistre un instantané ; /gf diag clear - efface",
     ["/gf debug on | off - show the trace in chat as it happens"] = "/gf debug on | off - affiche la trace dans la discussion en direct",
+    ["/gf sync on | off - the Looking For Group category follows the tab (Dungeons or Quests & Zones)"] = "/gf sync on | off - la catégorie de la Recherche de groupe suit l'onglet (Donjons ou Quêtes et zones)",
+    ["Looking For Group category follows the tab: %s"] = "la catégorie de la Recherche de groupe suit l'onglet : %s",
     -- v0.14: modo demonstração e ping (testar sem outro jogador)
     ["/gf debug demo | demo off - fake quest groups to try the Quests tab alone (nothing goes to the game)"] = "/gf debug demo | demo off - faux groupes de quête pour essayer l'onglet Quêtes seul (rien ne part dans le jeu)",
     ["/gf debug ping [name] - test the silent message: to yourself, or to a friend who has this version"] = "/gf debug ping [nom] - teste le message silencieux : à vous-même, ou à un ami qui a cette version",

@@ -369,6 +369,8 @@ NS.LOCALES.de = {
         "/gf diag - Übersicht über Fehler und Protokoll; /gf diag snap - jetzt einen Schnappschuss speichern; /gf diag clear - löschen",
     ["/gf debug on | off - show the trace in chat as it happens"] =
         "/gf debug on | off - Protokoll live im Chat anzeigen",
+    ["/gf sync on | off - the Looking For Group category follows the tab (Dungeons or Quests & Zones)"] = "/gf sync on | off - die Kategorie der Gruppensuche folgt dem Tab (Dungeons oder Quests & Zonen)",
+    ["Looking For Group category follows the tab: %s"] = "Kategorie der Gruppensuche folgt dem Tab: %s",
     -- v0.14: modo demonstração e ping (testar sem outro jogador)
     ["/gf debug demo | demo off - fake quest groups to try the Quests tab alone (nothing goes to the game)"] = "/gf debug demo | demo off - falsche Questgruppen, um den Quests-Tab allein zu testen (nichts geht ans Spiel)",
     ["/gf debug ping [name] - test the silent message: to yourself, or to a friend who has this version"] = "/gf debug ping [Name] - testet die stille Nachricht: an dich selbst oder an einen Freund mit dieser Version",

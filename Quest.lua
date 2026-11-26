@@ -332,6 +332,7 @@ function Q.Search(questID)
     if not ok then return false, L["the search failed (see /gf diag)"] end
     if not NS.searching then NS.MarkSearching() end
     NS.resultsFromQuest = true
+    if NS.SyncNativeCategory then NS.SyncNativeCategory("quests", "lupa") end
     Q.searchedAt = GetTime()
     Q.queried = false
     return true
@@ -612,6 +613,8 @@ function Q.CheckListing(why)
     end
     if not Q.wasListed then return end
     Q.wasListed = false
+    -- a listagem saiu: o jogo deixou a categoria dele na da listagem; volta para a da aba em foco
+    if NS.SyncNativeCategory and NS.CurrentTab and NS.CurrentTab() then NS.SyncNativeCategory(NS.CurrentTab(), "listagem saiu") end
     -- a listagem que saiu não era a da missão (masmorra, ou a de outro líder): nada a limpar
     if not Q.questListing then Trace("MISSAO", "listagem que não era de missão saiu (%s)", tostring(why)) return end
     Q.questListing = nil

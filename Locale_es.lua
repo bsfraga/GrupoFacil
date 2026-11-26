@@ -342,6 +342,8 @@ NS.LOCALES.es = {
     ["/gf hook on | off - capture the native search (turn off if the native search gets stuck; applies after /reload)"] = "/gf hook on | off - captura la búsqueda nativa (desactívalo si la búsqueda nativa se atasca; se aplica tras /reload)",
     ["/gf diag - error and trace summary; /gf diag snap - save a snapshot now; /gf diag clear"] = "/gf diag - resumen de errores y del registro; /gf diag snap - guarda una instantánea ahora; /gf diag clear - borra",
     ["/gf debug on | off - show the trace in chat as it happens"] = "/gf debug on | off - muestra el registro en el chat en tiempo real",
+    ["/gf sync on | off - the Looking For Group category follows the tab (Dungeons or Quests & Zones)"] = "/gf sync on | off - la categoría de Buscar grupo sigue a la pestaña (Mazmorras o Misiones y zonas)",
+    ["Looking For Group category follows the tab: %s"] = "la categoría de Buscar grupo sigue a la pestaña: %s",
     -- v0.14: modo demonstração e ping (testar sem outro jogador)
     ["/gf debug demo | demo off - fake quest groups to try the Quests tab alone (nothing goes to the game)"] = "/gf debug demo | demo off - grupos por misión falsos para probar la pestaña Misiones solo (nada va al juego)",
     ["/gf debug ping [name] - test the silent message: to yourself, or to a friend who has this version"] = "/gf debug ping [nombre] - prueba el mensaje silencioso: a ti mismo, o a un amigo que tenga esta versión",

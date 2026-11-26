@@ -4,7 +4,9 @@
 -- Regras de segurança (taint e secret values do Forever, que usa as regras do Midnight):
 --  * Nunca escreve em frames, campos ou controles da janela da Blizzard
 --    (LFGBrowseFrame, LFGParentFrame) e nunca chama LFGBrowse_* nem ShowSearchForActivities.
---    Só lê e usa hooksecurefunc/HookScript.
+--    Só lê e usa hooksecurefunc/HookScript. Única exceção, pedida pelo Fraga (26/11): a categoria
+--    da janela acompanha a aba (NS.SyncNativeCategory), só pelos métodos do dropdown, fora de
+--    combate, sem buscar; /gf sync off desliga.
 --  * C_LFGList.Search só é chamado dentro do OnClick de um botão do addon (exige clique).
 --  * Com o bloqueio de chat do jogo ativo (C_ChatInfo.InChatMessagingLockdown), não lê
 --    resultados nem envia mensagens; todo campo lido passa por issecretvalue.
@@ -35,6 +37,7 @@ local DEFAULTS = {
     autoOpen = true,          -- abre junto com a janela do Looking For Group
     docked = true,            -- encaixado à direita da janela do Looking For Group
     debug = false,
+    syncNative = true,     -- a categoria da janela do jogo acompanha a aba (/gf sync)
     blocked = {},             -- [nome normalizado] = nome como apareceu; bloqueados pelo clique direito
     filters = {
         mode = "players",     -- "players", "groups" ou "all"
@@ -297,6 +300,55 @@ local DUNGEON_CATEGORY = 2
 local function dungeonSearch()
     local acts = LFGUtil_GetFilteredActivities and copyList(LFGUtil_GetFilteredActivities(DUNGEON_CATEGORY))
     return { category = DUNGEON_CATEGORY, filter = 0, preferred = 0, language = nil, crossFaction = false, activities = acts }
+end
+
+-- A categoria da janela do jogo acompanha a aba do GrupoFacil (pedido do Fraga, 26/11): Masmorras
+-- volta para a categoria da última busca de masmorra (Dungeons), Missões vai para Quests & Zones (ou
+-- Dungeons, se a missão é de masmorra). Motivo: ao listar um grupo, o próprio jogo põe a categoria da
+-- janela na da listagem, e ela fica lá depois.
+-- Exceção à regra de não tocar na janela da Blizzard: usa só os métodos do próprio dropdown
+-- (SetValue, ValueReset, ValueSetSelected), nunca escreve campo, não busca e não roda em combate.
+-- /gf sync off desliga.
+local function sameList(a, b)
+    a, b = a or {}, b or {}
+    if #a ~= #b then return false end
+    local seen = {}
+    for _, v in ipairs(a) do seen[v] = true end
+    for _, v in ipairs(b) do if not seen[v] then return false end end
+    return true
+end
+
+function NS.SyncNativeCategory(tab, why)
+    if not GrupoFacilDB or GrupoFacilDB.syncNative == false then return false end
+    if InCombatLockdown and InCombatLockdown() then return false end
+    local browse = rawget(_G, "LFGBrowseFrame")
+    local cd = browse and browse.CategoryDropdown
+    local ad = browse and browse.ActivityDropdown
+    if not (cd and cd.GetValue and cd.SetValue and ad and ad.ValueReset and ad.ValueSetSelected) then return false end
+    local Q = NS.Quest
+    local cat, acts
+    if tab == "quests" then
+        local cur = Q and Q.current
+        cat = (cur and cur.category) or (Q and Q.CATEGORY)
+        acts = cur and cur.activity and { cur.activity.id } or nil
+    else
+        local s = NS.lastSearch
+        cat = (s and s.category) or DUNGEON_CATEGORY
+        acts = s and s.activities or nil
+    end
+    if type(cat) ~= "number" then return false end
+    local ok, current = pcall(cd.GetValue, cd)
+    if not ok or isSecret(current) then return false end
+    local selected = copyList(ad.selectedValues)
+    if current == cat and sameList(selected, acts) then return false end
+    local done = pcall(cd.SetValue, cd, cat)
+    if done then
+        pcall(ad.ValueReset, ad)
+        for _, a in ipairs(acts or {}) do pcall(ad.ValueSetSelected, ad, a, true) end
+    end
+    Trace("BUSCA", "janela do jogo: categoria %s -> %s (aba %s, %s) ok=%s", tostring(current), tostring(cat),
+        tostring(tab), tostring(why), tostring(done))
+    return done
 end
 
 function NS.GetSearchArgs()
@@ -1417,6 +1469,7 @@ local HELP = {
     "/gf news - what's new in this version",
     "/gf quests - quest groups window (or click the magnifier next to a quest)",
     "/gf share - put a ready message recommending GrupoFacil in the chat box (you press Enter); /gf share <name> - whisper it to a friend",
+    "/gf sync on | off - the Looking For Group category follows the tab (Dungeons or Quests & Zones)",
     "/gf debug on | off - show the trace in chat as it happens",
     "/gf debug demo | demo off - fake quest groups to try the Quests tab alone (nothing goes to the game)",
     "/gf debug ping [name] - test the silent message: to yourself, or to a friend who has this version",
@@ -1496,6 +1549,10 @@ SlashCmdList.GRUPOFACIL = function(input)
     elseif cmd == "dock" then
         db.docked = true
         if NS.Dock then NS.Dock() end
+    elseif cmd == "sync" then
+        if l == "on" or l == "off" then db.syncNative = (l == "on") end
+        NS.Print(format(L["Looking For Group category follows the tab: %s"], ON_OFF(db.syncNative ~= false)))
+        if db.syncNative ~= false and NS.CurrentTab and NS.CurrentTab() then NS.SyncNativeCategory(NS.CurrentTab(), "comando") end
     elseif cmd == "hook" then
         if l == "on" or l == "off" then
             db.hookSearch = (l == "on")

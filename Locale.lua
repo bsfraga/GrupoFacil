@@ -362,6 +362,8 @@ local PT = {
     ["/gf diag - error and trace summary; /gf diag snap - save a snapshot now; /gf diag clear"] =
         "/gf diag - resumo dos erros e do rastro; /gf diag snap - grava um retrato agora; /gf diag clear - limpa",
     ["/gf debug on | off - show the trace in chat as it happens"] = "/gf debug on | off - mostra o rastro no chat enquanto acontece",
+    ["/gf sync on | off - the Looking For Group category follows the tab (Dungeons or Quests & Zones)"] = "/gf sync on | off - a categoria do Looking For Group acompanha a aba (Dungeons ou Quests & Zones)",
+    ["Looking For Group category follows the tab: %s"] = "categoria do Looking For Group acompanha a aba: %s",
     -- v0.14: modo demonstração e ping (testar sem outro jogador)
     ["/gf debug demo | demo off - fake quest groups to try the Quests tab alone (nothing goes to the game)"] = "/gf debug demo | demo off - grupos por missão falsos para testar a aba Missões sozinho (nada vai para o jogo)",
     ["/gf debug ping [name] - test the silent message: to yourself, or to a friend who has this version"] = "/gf debug ping [nome] - testa a mensagem silenciosa: para você mesmo, ou para um amigo que tem esta versão",
