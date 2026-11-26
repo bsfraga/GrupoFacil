@@ -629,11 +629,6 @@ function NS.BuildQuestUI()
         return format(L["Lists you in Looking For Group (%s) with this quest. Players who click the magnifier on the same quest find you first."],
             act and (act.label or act.name) or "?")
     end)
-    win.desc = button(win, L["Description"], 100)
-    win.desc:SetPoint("LEFT", win.create, "RIGHT", 6, 0)
-    win.desc:SetScript("OnClick", function() if Q.current then NS.ShowQuestDescription(Q.current.questID) end end)
-    tooltip(win.desc, L["Description for the listing"],
-        L["Text with the quest, the objective, the zone and GrupoFacil, to paste in the description of your Looking For Group listing. The game does not let addons fill it in."])
     win.pageFS = label(win, "", "GameFontDisableSmall")
     win.pageFS:SetPoint("BOTTOMRIGHT", -16, 82)
     win.pageFS:SetJustifyH("RIGHT")
@@ -779,7 +774,6 @@ function NS.RenderQuest()
     win.create:SetText(has and L["Remove listing"] or L["Create group"])
     -- esperando o jogo responder à criação: um clique por vez (no teste, 9 cliques seguidos)
     win.create:SetEnabled(not Q.pendingCreate and (has or (Q.CanCreate())))
-    win.desc:SetEnabled(cur ~= nil)
 end
 
 local queued = false
@@ -805,86 +799,6 @@ end
 function NS.ToggleQuestWindow()
     if not win then NS.BuildQuestUI() end
     if win:IsShown() then win:Hide() else NS.ShowQuestWindow(true) end
-end
-
-------------------------------------------------------------------------
--- descrição sugerida para a listagem (o jogador copia e cola no Looking For Group)
-------------------------------------------------------------------------
-local desc
-
-local function descText()
-    return desc and desc.questID and Q.Description(desc.questID, desc.mine:GetChecked() and true or false) or ""
-end
-
-local function buildDesc()
-    desc = CF("Frame", "GrupoFacilQuestDesc", UIParent, "BasicFrameTemplateWithInset")
-    desc:SetSize(460, 150)
-    desc:SetPoint("TOP", UIParent, "TOP", 0, -140)
-    desc:SetFrameStrata("DIALOG")
-    NS.Toplevel(desc)
-    desc:SetClampedToScreen(true)
-    desc:SetMovable(true)
-    desc:EnableMouse(true)
-    desc:RegisterForDrag("LeftButton")
-    desc:SetScript("OnDragStart", desc.StartMoving)
-    desc:SetScript("OnDragStop", desc.StopMovingOrSizing)
-    desc:Hide()
-    local title = desc.TitleText or label(desc, "", "GameFontHighlight")
-    title:SetText(L["Description for the listing"])
-    desc.text = label(desc, L["Click the text, Ctrl+C to copy, then paste it (Ctrl+V) in the description of your listing in Looking For Group."], "GameFontHighlightSmall")
-    desc.text:SetPoint("TOPLEFT", 14, -32)
-    desc.text:SetPoint("RIGHT", desc, "RIGHT", -14, 0)
-    desc.text:SetJustifyH("LEFT")
-    desc.text:SetJustifyV("TOP")
-    desc.text:SetHeight(30)
-    local e = CF("EditBox", nil, desc, "InputBoxTemplate")
-    e:SetSize(420, 20)
-    e:SetPoint("TOPLEFT", 22, -66)
-    e:SetAutoFocus(false)
-    e:SetMaxLetters(255)
-    e:SetScript("OnEditFocusGained", function(self) self:HighlightText() end)
-    e:SetScript("OnMouseUp", function(self) self:SetFocus(); self:HighlightText() end)
-    e:SetScript("OnTextChanged", function(self, user) if user then self:SetText(descText()); self:HighlightText() end end)
-    e:SetScript("OnEscapePressed", function(self) self:ClearFocus(); desc:Hide() end)
-    e:SetScript("OnEnterPressed", e.ClearFocus)
-    desc.box = e
-    desc.mine = check(desc, L["In my language (English reaches more players)"], L["The description goes in English by default, which every player on the server reads."])
-    desc.mine.label:SetWidth(300)
-    desc.mine:SetPoint("BOTTOMLEFT", 12, 12)
-    desc.mine:SetScript("OnClick", function(self)
-        Q.DB().descTranslated = self:GetChecked() and true or false
-        NS.RenderQuestDescription()
-    end)
-    desc.close = button(desc, L["Close"], 80)
-    desc.close:SetPoint("BOTTOMRIGHT", -12, 12)
-    desc.close:SetScript("OnClick", function() desc:Hide() end)
-end
-
-function NS.RenderQuestDescription()
-    if not desc or not desc:IsShown() then return end
-    local t = descText()
-    desc.box:SetText(t)
-    desc.box:SetCursorPosition(0)
-    desc.box:SetFocus()
-    desc.box:HighlightText()
-end
-
-function NS.ShowQuestDescription(questID)
-    if not questID then return end
-    if not desc then buildDesc() end
-    desc.questID = questID
-    -- cliente em inglês: a opção "no meu idioma" não muda nada
-    local english = (GetLocale and GetLocale() or "enUS"):match("^en") ~= nil
-    desc.mine:SetShown(not english)
-    desc.mine:SetChecked((not english) and Q.DB().descTranslated == true)
-    desc:Show()
-    NS.RenderQuestDescription()
-    Trace("MISSAO", "descrição sugerida aberta: missão=%d", questID)
-end
-
--- a listagem saiu: oferece a descrição na hora, que é quando o jogador vai querer colar
-function NS.OnQuestListed(questID)
-    NS.ShowQuestDescription(questID)
 end
 
 ------------------------------------------------------------------------

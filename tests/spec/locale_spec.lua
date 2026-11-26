@@ -196,15 +196,7 @@ local function exercise(lang, admin)
     c:click(qf.create)
     w:advance(0.5)
     c:hover(qf.create)
-    c:hover(qf.desc)
     check("GrupoFacilQuestFrame")
-    -- a descrição sugerida abre quando a listagem sai
-    local qd = c.env.GrupoFacilQuestDesc
-    T.ok(qd and c.ui.visible(qd), "descrição sugerida aberta")
-    c:hover(qd.mine)
-    if c.ui.visible(qd.mine) then c:click(qd.mine) end
-    check("GrupoFacilQuestDesc")
-    c:click(qd.close)
     c:openQuestDetails(155)
     local fb = H.find(c, c.env.QuestMapFrame.DetailsFrame, ".", true)
     if fb then c:hover(fb) end

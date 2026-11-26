@@ -529,8 +529,6 @@ function Q.Create()
         if Q.HasListing() then return end
         if not IsInGroup() then Q.myQuest = nil end
         NS.Print(L["the game did not create the listing. Open Looking For Group to list by hand, and send /gf diag to the author."])
-        -- para listar à mão: a descrição pronta já fica aberta para copiar
-        if NS.ShowQuestDescription then NS.ShowQuestDescription(p.questID) end
         Trace("MISSAO", "listagem sem resposta do jogo em %ds (com ID=%s) erros do jogo: %s", CREATE_WAIT, tostring(p.withQuest),
             #p.errors > 0 and table.concat(p.errors, " / ") or "nenhum")
         refresh("create-timeout")
@@ -539,56 +537,10 @@ function Q.Create()
     return true
 end
 
-------------------------------------------------------------------------
--- descrição sugerida para a listagem
--- O jogo lê a descrição da caixa de texto do próprio Looking For Group (quadro seguro da Blizzard):
--- addon não consegue preencher, e mexer nela é interferir na interface do jogo. O GrupoFacil monta o
--- texto e o jogador cola (Ctrl+C, Ctrl+V). Em inglês por padrão, que é o que todo mundo lê.
-------------------------------------------------------------------------
-local DESC_MAX = 250
-local function clip(s, n)
-    s = tostring(s or "")
-    if #s <= n then return s end
-    s = s:sub(1, n - 3)
-    s = s:gsub("[\192-\255][\128-\191]*$", "") -- não corta um caractere UTF-8 no meio
-    return s .. "..."
-end
-
-function Q.Objective(questID)
-    local ql = questLog()
-    local list = ql and call(ql.GetQuestObjectives, questID)
-    if type(list) ~= "table" or isSecret(list) then return nil end
-    for _, o in ipairs(list) do
-        local t = type(o) == "table" and str(o.text)
-        if t and not o.finished then return t end
-    end
-    local first = list[1]
-    return type(first) == "table" and str(first.text) or nil
-end
-
-function Q.Description(questID, translated)
-    local q = Q.Info(questID)
-    if not q then return nil end
-    local zone = q.zone or ""
-    local cur = Q.current
-    if cur and cur.questID == questID and cur.activity and cur.activity.label then zone = cur.activity.label end
-    local obj = Q.Objective(questID)
-    local tpl
-    if translated then
-        tpl = obj and L["Quest: %s (%s) in %s. Grouping with the free GrupoFacil addon: find quest groups in 2 clicks (CurseForge)."]
-            or L["Quest: %s in %s. Grouping with the free GrupoFacil addon: find quest groups in 2 clicks (CurseForge)."]
-    else
-        tpl = obj and "Quest: %s (%s) in %s. Grouping with the free GrupoFacil addon: find quest groups in 2 clicks (CurseForge)."
-            or "Quest: %s in %s. Grouping with the free GrupoFacil addon: find quest groups in 2 clicks (CurseForge)."
-    end
-    local text
-    if obj then
-        text = format(tpl, clip(q.title, 60), clip(obj, 60), clip(zone, 40))
-    else
-        text = format(tpl, clip(q.title, 60), clip(zone, 40))
-    end
-    return clip(text, DESC_MAX)
-end
+-- Descrição da listagem: o addon NÃO consegue preencher. A caixa de descrição do Looking For Group
+-- é uma referência segura da Blizzard (Blizzard_LFGVanilla_Listing.xml: StoreSecureReference,
+-- SetSecurityDisableSetText e SetSecurityDisablePaste): addon não escreve nela, nem colar o jogo deixa.
+-- O jogo a lê direto da caixa na hora de criar; CreateListing não tem campo de texto. Pesquisa de 26/11.
 
 function Q.RemoveListing()
     if not Q.HasListing() then return false end
@@ -870,7 +822,6 @@ local function onEvent(_, event, ...)
                 NS.Print(L["your group is listed in Looking For Group for this quest."])
             end
             Trace("MISSAO", "listagem criada (com ID da missão=%s)", tostring(p.withQuest))
-            if NS.OnQuestListed then NS.OnQuestListed(p.questID) end
         elseif not Q.HasListing() and not IsInGroup() then
             Q.myQuest = nil
         end
