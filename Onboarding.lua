@@ -7,6 +7,7 @@ local L = NS.L
 local format = string.format
 
 local TOUR_VERSION = 1   -- subir quando o tour mudar o bastante para valer mostrar de novo
+local QUEST_TOUR_VERSION = 1 -- tour da aba Missões (visto à parte: quem já viu o das masmorras também vê este)
 local CALLOUT_W = 300
 
 local function tourDB()
@@ -16,10 +17,17 @@ local function tourDB()
     return db.tour
 end
 
-local function isDone() return (tourDB().version or 0) >= TOUR_VERSION end
-local function markDone(how)
-    tourDB().version = TOUR_VERSION
-    NS.D.Trace("TOUR", "tour encerrado (%s)", how)
+-- cada aba tem o seu tour e o seu "já visto"
+local FIELD = { dungeons = "version", quests = "quests" }
+local VERSION = { dungeons = TOUR_VERSION, quests = QUEST_TOUR_VERSION }
+local function isDone(key)
+    key = key or "dungeons"
+    return (tonumber(tourDB()[FIELD[key]]) or 0) >= VERSION[key]
+end
+local function markDone(key, how)
+    key = key or "dungeons"
+    tourDB()[FIELD[key]] = VERSION[key]
+    NS.D.Trace("TOUR", "tour %s encerrado (%s)", key, how)
 end
 
 local function CF(kind, name, parent, template)
@@ -83,8 +91,32 @@ local STEPS = {
 }
 NS.TOUR_STEPS = STEPS -- para teste
 
+-- Tour da aba Missões (pedido do Fraga, 26/11). Aponta para um exemplo desenhado por cima da aba,
+-- então funciona com ou sem missão no registro e não mexe na missão escolhida.
+local QSTEPS = {
+    {   title = "Your quests",
+        body = function() return L["The Quests tab starts with the quests in your log. Find group searches the quest's zone in Looking For Group. The magnifier next to a quest in the objective list or in the quest details does the same."] end,
+        from = { "q:pick", "TOPLEFT", -4, 4 }, to = { "q:pick", "BOTTOMRIGHT", 4, -4 }, below = "LEFT", sample = "pick" },
+    {   title = "Groups for the quest",
+        body = function() return L["Groups doing the same quest come first. Join whispers the leader; when the leader also uses GrupoFacil, the invite is accepted by itself. < Your quests goes back to the list."] end,
+        from = { "q:row", "TOPLEFT", -4, 4 }, to = { "q:row", "BOTTOMRIGHT", 4, -4 }, above = "LEFT", sample = "quest" },
+    {   title = "No group? Create one",
+        body = function() return L["Create group lists your group in Looking For Group for this quest; a dungeon quest goes to Dungeons. The line beside it shows how your group is. Remove listing takes it out, and taking it out in the game's window also clears it here."] end,
+        from = { "q:create", "TOPLEFT", -4, 4 }, to = { "q:create", "BOTTOMRIGHT", 4, -4 }, below = "LEFT", sample = "quest" },
+    {   title = "Requests",
+        body = function() return L["Players who ask through GrupoFacil show up here, with Invite and Ignore. The tab shows how many are waiting, like Quests (1)."] end,
+        from = { "q:req", "TOPLEFT", -4, 4 }, to = { "q:req", "BOTTOMRIGHT", 4, -4 }, below = "LEFT", sample = "quest" },
+    {   title = "Options",
+        body = function() return L["Auto-invite players who ask for the same quest, auto-accept the invite from a leader you asked, and the magnifier next to quests. /gf tour on this tab shows this tour again."] end,
+        from = { "q:options", "TOPLEFT", -4, 4 }, to = { "q:options", "BOTTOMRIGHT", 4, -4 }, above = "LEFT" },
+}
+NS.QUEST_TOUR_STEPS = QSTEPS -- para teste
+local TOURS = { dungeons = STEPS, quests = QSTEPS }
+
 local panel, banner, callout, highlight, sample
+local qbanner, qsample -- da aba Missões (construídos quando a aba existe)
 local step -- passo atual (nil = tour parado)
+local tourKey = "dungeons" -- tour em andamento
 
 ------------------------------------------------------------------------
 -- construção (preguiçosa: só quando a janela do addon aparece)
@@ -123,7 +155,133 @@ local function buildSampleRow(parent, level)
     return r
 end
 
-local function build()
+local build -- definido abaixo
+
+-- exemplo da aba Missões: duas páginas (lista das suas missões; uma missão escolhida)
+local function fakeButton(parent, text, w)
+    local b = button(parent, text, w)
+    b:SetHeight(20)
+    b:SetScript("OnClick", function() end) -- exemplo: não faz nada
+    return b
+end
+local function sampleLine(parent, top, title, info, btnText, btnW)
+    local r = CF("Frame", nil, parent)
+    r:SetPoint("TOPLEFT", 0, top)
+    r:SetPoint("TOPRIGHT", 0, top)
+    r:SetHeight(34)
+    local bg = r:CreateTexture(nil, "BACKGROUND")
+    bg:SetAllPoints()
+    bg:SetColorTexture(0.08, 0.09, 0.12, 1)
+    local b = fakeButton(r, btnText, btnW)
+    b:SetPoint("RIGHT", -4, 0)
+    local n = r:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+    n:SetPoint("TOPLEFT", 8, -4)
+    n:SetPoint("RIGHT", b, "LEFT", -6, 0)
+    n:SetJustifyH("LEFT")
+    n:SetWordWrap(false)
+    n:SetText(title)
+    local i = r:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+    i:SetPoint("TOPLEFT", n, "BOTTOMLEFT", 0, -3)
+    i:SetPoint("RIGHT", b, "LEFT", -6, 0)
+    i:SetJustifyH("LEFT")
+    i:SetWordWrap(false)
+    i:SetText(info)
+    r.button = b
+    return r
+end
+
+local function buildQuestSample(qp, level)
+    local s = CF("Frame", nil, qp)
+    s:SetFrameLevel(level)
+    s:SetPoint("TOPLEFT", qp, "TOPLEFT", 8, -26)
+    s:SetPoint("BOTTOMRIGHT", qp, "BOTTOMRIGHT", -8, 40)
+    s:EnableMouse(true)
+    local bg = s:CreateTexture(nil, "BACKGROUND")
+    bg:SetAllPoints()
+    bg:SetColorTexture(0.03, 0.04, 0.07, 1)
+    local where = format("Westfall · %s", format(L["Lvl %d"], 18))
+
+    -- página 1: a lista das suas missões
+    s.pick = CF("Frame", nil, s)
+    s.pick:SetPoint("TOPLEFT", 4, -36)
+    s.pick:SetPoint("RIGHT", -4, 0)
+    s.pick:SetHeight(72)
+    local pt = s:CreateFontString(nil, "OVERLAY", "GameFontNormalLarge")
+    pt:SetPoint("BOTTOMLEFT", s.pick, "TOPLEFT", 4, 8)
+    pt:SetText(L["Your quests"])
+    s.pickTitle = pt
+    sampleLine(s.pick, 0, L["Example quest"], where, L["Find group"], 96)
+    sampleLine(s.pick, -38, L["Another quest"], where, L["Find group"], 96)
+
+    -- página 2: uma missão escolhida
+    s.quest = CF("Frame", nil, s)
+    s.quest:SetAllPoints()
+    local back = fakeButton(s.quest, L["< Your quests"], 120)
+    back:SetPoint("TOPLEFT", 4, -4)
+    local qt = s.quest:CreateFontString(nil, "OVERLAY", "GameFontNormalLarge")
+    qt:SetPoint("TOPLEFT", 6, -34)
+    qt:SetText(L["Example quest"])
+    local qm = s.quest:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+    qm:SetPoint("TOPLEFT", qt, "BOTTOMLEFT", 0, -4)
+    qm:SetText(where)
+    s.create = CF("Frame", nil, s.quest)
+    s.create:SetPoint("TOPLEFT", 4, -76)
+    s.create:SetPoint("RIGHT", -4, 0)
+    s.create:SetHeight(26)
+    local cb = fakeButton(s.create, L["Create group"], 130)
+    cb:SetHeight(24)
+    cb:SetPoint("LEFT", 0, 0)
+    local cs = s.create:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+    cs:SetPoint("LEFT", cb, "RIGHT", 8, 0)
+    cs:SetPoint("RIGHT", 0, 0)
+    cs:SetJustifyH("LEFT")
+    cs:SetWordWrap(false)
+    cs:SetText(L["No group? List yours: players who click the magnifier on this quest find you."])
+    s.req = sampleLine(s.quest, -110, L["Example player"] .. "  |cffaaaaaa" .. format(L["Lvl %d"], 18) .. "|r", "|cff55ff55" .. L["Example quest"] .. "|r", L["Invite"], 70)
+    s.row = sampleLine(s.quest, -150, L["Example group"] .. "  |cffaaaaaa" .. format(L["Lvl %d"], 18) .. "|r", "|cff55ff55" .. L["Example quest"] .. "|r  3/5", L["Join"], 80)
+    s:Hide()
+    return s
+end
+
+local function buildQuestBanner(qp, level)
+    local b = box(qp, 0.97)
+    b:SetFrameLevel(level)
+    b:SetPoint("TOPLEFT", qp, "TOPLEFT", 8, -26)
+    b:SetPoint("TOPRIGHT", qp, "TOPRIGHT", -8, -26)
+    b:SetHeight(50)
+    b:EnableMouse(true)
+    local t = b:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
+    t:SetJustifyH("LEFT")
+    t:SetText(L["New: the Quests tab. Take a 20-second tour."])
+    local no = button(b, L["No thanks"], 90)
+    no:SetPoint("RIGHT", -10, 0)
+    no:SetScript("OnClick", function()
+        markDone("quests", "recusado na faixa")
+        b:Hide()
+        NS.Print(L["You can see the tour any time with /gf tour."])
+    end)
+    local go = button(b, L["Start tour"], 100)
+    go:SetPoint("RIGHT", no, "LEFT", -6, 0)
+    go:SetScript("OnClick", function() NS.StartTour("quests") end)
+    t:SetPoint("LEFT", 12, 0)
+    t:SetPoint("RIGHT", go, "LEFT", -8, 0)
+    b:Hide()
+    return b
+end
+
+-- a aba Missões é construída depois da janela: monta a faixa e o exemplo quando ela existir
+local function buildQuest()
+    if qsample then return true end
+    if not build() then return false end
+    local qp = NS.QuestPanel and NS.QuestPanel()
+    if not qp then return false end
+    local base = (panel:GetFrameLevel() or 1) + 20
+    qbanner = buildQuestBanner(qp, base)
+    qsample = buildQuestSample(qp, base + 2)
+    return true
+end
+
+function build()
     if callout then return true end
     panel = _G.GrupoFacilFrame
     if not panel then return false end
@@ -143,13 +301,13 @@ local function build()
     local no = button(banner, L["No thanks"], 90)
     no:SetPoint("RIGHT", -10, 0)
     no:SetScript("OnClick", function()
-        markDone("recusado na faixa")
+        markDone("dungeons", "recusado na faixa")
         banner:Hide()
         NS.Print(L["You can see the tour any time with /gf tour."])
     end)
     local go = button(banner, L["Start tour"], 100)
     go:SetPoint("RIGHT", no, "LEFT", -6, 0)
-    go:SetScript("OnClick", function() NS.StartTour() end)
+    go:SetScript("OnClick", function() NS.StartTour("dungeons") end)
     bt:SetPoint("LEFT", 12, 0)
     bt:SetPoint("RIGHT", go, "LEFT", -8, 0)
     banner:Hide()
@@ -195,6 +353,11 @@ end
 local function ref(name)
     if name == "panel" then return panel end
     if name == "sample" then return sample end
+    local q = name:match("^q:(.+)$")
+    if q then
+        if qsample and qsample[q] then return qsample[q] end
+        return NS.QuestRefs and NS.QuestRefs[q] or panel
+    end
     return NS.UIRefs and NS.UIRefs[name] or panel
 end
 
@@ -214,39 +377,56 @@ end
 function NS.TourGo(i)
     if not build() then return end
     if i < 1 then i = 1 end
-    if i > #STEPS then
+    local steps = TOURS[tourKey]
+    if i > #steps then
         NS.StopTour(true, "concluído")
         NS.Print(L["Tour finished. /gf tour shows it again."])
         return
     end
     step = i
-    local s = STEPS[i]
+    local s = steps[i]
     banner:Hide()
+    if qbanner then qbanner:Hide() end
     sample:SetShown(s.sampleRow == true)
+    if qsample then
+        qsample:SetShown(s.sample ~= nil)
+        qsample.pick:SetShown(s.sample == "pick")
+        qsample.pickTitle:SetShown(s.sample == "pick")
+        qsample.quest:SetShown(s.sample == "quest")
+    end
     place(s)
     highlight:Show()
-    callout.title:SetText(format("%d/%d  %s", i, #STEPS, L[s.title]))
+    callout.title:SetText(format("%d/%d  %s", i, #steps, L[s.title]))
     callout.body:SetText(s.body())
     callout.back:SetEnabled(i > 1)
-    callout.next:SetText(i == #STEPS and L["Finish"] or L["Next"])
+    callout.next:SetText(i == #steps and L["Finish"] or L["Next"])
     local h = (callout.body:GetStringHeight() or 60) + 76
     callout:SetHeight(h)
     callout:Show()
-    NS.D.Trace("TOUR", "passo %d", i)
+    NS.D.Trace("TOUR", "%s passo %d", tourKey, i)
 end
 
-function NS.StartTour()
+-- key: "dungeons" ou "quests"; sem key, o tour da aba aberta (/gf tour)
+function NS.StartTour(key)
     if InCombatLockdown() then
         NS.Print(L["The tour is not available in combat."])
         return
     end
-    if not (_G.GrupoFacilFrame and _G.GrupoFacilFrame:IsShown()) then
-        if NS.ShowPanel then NS.ShowPanel(false, "dungeons") end
+    if key ~= "dungeons" and key ~= "quests" then
+        key = (NS.CurrentTab and NS.CurrentTab()) or "dungeons"
     end
-    -- o tour é da aba Masmorras
-    if NS.SelectTab then NS.SelectTab("dungeons") end
-    -- o tour aponta para os filtros: no modo compacto eles aparecem só durante o tour
-    if GrupoFacilDB.compact and NS.ApplyCompact then NS.forceFilters = true; NS.ApplyCompact() end
+    if step then NS.StopTour(false, "outro tour") end
+    if not (_G.GrupoFacilFrame and _G.GrupoFacilFrame:IsShown()) then
+        if NS.ShowPanel then NS.ShowPanel(false, key) end
+    end
+    tourKey = key
+    if NS.SelectTab then NS.SelectTab(key) end
+    if key == "quests" then
+        if not buildQuest() then return end
+    else
+        -- o tour aponta para os filtros: no modo compacto eles aparecem só durante o tour
+        if GrupoFacilDB.compact and NS.ApplyCompact then NS.forceFilters = true; NS.ApplyCompact() end
+    end
     NS.TourGo(1)
 end
 
@@ -259,7 +439,8 @@ function NS.StopTour(done, why)
         highlight:Hide()
         sample:Hide()
     end
-    if done then markDone(why or "?")
+    if qsample then qsample:Hide() end
+    if done then markDone(tourKey, why or "?")
     elseif was then NS.D.Trace("TOUR", "tour interrompido (%s)", why or "?") end
     -- volta ao modo compacto, se era a preferência
     if NS.forceFilters then
@@ -269,13 +450,19 @@ function NS.StopTour(done, why)
 end
 
 function NS.TourRunning() return step ~= nil end
+function NS.TourKey() return step and tourKey or nil end
 function NS.TourFrames() return banner, callout, highlight, sample end -- para diagnóstico e teste
+function NS.QuestTourFrames() buildQuest(); return qbanner, qsample end -- para teste
 
--- chamado pela janela do addon (UI.lua)
+-- chamado pela janela do addon (UI.lua) ao abrir e ao trocar de aba
 function NS.OnPanelShown()
     if not build() then return end
     if step then return end
-    banner:SetShown(not isDone() and not InCombatLockdown())
+    local combat = InCombatLockdown()
+    banner:SetShown(not isDone("dungeons") and not combat)
+    if NS.QuestPanel and NS.QuestPanel() and buildQuest() then
+        qbanner:SetShown(not isDone("quests") and not combat)
+    end
 end
 
 function NS.OnPanelHidden()
@@ -292,6 +479,7 @@ ev:SetScript("OnEvent", NS.D.Wrap("tour.OnEvent", function(_, event)
     if event == "PLAYER_REGEN_DISABLED" then
         if step then NS.StopTour(false, "combate") end
         if banner then banner:Hide() end
+        if qbanner then qbanner:Hide() end
     elseif event == "PLAYER_ENTERING_WORLD" then
         ev:UnregisterEvent("PLAYER_ENTERING_WORLD")
         if tourDB().welcomed then return end

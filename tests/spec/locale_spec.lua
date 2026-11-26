@@ -223,6 +223,13 @@ local function exercise(lang, admin)
         local _, callout = ns.TourFrames()
         if callout and c.ui.visible(callout) then c:click(callout.next) end
     end
+    -- o tour da aba Missões, passo a passo, sem texto sobreposto
+    c:slash("/gf quests")
+    c:slash("/gf tour")
+    for _ = 1, 8 do
+        local _, callout = ns.TourFrames()
+        if callout and c.ui.visible(callout) then check("GrupoFacilFrame"); c:click(callout.next) end
+    end
     c:slash("/gf news")
     check("GrupoFacilWhatsNew")
     -- uma página por versão: as outras também cabem

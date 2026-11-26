@@ -28,7 +28,7 @@ local PAGES = {
             "Leaders can turn on auto-invite for players who ask for the same quest (off by default, at most 6 invites every 10 minutes).",
             "When the quest is done, the addon offers to leave the group and take it out of Looking For Group. It never does it on its own.",
             "A warning when you get close to the game's limit of about 16 groups joined per hour.",
-            "Dungeons and Quests are tabs of the same window.",
+            "Dungeons and Quests are tabs of the same window. The Quests tab starts with the quests in your log and has its own tour (/gf tour).",
         },
     },
     {

@@ -1012,7 +1012,6 @@ function NS.SelectTab(key)
     frame.dungeonPanel:SetShown(key == "dungeons")
     if qp then qp:SetShown(key == "quests") end
     if key ~= "dungeons" then
-        if NS.TourRunning and NS.TourRunning() and NS.StopTour then NS.StopTour(false, "aba Missões") end
         NS.CloseDungeonMenu()
         if NS.CloseRowMenu then NS.CloseRowMenu() end
         NS.CloseHiddenMenu()
@@ -1024,6 +1023,9 @@ function NS.SelectTab(key)
             if k == key then fs:SetTextColor(1, 1, 1) else fs:SetTextColor(1, 0.82, 0) end
         end
     end
+    -- cada aba tem o seu tour: trocar de aba interrompe o da outra e mostra a faixa desta
+    if NS.TourKey and NS.TourKey() and NS.TourKey() ~= key and NS.StopTour then NS.StopTour(false, "trocou de aba") end
+    if frame:IsShown() and NS.OnPanelShown then NS.OnPanelShown() end
     if NS.UpdateQuestTab then NS.UpdateQuestTab() end
     if key == "dungeons" and frame:IsShown() then NS.Refresh("tab") end
 end
