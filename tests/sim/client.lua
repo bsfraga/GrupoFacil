@@ -12,7 +12,9 @@ for _, e in ipairs({ "ADDON_LOADED", "PLAYER_LOGIN", "PLAYER_LOGOUT", "PLAYER_EN
     "CHAT_MSG_WHISPER_INFORM", "CHAT_MSG_WHISPER", "CHAT_MSG_SYSTEM", "CHAT_MSG_ADDON", "CHAT_MSG_ADDON_LOGGED",
     "TRAIT_CONFIG_UPDATED", "PLAYER_LEVEL_UP", "ADDON_ACTION_BLOCKED", "ADDON_ACTION_FORBIDDEN", "GUILD_ROSTER_UPDATE",
     "FRIENDLIST_UPDATE", "IGNORELIST_UPDATE", "BN_FRIEND_INFO_CHANGED", "WHO_LIST_UPDATE", "LFG_LIST_ROLE_UPDATE",
-    "LUA_WARNING", "PLAYER_REGEN_DISABLED", "PLAYER_REGEN_ENABLED", "PARTY_INVITE_REQUEST", "ZONE_CHANGED_NEW_AREA" }) do
+    "LUA_WARNING", "PLAYER_REGEN_DISABLED", "PLAYER_REGEN_ENABLED", "PARTY_INVITE_REQUEST", "ZONE_CHANGED_NEW_AREA",
+    "QUEST_LOG_UPDATE", "QUEST_TURNED_IN", "QUEST_REMOVED", "QUEST_ACCEPTED", "GROUP_LEFT", "GROUP_JOINED",
+    "LFG_LIST_ACTIVE_ENTRY_UPDATE", "LFG_LIST_ENTRY_CREATION_FAILED" }) do
     KNOWN_EVENTS[e] = true
 end
 
@@ -553,6 +555,9 @@ function Client:buildEnv()
     -- Looking For Group
     env.C_LFGList = world.lfg:api(c)
     env.LFGUtil_GetFilteredActivities = function(category) return world.lfg:activitiesFor(category) end
+
+    -- missões, rastreador, quest log, grupo (sim/quests.lua)
+    require("sim.quests").install(c, env)
 end
 
 ------------------------------------------------------------------------
@@ -641,7 +646,10 @@ function Client:nativeSearch(category, activities)
     local browse = self.env.LFGBrowseFrame
     browse.ActivityDropdown.selectedValues = self.nativeActivities
     self.world:blizzardWrite(browse, "searching", true)
+    local hw = self.hw
+    self.hw = { left = 1, native = true } -- código da Blizzard, do clique do jogador
     self.env.C_LFGList.Search(self.nativeCategory, 0, 0, nil, false, nil, self.nativeActivities)
+    self.hw = hw
 end
 
 ------------------------------------------------------------------------
@@ -656,6 +664,7 @@ function Client:start(isReload)
     self:fireEvent("VARIABLES_LOADED")
     self:fireEvent("PLAYER_LOGIN")
     self:fireEvent("PLAYER_ENTERING_WORLD", not isReload, isReload == true)
+    if self.updateTracker then self:updateTracker() end
 end
 
 function Client:teardown()

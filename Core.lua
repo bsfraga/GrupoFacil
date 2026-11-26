@@ -491,6 +491,8 @@ local function readResult(id)
         age = info.age,
     }
     e.solo = e.numMembers <= 1
+    -- listagem com missão (o jogo aceita questID na criação): a lupa põe esses grupos no topo
+    if type(info.questID) == "number" and not isSecret(info.questID) and info.questID > 0 then e.questID = info.questID end
     if e.name then
         e.relation = relationOf(e.name, NS.relLookup)
         e.ignored = isIgnored(e.name)
@@ -1022,7 +1024,8 @@ function NS.CanAskToJoin(e)
     return true
 end
 
-function NS.AskToJoin(e)
+-- text: texto pronto (a janela de missões manda o pedido com o nome da missão)
+function NS.AskToJoin(e, text)
     local ok, why = NS.CanAskToJoin(e)
     if not ok then
         NS.Print(format(L["not sent: %s."], why))
@@ -1030,7 +1033,7 @@ function NS.AskToJoin(e)
         return
     end
     if GetTime() < NS.sendReadyAt then NS.Print(L["wait a few seconds between requests."]) return end
-    local text = NS.BuildMessage(e)
+    text = text or NS.BuildMessage(e)
     NS.sendReadyAt = GetTime() + SEND_INTERVAL
     if GrupoFacilDB.sendMode == "preencher" then
         Trace("PEDIDO", "modo preencher, grupo de %d", e.numMembers)
@@ -1236,6 +1239,7 @@ local HELP = {
     "/gf bug - report a problem to the author (window); /gf bug <text> - report right away; /gf bug list - your reports",
     "/gf bug link - link to the comments on CurseForge (for other rulesets or factions)",
     "/gf news - what's new in this version",
+    "/gf quests - quest groups window (or click the magnifier next to a quest)",
     "/gf debug on | off - show the trace in chat as it happens",
 }
 
@@ -1245,6 +1249,7 @@ local ALIAS = {
     classe = "class", modo = "mode", minimapa = "minimap", encaixar = "dock", erros = "diag", idioma = "lang", language = "lang",
     bloqueados = "blocked", desbloquear = "unblock",
     report = "bug", reportar = "bug", problema = "bug", reports = "bugs",
+    missoes = "quests", ["missões"] = "quests", quest = "quests", misiones = "quests", quetes = "quests", ["quêtes"] = "quests",
     novidades = "news", whatsnew = "news", notes = "news", changelog = "news", novedades = "news", neuigkeiten = "news", ["nouveautés"] = "news",
 }
 local ON_OFF = function(v) return v and L["on"] or L["off"] end
@@ -1264,6 +1269,8 @@ SlashCmdList.GRUPOFACIL = function(input)
         if NS.OpenOptions then NS.OpenOptions() end
     elseif cmd == "tour" then
         if NS.StartTour then NS.StartTour() end
+    elseif cmd == "quests" then
+        if NS.ToggleQuestWindow then NS.ToggleQuestWindow() end
     elseif cmd == "news" then
         if NS.OpenNews then NS.OpenNews("/gf news") end
     elseif cmd == "lang" then

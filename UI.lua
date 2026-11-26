@@ -375,6 +375,15 @@ function NS.BuildUI()
         glow:SetAlpha(0.35 + 0.65 * math.abs(math.sin(t * 2.5)))
     end)
     frame.bugButton = bug
+    -- grupos por missão (QuestUI.lua): a janela separada
+    local quests = CF("Button", nil, frame)
+    quests:SetSize(18, 18)
+    quests:SetPoint("LEFT", bug, "RIGHT", 6, 0)
+    quests:SetNormalTexture("Interface\\Common\\UI-Searchbox-Icon")
+    quests:SetHighlightTexture("Interface\\Buttons\\ButtonHilight-Square", "ADD")
+    quests:SetScript("OnClick", function() if NS.ToggleQuestWindow then NS.ToggleQuestWindow() end end)
+    tooltip(quests, L["Quest groups"], L["Groups for the quests in your quest log. Also: the magnifier next to each quest, or /gf quests."])
+    frame.questButton = quests
 
     -- linha 1: modo e ordem
     local prevMode

@@ -210,7 +210,11 @@ function World:deliverInvite(from, name)
     local c = self:reachable(name)
     if c and c.state == "online" then
         self:after(self.config.latency, function()
-            if c.state == "online" then c:fireEvent("PARTY_INVITE_REQUEST", from.name) end
+            if c.state == "online" then
+                c.data.pendingInvite = from
+                c.data.invitePopup = true
+                c:fireEvent("PARTY_INVITE_REQUEST", from.surname and from:fullName() or from.name)
+            end
         end)
     end
 end

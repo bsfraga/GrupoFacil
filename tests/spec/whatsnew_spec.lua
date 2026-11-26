@@ -1,4 +1,4 @@
--- Janela de Novidades: abre a cada carga até marcar "Já li" (por versão), destaque do bug report.
+-- Janela de Novidades: abre a cada carga até marcar "Já li" (por versão), destaque dos grupos por missão.
 local T = require("t")
 local H = require("helpers")
 local describe, it = T.describe, T.it
@@ -19,11 +19,13 @@ describe("novidades", function()
         local f = news(c)
         T.ok(f and H.shown(c, f), "não abriu no login")
         T.match(c:text(f.TitleText) or "", "GrupoFacil " .. H.ns(c).NEWS_VERSION:gsub("%.", "%%."))
-        T.ok(H.find(c, f, "^New: report a problem to the author$", true), "destaque do report")
+        T.ok(H.find(c, f, "^New: groups for your quests$", true), "destaque dos grupos por missão")
         T.no(f.ack:GetChecked(), "começa desmarcado")
         T.ok(H.shown(c, f.hint), "avisa que volta enquanto não marcar")
+        c:click(f.action)
+        T.ok(H.shown(c, c.env.GrupoFacilQuestFrame), "o botão do destaque abre a janela de missões")
         c:click(f.report)
-        T.ok(H.shown(c, c.env.GrupoFacilBugFrame), "o botão do destaque abre a janela de report")
+        T.ok(H.shown(c, c.env.GrupoFacilBugFrame), "o botão de report continua no destaque")
         T.clean(c)
     end)
 

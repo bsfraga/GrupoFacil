@@ -14,11 +14,27 @@ local ACTIVITIES = {
     [4] = { fullName = "Shadowfang Keep", shortName = "SFK", maxNumPlayers = 5, minLevelSuggestion = 22, maxLevelSuggestion = 30, categoryID = 2 },
     [5] = { fullName = "Gnomeregan", shortName = "Gnomer", maxNumPlayers = 5, minLevelSuggestion = 29, maxLevelSuggestion = 38, categoryID = 2 },
     [9] = { fullName = "Questing", shortName = "Quest", maxNumPlayers = 5, minLevelSuggestion = 0, maxLevelSuggestion = 0, categoryID = 1 },
+    -- "Missões e Zonas" (categoria 116 no Forever): uma atividade por zona
+    [20] = { fullName = "Westfall", shortName = "Westfall", maxNumPlayers = 5, minLevelSuggestion = 10, maxLevelSuggestion = 20, categoryID = 116, mapID = 1436 },
+    [21] = { fullName = "Elwynn Forest", shortName = "Elwynn", maxNumPlayers = 5, minLevelSuggestion = 1, maxLevelSuggestion = 10, categoryID = 116, mapID = 1429 },
+    [22] = { fullName = "Redridge Mountains", shortName = "Redridge", maxNumPlayers = 5, minLevelSuggestion = 15, maxLevelSuggestion = 25, categoryID = 116, mapID = 1433 },
 }
 LFG.ACTIVITIES = ACTIVITIES
 
 function LFG.new(world)
-    return setmetatable({ world = world, listings = {}, nextID = 100, searches = {}, perClient = {} }, LFG)
+    return setmetatable({ world = world, listings = {}, nextID = 100, searches = {}, perClient = {},
+        active = setmetatable({}, { __mode = "k" }) }, LFG)
+end
+
+-- tira a listagem própria do cliente (RemoveListing, ou o líder saiu do grupo)
+function LFG:removeActive(c)
+    local l = self.active[c]
+    if not l then return end
+    self.active[c] = nil
+    for i, x in ipairs(self.listings) do if x == l then table.remove(self.listings, i) break end end
+    self.world:after(self.world.config.lfgLatency, function()
+        if c.state == "online" then c:fireEvent("LFG_LIST_ACTIVE_ENTRY_UPDATE") end
+    end)
 end
 
 -- adiciona uma listagem e devolve o id do resultado
@@ -65,7 +81,18 @@ function LFG:api(c)
         if not m then m = { ids = {}, has = {} }; lfg.perClient[c] = m end
         return m
     end
+    -- HasRestrictions: só de um clique, uma por clique (config.hardwareEvents liga a regra)
+    local function protected(fn)
+        if not world.config.hardwareEvents then return true end
+        local hw = c.hw
+        if hw and hw.left > 0 then hw.left = hw.left - 1 return true end
+        c.blocked[#c.blocked + 1] = { fn = "C_LFGList." .. fn }
+        c:fireEvent("ADDON_ACTION_BLOCKED", "GrupoFacil", "C_LFGList." .. fn .. "()")
+        return false
+    end
+    api.protectedCalls = protected
     function api.Search(category, filter, preferred, languages, crossFaction, advanced, activities)
+        if not protected("Search") then return end
         if c.chatLockdown and world.config.lfgBlockedInLockdown then error("C_LFGList.Search blocked", 2) end
         local now = world.now
         local recent = {}
@@ -112,7 +139,8 @@ function LFG:api(c)
             numMembers = maybeSecret(l, "numMembers", #l.members),
             isDelisted = maybeSecret(l, "isDelisted", l.delisted == true),
             age = maybeSecret(l, "age", l.age),
-            hasSelf = maybeSecret(l, "hasSelf", l.hasSelf == true),
+            hasSelf = maybeSecret(l, "hasSelf", l.hasSelf == true or l.owner == c),
+            questID = l.questID,
             name = "", comment = l.comment or "", voiceChat = "",
             requiredItemLevel = 0, isWarMode = false, autoAccept = false, newPlayerFriendly = false,
         }
@@ -157,6 +185,48 @@ function LFG:api(c)
         for k, v in pairs(a) do o[k] = v end
         o.minLevel = 0
         return o
+    end
+    function api.GetAvailableActivities(category)
+        if category == nil then return nil end
+        return lfg:activitiesFor(category)
+    end
+    function api.HasActiveEntryInfo() return lfg.active[c] ~= nil end
+    function api.GetActiveEntryInfo()
+        local l = lfg.active[c]
+        if not l then return nil end
+        return { activityIDs = { l.activityIDs[1] }, questID = l.questID, newPlayerFriendly = false, autoAccept = false }
+    end
+    function api.CreateListing(data)
+        if not protected("CreateListing") then return false end
+        if type(data) ~= "table" or type(data.activityIDs) ~= "table" or not ACTIVITIES[data.activityIDs[1]] then
+            error("Usage: C_LFGList.CreateListing(createData)", 2)
+        end
+        if lfg.active[c] then return false end
+        if c.data.inGroup and not c.data.leader then return false end
+        c.data.createdListings = c.data.createdListings or {}
+        table.insert(c.data.createdListings, data)
+        if data.questID and world.config.rejectListingQuestID then
+            world:after(world.config.lfgLatency, function()
+                if c.state == "online" then c:fireEvent("LFG_LIST_ENTRY_CREATION_FAILED") end
+            end)
+            return true
+        end
+        local members = { { name = c.surname and c:fullName() or c.name, level = c.level, class = c.class, zone = c.zone } }
+        for i = 2, (c.data.inGroup and math.max(2, c.data.groupSize or 2) or 1) do
+            members[#members + 1] = { name = "Membro" .. i, level = c.level, class = "MAGE", role = "DAMAGER" }
+        end
+        local l = { leader = members[1].name, members = members, activityIDs = { data.activityIDs[1] },
+            questID = data.questID, owner = c, age = 0 }
+        lfg:add(l)
+        lfg.active[c] = l
+        world:after(world.config.lfgLatency, function()
+            if c.state == "online" then c:fireEvent("LFG_LIST_ACTIVE_ENTRY_UPDATE", true) end
+        end)
+        return true
+    end
+    function api.RemoveListing()
+        if not protected("RemoveListing") then return end
+        lfg:removeActive(c)
     end
     function api.GetAvailableLanguageSearchFilter() return { "enUS", "ptBR" } end
     function api.GetDefaultLanguageSearchFilter() return { enUS = true } end

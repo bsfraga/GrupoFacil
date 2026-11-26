@@ -514,8 +514,12 @@ function M.new(client)
         if not visible(self) and not ui.allowHiddenClick then return end
         mouse = mouse or "LeftButton"
         if s.kind == "CheckButton" then s.checked = not s.checked end
+        -- evento de hardware: o clique libera UMA ação protegida (busca, criar/tirar listagem)
+        local hw = client.hw
+        client.hw = { left = 1 }
         fire(self, "PreClick", mouse, down or false)
         fire(self, "OnClick", mouse, down or false)
+        client.hw = hw
         if s.protected and s.attributes.type == "macro" and s.attributes.macrotext then
             client:runMacro(s.attributes.macrotext, true)
         end

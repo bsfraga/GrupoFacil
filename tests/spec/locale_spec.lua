@@ -5,7 +5,7 @@ local H = require("helpers")
 local describe, it = T.describe, T.it
 
 local LANGS = { "pt", "es", "mx", "de", "fr" }
-local SOURCES = { "Core.lua", "Diag.lua", "UI.lua", "Options.lua", "Minimap.lua", "Onboarding.lua", "BugReport.lua", "BugUI.lua", "BugChannel.lua" }
+local SOURCES = { "Core.lua", "Diag.lua", "UI.lua", "Options.lua", "Minimap.lua", "Onboarding.lua", "BugReport.lua", "BugUI.lua", "BugChannel.lua", "Quest.lua", "QuestUI.lua" }
 
 local function readFile(p)
     local f = assert(io.open(H.ROOT .. "/" .. p, "rb"))
@@ -149,6 +149,10 @@ local function exercise(lang, admin)
     end }
     local w = H.world(cfg)
     H.sampleListings(w)
+    -- grupos da zona de uma missão (janela de missões)
+    w.lfg:add({ leader = "Zona", activityIDs = { 20 }, members = { { name = "Zona", level = 18, class = "PRIEST" },
+        { name = "Z2", level = 18, class = "MAGE" } } })
+    w.lfg:add({ leader = "Sozinho", activityIDs = { 20 }, members = { { name = "Sozinho", level = 18, class = "ROGUE" } } })
     local disk = w:diskFor("A")
     local c = H.login(w, { account = "A", level = 25 })
     H.db(c).language = lang
@@ -173,6 +177,33 @@ local function exercise(lang, admin)
         for _, x in ipairs(overlaps(c, name)) do over[#over + 1] = x end
     end
     check("GrupoFacilFrame")
+    -- grupos por missão: lupa, janela, pedido recebido, criar, missão concluída
+    c:hover(f.questButton)
+    c:addQuest({ id = 155, title = "The Defias Brotherhood", zone = "Westfall", level = 18, elite = true, size = 3, mapID = 1436 })
+    w:advance(3)
+    local mag = c:trackerMagnifier(155)
+    c:hover(mag)
+    c:click(mag)
+    w:advance(1.5)
+    ns.Quest.OnAddonMessage("GFQ", "J1 155 18 MAGE d The Defias Brotherhood", "WHISPER", "Pedinte Sobrenome")
+    w:advance(0.3)
+    local qf = c.env.GrupoFacilQuestFrame
+    for _, child in ipairs({ qf.list:GetChildren() }) do
+        if c.ui.visible(child) and child.entry then c:hover(child); c:hover(child.b1) end
+    end
+    for _, b in ipairs({ qf.search, qf.create, qf.dungeons, qf.autoInvite, qf.autoAccept, qf.magnifier }) do c:hover(b) end
+    check("GrupoFacilQuestFrame")
+    c:click(qf.create)
+    w:advance(0.5)
+    c:hover(qf.create)
+    check("GrupoFacilQuestFrame")
+    c:openQuestDetails(155)
+    local fb = H.find(c, c.env.QuestMapFrame.DetailsFrame, ".", true)
+    if fb then c:hover(fb) end
+    ns.ShowQuestDone(155, "The Defias Brotherhood")
+    for _, b in ipairs({ c.env.GrupoFacilQuestDone.leave, c.env.GrupoFacilQuestDone.remove, c.env.GrupoFacilQuestDone.later }) do c:hover(b) end
+    check("GrupoFacilQuestDone")
+    c:slash("/gf quests")
     c:slash("/gf options")
     check("GrupoFacilOptionsFrame")
     c:hover(c.env.GrupoFacilMinimapButton)

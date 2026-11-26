@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.14.0
+- **Groups for your quests**: a magnifier next to every quest in the objective list (under the minimap) and in the quest details of the quest log. Click it and GrupoFacil searches Looking For Group (Quests & Zones, the quest's zone; a dungeon quest searches the dungeon) and opens the new **quest groups** window.
+- The quest window lists the zone's groups and players: groups doing that quest first, then groups where someone has it, then the rest of the zone. **Join** asks the leader; **Invite** asks a solo player in.
+- Players who also use GrupoFacil tell each other, silently (addon whisper, never a chat channel), which quests they are on. The leader gets your request in the quest window and invites with one click.
+- **Create group** lists you in Looking For Group with the quest, so whoever clicks the magnifier on the same quest finds you first. If the game refuses the quest in the listing, the next click lists without it. **Remove listing** takes it out.
+- Options in the quest window: auto-invite players who ask for the same quest (off by default, at most 6 invites every 10 minutes), auto-accept the invite from the leader you asked (on, for 2 minutes after asking), and show or hide the magnifier.
+- When the quest is done, the addon offers to leave the group and to remove the listing. It never does either on its own.
+- A warning when you get close to the game's limit of about 16 groups joined per hour.
+- The magnifier icon in the main window title and `/gf quests` open the quest window; its **Dungeons** button goes back to the main window.
+- Nothing is sent while the game restricts chat (instances, encounters). Search, create and remove only run from your click, one per click.
+
 ## 0.13.0
 - **Report a problem**: a window to send bugs, wrong texts and ideas straight to the author (note icon in the title bar, the options, or `/gf bug`). Reports wait on your computer and go out by themselves when the author is online; you see the state of each one and get a message when it is received and when it is marked.
 - `/gf bug <text>` reports from the chat; `/gf bug list` lists your reports.

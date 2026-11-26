@@ -26,7 +26,9 @@ Diag.lua
 BugChannel.lua
 BugResolutions.lua
 Core.lua
+Quest.lua
 UI.lua
+QuestUI.lua
 Options.lua
 Minimap.lua
 Onboarding.lua
