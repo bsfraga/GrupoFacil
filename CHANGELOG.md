@@ -13,6 +13,8 @@
 - The **Find group** button in the quest details and the magnifier in the objective list move out of the way of other addons' buttons (for example Spoken's Play); with no free spot they hide instead of covering anything.
 - **What's New** has one page per version, and the first page always has its own box to report bugs, feedback and ideas to the author.
 - Nothing is sent while the game restricts chat (instances, encounters). Search, create and remove only run from your click, one per click.
+- `/gf debug demo` fills the Quests tab with fake players to try it alone (nothing is sent; `/gf debug demo off` leaves). `/gf debug ping [name]` checks that silent addon messages reach a player.
+- After a quest search, the Dungeons tab searches dungeons again (Search again, or switching back to the tab), even when the game's window stays on Quests & Zones.
 
 ## 0.13.0
 - **Report a problem**: a window to send bugs, wrong texts and ideas straight to the author (note icon in the title bar, the options, or `/gf bug`). Reports wait on your computer and go out by themselves when the author is online; you see the state of each one and get a message when it is received and when it is marked.
