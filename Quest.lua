@@ -411,7 +411,8 @@ function Q.BuildMessage(questTitle)
         quest = questTitle and ("[" .. questTitle .. "]") or "" }
     text = gsub(text, "{(%a+)}", function(k) return vars[k] or ("{" .. k .. "}") end)
     text = gsub(text, "%s%s+", " ")
-    return text
+    -- divulga o addon para quem não usa (pedido do Fraga, 26/11; não vai nas Novidades)
+    return text .. " (via GrupoFacil)"
 end
 
 local function rolesCode()
@@ -541,6 +542,21 @@ end
 -- é uma referência segura da Blizzard (Blizzard_LFGVanilla_Listing.xml: StoreSecureReference,
 -- SetSecurityDisableSetText e SetSecurityDisablePaste): addon não escreve nela, nem colar o jogo deixa.
 -- O jogo a lê direto da caixa na hora de criar; CreateListing não tem campo de texto. Pesquisa de 26/11.
+-- No lugar dela, o GrupoFacil mostra na aba Missões o nome, o objetivo e o local da missão, e passa
+-- isso a quem também usa o addon pelo sussurro de addon (I1, ver o protocolo).
+
+-- primeiro objetivo ainda não feito (ou o primeiro), em texto
+function Q.Objective(questID)
+    local ql = questLog()
+    local list = ql and questID and call(ql.GetQuestObjectives, questID)
+    if type(list) ~= "table" or isSecret(list) then return nil end
+    for _, o in ipairs(list) do
+        local t = type(o) == "table" and str(o.text)
+        if t and not o.finished then return t end
+    end
+    local first = list[1]
+    return type(first) == "table" and str(first.text) or nil
+end
 
 function Q.RemoveListing()
     if not Q.HasListing() then return false end
@@ -561,7 +577,8 @@ function Q.LeaveGroup()
 end
 
 ------------------------------------------------------------------------
--- protocolo: ?1 (que missões?), Q1 (resposta), J1 (pedido de vaga), R1 (resposta ao pedido)
+-- protocolo: ?1 (que missões?), Q1 (resposta), I1 (missão do grupo listado: nome, objetivo, local),
+-- J1 (pedido de vaga), R1 (resposta ao pedido)
 ------------------------------------------------------------------------
 local function groupFull()
     local n = GetNumGroupMembers and GetNumGroupMembers() or 0
@@ -576,6 +593,34 @@ local function replyQuests(sender)
     local ids = Q.LogQuestIDs(MAX_LOG_IDS)
     local listed = (Q.myQuest and (Q.HasListing() or IsInGroup())) and Q.myQuest or 0
     Q.Send(format("Q%s %d %s", Q.PROTO, listed, table.concat(ids, ",")), sender)
+    -- grupo listado para uma missão: nome, objetivo e local, no lugar da descrição que o jogo não deixa
+    -- o addon escrever (I1 <id> <nome>~<objetivo>~<local>)
+    if listed > 0 then
+        local q = Q.Info(listed)
+        if q and q.title then
+            local function clean(v) return (tostring(v or ""):gsub("[~\r\n|]", " ")) end
+            local zone = q.zone or ""
+            local cur = Q.current
+            if cur and cur.questID == listed and cur.activity and cur.activity.label then zone = cur.activity.label end
+            local msg = format("I%s %d %s~%s~%s", Q.PROTO, listed, clean(q.title), clean(Q.Objective(listed)), clean(zone))
+            if #msg > 250 then msg = msg:sub(1, 250) end
+            Q.Send(msg, sender)
+        end
+    end
+end
+
+local function onInfo(sender, rest)
+    local k = key(sender)
+    if not k then return end
+    local id, title, obj, zone = rest:match("^(%d+)%s+([^~]*)~([^~]*)~?(.*)$")
+    id = tonumber(id)
+    if not id then return end
+    local function nz(v) v = v and v:gsub("^%s+", ""):gsub("%s+$", "") return v ~= "" and v or nil end
+    local info = { questID = id, title = nz(title), objective = nz(obj), zone = nz(zone) }
+    for pk, p in pairs(Q.peers) do
+        if pk == k or sameName(pk, k) then p.info = info end
+    end
+    refresh("info")
 end
 
 local function onAnswer(sender, rest)
@@ -695,7 +740,8 @@ function Q.OnAddonMessage(prefix, msg, channel, sender)
     if kind == "?" then replyQuests(sender)
     elseif kind == "Q" then onAnswer(sender, rest)
     elseif kind == "J" then onJoinRequest(sender, rest)
-    elseif kind == "R" then onJoinReply(sender, rest) end
+    elseif kind == "R" then onJoinReply(sender, rest)
+    elseif kind == "I" then onInfo(sender, rest) end
 end
 
 ------------------------------------------------------------------------

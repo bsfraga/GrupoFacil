@@ -178,7 +178,7 @@ local function exercise(lang, admin)
     end
     check("GrupoFacilFrame")
     -- grupos por missão: lupa, janela, pedido recebido, criar, missão concluída
-    c:hover(f.questButton)
+    c:hover(f.tabDungeons); c:hover(f.tabQuests)
     c:addQuest({ id = 155, title = "The Defias Brotherhood", zone = "Westfall", level = 18, elite = true, size = 3, mapID = 1436 })
     w:advance(3)
     local mag = c:trackerMagnifier(155)

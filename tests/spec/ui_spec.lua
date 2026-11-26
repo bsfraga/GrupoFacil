@@ -42,7 +42,7 @@ describe("janela principal", function()
         c:click(btn(c, f, "^Sort: Level$")); w:advance(0.2)
         T.match(H.rows(c)[1], "^Arqueiro", "ordem por nome")
         local boxes = {}
-        for _, ch in ipairs({ f:GetChildren() }) do if c.ui.state(ch).kind == "EditBox" then boxes[#boxes + 1] = ch end end
+        for _, ch in ipairs({ f.dungeonPanel:GetChildren() }) do if c.ui.state(ch).kind == "EditBox" then boxes[#boxes + 1] = ch end end
         c:type(boxes[1], "30"); w:advance(0.2)
         T.eq(#H.rows(c), 2)
         c:type(boxes[1], "abc"); T.eq(c:text(boxes[1]), "", "caixa numérica")

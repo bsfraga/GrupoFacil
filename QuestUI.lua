@@ -12,7 +12,7 @@ local format, max, min, floor = string.format, math.max, math.min, math.floor
 
 local ICON = "Interface\\Common\\UI-Searchbox-Icon"
 local ROW_H = 34
-local W, H = 470, 540
+local W = 470 -- largura mínima da janela (UI.lua MIN_W): os textos das opções cabem nela
 local REQ_ROWS = 3
 
 local scriptN = 0
@@ -493,6 +493,13 @@ local function makeRow(parent, i)
         local why = e.qWhy and WHY[e.qWhy]
         if why then GameTooltip:AddLine(why(), 1, 1, 1) else GameTooltip:AddLine(L["same zone (quest not confirmed)"], 0.7, 0.7, 0.7) end
         if e.qPeer then GameTooltip:AddLine(L["uses GrupoFacil"], 0.5, 0.8, 1) end
+        local info = e.qPeer and e.qPeer.info
+        if info then
+            GameTooltip:AddLine(" ")
+            if info.title then GameTooltip:AddLine(format(L["Quest: %s"], info.title), 1, 0.82, 0, true) end
+            if info.objective then GameTooltip:AddLine(L["Objective: "] .. info.objective, 1, 1, 1, true) end
+            if info.zone then GameTooltip:AddLine(format(L["Where: %s"], info.zone), 0.8, 0.8, 0.8, true) end
+        end
         GameTooltip:Show()
     end)
     r:SetScript("OnLeave", function() GameTooltip:Hide() end)
@@ -521,41 +528,19 @@ local function makeReqRow(parent, i)
     return r
 end
 
-local function savePos(self)
-    self:StopMovingOrSizing()
-    local p, _, rp, x, y = self:GetPoint(1)
-    Q.DB().pos = { p, rp, x, y }
-end
+-- A aba Missões da janela do GrupoFacil (pedido do Fraga, 26/11: uma janela só, com abas). É um
+-- quadro do tamanho da janela principal; NS.SelectTab mostra uma aba e esconde a outra.
+function NS.QuestPanel() return win end
 
 function NS.BuildQuestUI()
     if win then return end
-    win = CF("Frame", "GrupoFacilQuestFrame", UIParent, "BasicFrameTemplateWithInset")
-    win:SetSize(W, H)
-    win:SetFrameStrata("HIGH")
-    NS.Toplevel(win)
-    win:SetClampedToScreen(true)
-    win:SetMovable(true)
-    win:EnableMouse(true)
-    win:RegisterForDrag("LeftButton")
-    win:SetScript("OnDragStart", win.StartMoving)
-    win:SetScript("OnDragStop", savePos)
+    if not GrupoFacilFrame and NS.BuildUI then NS.BuildUI() end
+    local main = GrupoFacilFrame
+    if not main then return end
+    win = CF("Frame", "GrupoFacilQuestFrame", main)
+    win:SetAllPoints(main)
     win:Hide()
-    local pos = Q.DB().pos
-    if type(pos) == "table" and pos[1] then
-        win:SetPoint(pos[1], UIParent, pos[2], pos[3], pos[4])
-    else
-        win:SetPoint("CENTER", UIParent, "CENTER", -260, 40)
-    end
-    local title = win.TitleText or label(win, "", "GameFontHighlight")
-    title:SetText(L["GrupoFacil: quest groups"])
-    title:ClearAllPoints()
-    title:SetPoint("TOPLEFT", 12, -5)
-
-    -- ir para a janela das masmorras (a principal)
-    win.dungeons = button(win, L["Dungeons"], 90, 20)
-    win.dungeons:SetPoint("TOPRIGHT", -30, -1)
-    win.dungeons:SetScript("OnClick", function() if NS.ShowPanel then NS.ShowPanel(false) end end)
-    tooltip(win.dungeons, L["Dungeons"], L["Opens the main GrupoFacil window (dungeon groups and players)."])
+    win:SetScript("OnSizeChanged", function() NS.RefreshQuest("size") end)
 
     -- a missão
     win.quest = label(win, "", "GameFontNormalLarge")
@@ -568,8 +553,15 @@ function NS.BuildQuestUI()
     win.meta:SetPoint("RIGHT", win, "RIGHT", -14, 0)
     win.meta:SetJustifyH("LEFT")
     win.meta:SetWordWrap(false)
+    -- objetivo da missão (o Looking For Group não aceita descrição: a informação fica aqui)
+    win.obj = label(win, "", "GameFontHighlightSmall")
+    win.obj:SetPoint("TOPLEFT", win.meta, "BOTTOMLEFT", 0, -4)
+    win.obj:SetPoint("RIGHT", win, "RIGHT", -14, 0)
+    win.obj:SetJustifyH("LEFT")
+    win.obj:SetWordWrap(false)
+    win.obj:SetTextColor(0.85, 0.85, 0.85)
     win.status = label(win, "", "GameFontNormalSmall")
-    win.status:SetPoint("TOPLEFT", win.meta, "BOTTOMLEFT", 0, -6)
+    win.status:SetPoint("TOPLEFT", win.obj, "BOTTOMLEFT", 0, -6)
     win.status:SetPoint("RIGHT", win, "RIGHT", -14, 0)
     win.status:SetJustifyH("LEFT")
     win.status:SetWordWrap(false)
@@ -582,10 +574,10 @@ function NS.BuildQuestUI()
 
     -- pedidos recebidos (você lidera)
     win.reqTitle = label(win, L["Asked to join your group"], "GameFontNormal")
-    win.reqTitle:SetPoint("TOPLEFT", 14, -110)
+    win.reqTitle:SetPoint("TOPLEFT", 14, -126)
     win.reqTitle:SetJustifyH("LEFT")
     win.reqBox = CF("Frame", nil, win)
-    win.reqBox:SetPoint("TOPLEFT", 10, -128)
+    win.reqBox:SetPoint("TOPLEFT", 10, -144)
     win.reqBox:SetPoint("RIGHT", win, "RIGHT", -10, 0)
     win.reqBox:SetHeight(REQ_ROWS * 26)
     for i = 1, REQ_ROWS do reqRows[i] = makeReqRow(win.reqBox, i) end
@@ -653,12 +645,12 @@ function NS.BuildQuestUI()
 end
 
 local function layoutList(nReq)
-    local top = nReq > 0 and (128 + nReq * 26 + 6) or 108
+    local top = nReq > 0 and (144 + nReq * 26 + 6) or 124
     win.reqTitle:SetShown(nReq > 0)
     win.list:ClearAllPoints()
     win.list:SetPoint("TOPLEFT", 10, -top)
     win.list:SetPoint("BOTTOMRIGHT", -10, 104)
-    local h = H - top - 104
+    local h = (win:GetHeight() or 540) - top - 104
     local n = max(2, floor(h / ROW_H))
     for i = 1, n do if not rows[i] then rows[i] = makeRow(win.list, i) end end
     for i = n + 1, #rows do rows[i]:Hide() end
@@ -687,13 +679,17 @@ function NS.RenderQuest()
             meta[#meta + 1] = "|cff999999" .. format(L["Looking For Group: %s"], cur.activity.label or cur.activity.name or "?") .. "|r"
         end
         win.meta:SetText(table.concat(meta, "  ·  "))
+        local obj = Q.Objective(cur.questID)
+        win.obj:SetText(obj and (L["Objective: "] .. obj) or "")
     else
         win.quest:SetText(L["No quest chosen"])
         win.meta:SetText(L["Click the magnifier next to a quest in the objective list or in the quest log."])
+        win.obj:SetText("")
     end
 
     -- pedidos recebidos
     local reqs = Q.Requests()
+    NS.UpdateQuestTab()
     local nReq = min(REQ_ROWS, #reqs)
     for i = 1, REQ_ROWS do
         local r, req = reqRows[i], reqs[i]
@@ -728,7 +724,11 @@ function NS.RenderQuest()
             r.name:SetText((e.name or RETRIEVING_DATA or "...") .. lvl)
             r.name:SetTextColor(classColor(e.class))
             local why = e.qWhy and WHY[e.qWhy]
-            local parts = { why and why() or ("|cff999999" .. L["same zone"] .. "|r"), membersText(e) }
+            local first = why and why() or ("|cff999999" .. L["same zone"] .. "|r")
+            -- líder com o GrupoFacil, listado para outra missão: mostra qual (veio pelo I1)
+            local info = e.qPeer and e.qPeer.info
+            if info and info.title and e.qScore ~= 3 then first = "|cffffd200" .. format(L["Quest: %s"], info.title) .. "|r" end
+            local parts = { first, membersText(e) }
             r.info:SetText(table.concat(parts, "  ·  "))
             r.name:SetPoint("RIGHT", r.b1, "LEFT", -6, 0)
             r.info:SetPoint("RIGHT", r.b1, "LEFT", -6, 0)
@@ -788,17 +788,34 @@ function NS.RefreshQuest(reason)
 end
 
 -- byClick: aberta pela lupa ou pelo botão (true); aberta por um pedido que chegou (false)
+-- byClick: aberta pela lupa, pela aba ou por /gf quests (true); por um pedido que chegou (false).
+-- Pedido que chega com a janela aberta noutra aba não troca de aba: a aba Missões mostra a contagem.
 function NS.ShowQuestWindow(byClick)
     if not win then NS.BuildQuestUI() end
     if not win then return end
-    if not byClick and win:IsShown() then NS.RefreshQuest("show") return end
-    win:Show()
+    local main = GrupoFacilFrame
+    if not byClick and main:IsShown() then
+        NS.UpdateQuestTab()
+        NS.RefreshQuest("show")
+        return
+    end
+    NS.ShowPanel(false, "quests")
     NS.RefreshQuest("show")
 end
 
 function NS.ToggleQuestWindow()
     if not win then NS.BuildQuestUI() end
-    if win:IsShown() then win:Hide() else NS.ShowQuestWindow(true) end
+    if not win then return end
+    if win:IsVisible() then GrupoFacilFrame:Hide() else NS.ShowQuestWindow(true) end
+end
+
+-- texto da aba: "Missões (2)" quando há pedidos de vaga esperando
+function NS.UpdateQuestTab()
+    local main = GrupoFacilFrame
+    local t = main and main.tabQuests
+    if not t then return end
+    local n = #Q.Requests()
+    t:SetText(n > 0 and format(L["Quests (%d)"], n) or L["Quests"])
 end
 
 ------------------------------------------------------------------------

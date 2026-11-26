@@ -130,7 +130,7 @@ local function build()
     local base = (panel:GetFrameLevel() or 1) + 20
 
     -- faixa de convite (cobre o topo da lista enquanto está à mostra)
-    banner = box(panel, 0.97)
+    banner = box(panel.dungeonPanel or panel, 0.97) -- só na aba Masmorras
     banner:SetFrameLevel(base)
     local list = NS.UIRefs and NS.UIRefs.list or panel
     banner:SetPoint("TOPLEFT", list, "TOPLEFT", 0, 0)
@@ -241,8 +241,10 @@ function NS.StartTour()
         return
     end
     if not (_G.GrupoFacilFrame and _G.GrupoFacilFrame:IsShown()) then
-        if NS.ShowPanel then NS.ShowPanel(false) end
+        if NS.ShowPanel then NS.ShowPanel(false, "dungeons") end
     end
+    -- o tour é da aba Masmorras
+    if NS.SelectTab then NS.SelectTab("dungeons") end
     -- o tour aponta para os filtros: no modo compacto eles aparecem só durante o tour
     if GrupoFacilDB.compact and NS.ApplyCompact then NS.forceFilters = true; NS.ApplyCompact() end
     NS.TourGo(1)

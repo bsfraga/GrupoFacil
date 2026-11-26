@@ -19,7 +19,7 @@ local PAGES = {
         highlight = {
             title = "New: groups for your quests",
             body = "A magnifier next to each quest in the objective list and in the quest details. Click it: GrupoFacil searches Looking For Group in the quest's zone and shows first the groups doing that quest. No group? Create one with one click. Players who also use GrupoFacil find each other's quests silently, and the invite from the leader you asked is accepted by itself.",
-            where = "Where: the magnifier next to a quest, the Quests button in the main window or /gf quests.",
+            where = "Where: the magnifier next to a quest, the Quests tab of the window or /gf quests.",
             icon = "Interface\\Common\\UI-Searchbox-Icon",
             button = "Open quest groups",
             open = function() if NS.ShowQuestWindow then NS.ShowQuestWindow(true) end end,
@@ -28,7 +28,7 @@ local PAGES = {
             "Leaders can turn on auto-invite for players who ask for the same quest (off by default, at most 6 invites every 10 minutes).",
             "When the quest is done, the addon offers to leave the group and take it out of Looking For Group. It never does it on its own.",
             "A warning when you get close to the game's limit of about 16 groups joined per hour.",
-            "The Dungeons button in the quest window goes back to the main window.",
+            "Dungeons and Quests are tabs of the same window.",
         },
     },
     {
