@@ -3,7 +3,12 @@ local T = require("t")
 local H = require("helpers")
 local describe, it = T.describe, T.it
 
-local function opts(c) c:slash("/gf options"); return c.env.GrupoFacilOptionsFrame end
+-- abre a janela de opções (na seção pedida, se houver)
+local function opts(c, section)
+    c:slash("/gf options" .. (section and (" " .. section) or ""))
+    return c.env.GrupoFacilOptionsFrame
+end
+local function section(c, key) H.ns(c).OptionsSection(key) end
 local function find(c, root, pat) return H.find(c, root, pat, true) end
 -- a caixa de seleção cujo rótulo (c.label, ao lado) casa com pat
 local function checkOf(c, root, pat)
@@ -32,14 +37,79 @@ describe("opções, minimapa e tour", function()
         T.clean(c)
     end)
 
+    it("seções: Geral, Mensagens, Missões, Convide um amigo e Ajuda; cada uma mostra só o seu contexto", function()
+        local w = H.world()
+        local c = H.login(w)
+        local f = opts(c)
+        local w2 = f.content
+        T.eq(w2.section, "general", "abre em Geral")
+        for _, name in ipairs({ "^General$", "^Messages$", "^Quests$", "^Invite a friend$", "^Help$" }) do
+            T.ok(find(c, f, name), name)
+        end
+        T.ok(c.ui.visible(w2.auto)); T.no(c.ui.visible(w2.msg)); T.no(c.ui.visible(w2.autoInvite))
+        c:click(find(c, f, "^Messages$"))
+        T.ok(c.ui.visible(w2.msg)); T.no(c.ui.visible(w2.auto))
+        c:click(find(c, f, "^Quests$"))
+        T.ok(c.ui.visible(w2.autoInvite)); T.no(c.ui.visible(w2.msg))
+        c:click(find(c, f, "^Help$"))
+        T.ok(find(c, f, "^Report a problem$")); T.ok(find(c, f, "^What's New$"))
+        -- o rodapé (autoria e apoio) aparece em todas
+        T.ok(c.ui.visible(w2.donate))
+        c:click(find(c, f, "^General$"))
+        T.ok(c.ui.visible(w2.donate))
+        -- a página do jogo (Options > AddOns) tem as mesmas seções
+        T.ok(H.find(c, c.env.GrupoFacilOptionsPanel, "^Invite a friend$"))
+        T.clean(c)
+    end)
+
+    it("Apoiar no GitHub mostra o link do GitHub Sponsors para copiar", function()
+        local w = H.world()
+        local c = H.login(w)
+        local f = opts(c)
+        local b = find(c, f, "^Sponsor on GitHub$")
+        T.ok(b, "botão no rodapé das opções")
+        T.has(c:hover(b), "github.com/sponsors/bsfraga")
+        c:click(b)
+        local d = c.env.GrupoFacilDonateFrame
+        T.ok(H.shown(c, d))
+        T.eq(d.box:GetText(), "https://github.com/sponsors/bsfraga")
+        c:type(d.box, "outra coisa")
+        T.eq(d.box:GetText(), "https://github.com/sponsors/bsfraga", "só leitura")
+        T.clean(c)
+    end)
+
+    it("a engrenagem é o último botão do cabeçalho; não há mais botão Opções embaixo", function()
+        local w = H.world()
+        local c = H.login(w)
+        c:slash("/gf")
+        local f = c.env.GrupoFacilFrame
+        local gear = f.optionsButton
+        T.ok(H.shown(c, gear))
+        local gr, qr = c.ui.rect(gear), c.ui.rect(f.tabQuests)
+        T.ok(gr.l >= qr.r, "depois da aba Missões")
+        T.ok(gr.t > c.ui.rect(f).t - 30, "no cabeçalho")
+        -- nenhum outro botão do cabeçalho à direita da engrenagem (o X do quadro não conta)
+        for _, b in ipairs({ f.bugButton, f.tabDungeons, f.tabQuests }) do
+            T.ok(c.ui.rect(b).r <= gr.l, "botão do cabeçalho depois da engrenagem")
+        end
+        T.eq(find(c, f.dungeonPanel, "^Options$"), nil, "o botão Opções de baixo saiu")
+        c:click(gear)
+        T.ok(H.shown(c, c.env.GrupoFacilOptionsFrame))
+        T.clean(c)
+    end)
+
     it("mensagem: digitar e Enter grava, prévia acompanha; Padrão volta ao inglês", function()
         local w = H.world()
         local c = H.login(w, { level = 33 })
-        local f = opts(c)
+        local f = opts(c, "messages")
         local box
-        for _, ch in ipairs({ f:GetChildren() }) do
-            for _, x in ipairs({ ch:GetChildren() }) do if c.ui.state(x).kind == "EditBox" and not box then box = x end end
+        local function walk(x)
+            for _, ch in ipairs({ x:GetChildren() }) do
+                if c.ui.state(ch).kind == "EditBox" and c.ui.visible(ch) and not box then box = ch end
+                walk(ch)
+            end
         end
+        walk(f)
         c:type(box, "Bora {level}!")
         c:press(box, "ENTER")
         T.eq(H.db(c).template, "Bora {level}!")
@@ -53,7 +123,7 @@ describe("opções, minimapa e tour", function()
     it("spec e classe pelas opções valem só para este personagem; vazio volta ao automático", function()
         local w = H.world()
         local c = H.login(w, { talents = { { name = "Survival", spent = 9 } } })
-        local f = opts(c)
+        local f = opts(c, "messages")
         T.ok(find(c, f, "now: Survival"))
         local boxes = {}
         local function walk(x) for _, ch in ipairs({ x:GetChildren() }) do if c.ui.state(ch).kind == "EditBox" then boxes[#boxes + 1] = ch end walk(ch) end end
@@ -74,17 +144,19 @@ describe("opções, minimapa e tour", function()
     it("caixas de seleção mudam o modo de envio, abrir junto, encaixe, minimapa, hook e debug", function()
         local w = H.world()
         local c = H.login(w)
-        local f = opts(c)
+        local f = opts(c, "messages")
         c:click(checkOf(c, f, "^Only open the chat with the text"))
         T.eq(H.db(c).sendMode, "preencher")
         c:click(checkOf(c, f, "^Send the whisper straight"))
         T.eq(H.db(c).sendMode, "direto")
+        section(c, "general")
         c:click(checkOf(c, f, "^Open together with Looking For Group$"))
         T.eq(H.db(c).autoOpen, false)
         c:click(checkOf(c, f, "^Show minimap button$"))
         T.no(H.shown(c, c.env.GrupoFacilMinimapButton))
         c:click(checkOf(c, f, "^Capture the native search"))
         T.eq(H.db(c).hookSearch, false)
+        section(c, "help")
         c:click(checkOf(c, f, "^Show the diagnostic trace in chat$"))
         T.eq(H.db(c).debug, true)
         c:clearChat()

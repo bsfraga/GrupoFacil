@@ -12,7 +12,6 @@ local format, max, min, floor = string.format, math.max, math.min, math.floor
 
 local ICON = "Interface\\Common\\UI-Searchbox-Icon"
 local ROW_H = 34
-local W = 470 -- largura mínima da janela (UI.lua MIN_W): os textos das opções cabem nela
 local REQ_ROWS = 3
 
 local scriptN = 0
@@ -63,20 +62,6 @@ local function button(parent, text, w, h, more)
     b:SetText(text)
     fitWidth(b, w, more or { text })
     return b
-end
-
-local function check(parent, text, tip)
-    local c = CF("CheckButton", nil, parent, "UICheckButtonTemplate")
-    c:SetSize(22, 22)
-    local t = c.Text or c.text or label(c, "", "GameFontHighlightSmall")
-    if not (c.Text or c.text) then t:SetPoint("LEFT", c, "RIGHT", 2, 1) end
-    t:SetText(text)
-    t:SetWidth(W - 90)
-    t:SetJustifyH("LEFT")
-    t:SetWordWrap(false)
-    c.label = t
-    tooltip(c, text, tip)
-    return c
 end
 
 local function classColor(class)
@@ -639,55 +624,21 @@ function NS.BuildQuestUI()
     win.pageFS:SetPoint("BOTTOMRIGHT", -16, 44)
     win.pageFS:SetJustifyH("RIGHT")
     win.status:SetPoint("RIGHT", win.pageFS, "LEFT", -8, 0)
-    win.optBtn = button(win, L["Options"], 90, 22)
-    win.optBtn:SetPoint("BOTTOMLEFT", 12, 12)
-    win.optBtn:SetScript("OnClick", function() win.opts:SetShown(not win.opts:IsShown()) end)
-    tooltip(win.optBtn, L["Options"], L["Auto-invite, auto-accept and the magnifier next to quests."])
     -- quanto mais gente com o addon, mais grupos por missão se acham: indicar fica à mão aqui
     win.share = button(win, L["Recommend to a friend"], 150, 22)
     win.share:SetPoint("BOTTOMRIGHT", -24, 12)
     win.share:SetScript("OnClick", function() NS.RecommendAddon("aba Missões") end)
     tooltip(win.share, L["Recommend to a friend"], L["Quest groups work better the more players use GrupoFacil. Puts a ready message in the chat box (in your guild chat if you have one). Change the channel if you want, and press Enter to send it."])
     win.warn = label(win, "", "GameFontNormalSmall")
-    win.warn:SetPoint("LEFT", win.optBtn, "RIGHT", 10, 0)
+    win.warn:SetPoint("BOTTOMLEFT", 14, 18)
     win.warn:SetPoint("RIGHT", win.share, "LEFT", -8, 0)
     win.warn:SetJustifyH("LEFT")
     win.warn:SetWordWrap(false)
     win.warn:SetTextColor(1, 0.53, 0)
 
-    -- opções recolhidas: caixa por cima da lista, acima do botão
-    win.opts = CF("Frame", nil, win, "BackdropTemplate")
-    if win.opts.SetBackdrop then
-        win.opts:SetBackdrop({ bgFile = "Interface\\Tooltips\\UI-Tooltip-Background", edgeFile = "Interface\\Tooltips\\UI-Tooltip-Border",
-            tile = true, tileSize = 16, edgeSize = 14, insets = { left = 4, right = 4, top = 4, bottom = 4 } })
-        win.opts:SetBackdropColor(0.04, 0.05, 0.09, 0.97)
-        win.opts:SetBackdropBorderColor(1, 0.82, 0, 1)
-    end
-    win.opts:SetPoint("BOTTOMLEFT", win.optBtn, "TOPLEFT", -4, 4)
-    win.opts:SetPoint("RIGHT", win, "RIGHT", -10, 0)
-    win.opts:SetHeight(84)
-    win.opts:SetFrameLevel(win:GetFrameLevel() + 30)
-    win.opts:EnableMouse(true)
-    win.opts:Hide()
-    win.autoInvite = check(win.opts, L["Auto-invite players who ask for the same quest"],
-        L["Only players who use GrupoFacil and asked to join for a quest you also have. At most 6 invites every 10 minutes. Off by default."])
-    win.autoInvite:SetPoint("TOPLEFT", 10, -8)
-    win.autoInvite:SetScript("OnClick", function(self) Q.DB().autoInvite = self:GetChecked() and true or false end)
-    win.autoAccept = check(win.opts, L["Auto-accept the invite from a leader I asked"],
-        L["Only the leader you asked to join, for 2 minutes after asking."])
-    win.autoAccept:SetPoint("TOPLEFT", win.autoInvite, "BOTTOMLEFT", 0, -2)
-    win.autoAccept:SetScript("OnClick", function(self) Q.DB().autoAccept = self:GetChecked() and true or false end)
-    win.magnifier = check(win.opts, L["Magnifier next to quests"], L["Shows the magnifier in the objective list and in the quest details."])
-    win.magnifier:SetPoint("TOPLEFT", win.autoAccept, "BOTTOMLEFT", 0, -2)
-    win.magnifier:SetScript("OnClick", function(self)
-        Q.DB().magnifier = self:GetChecked() and true or false
-        NS.RefreshMagnifiers()
-    end)
-
     win:SetScript("OnShow", function() NS.RenderQuest() end)
-    win:SetScript("OnHide", function() if win.opts then win.opts:Hide() end end)
     NS.QuestRefs = { back = win.back, search = win.search, quest = win.quest, obj = win.obj, create = win.create,
-        group = win.group, list = win.list, listTitle = win.listTitle, options = win.optBtn, share = win.share, panel = win }
+        group = win.group, list = win.list, listTitle = win.listTitle, share = win.share, panel = win }
     Trace("CARGA", "janela de missões criada")
 end
 
@@ -813,10 +764,6 @@ end
 
 function NS.RenderQuest()
     if not win or not win:IsShown() then return end
-    local db = Q.DB()
-    win.autoInvite:SetChecked(db.autoInvite)
-    win.autoAccept:SetChecked(db.autoAccept)
-    win.magnifier:SetChecked(db.magnifier ~= false)
 
     local cur = Q.current
     if not cur then win.picking = true end

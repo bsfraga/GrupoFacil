@@ -6,8 +6,9 @@ local ADDON, NS = ...
 local L = NS.L
 local format = string.format
 
-local TOUR_VERSION = 1   -- subir quando o tour mudar o bastante para valer mostrar de novo
-local QUEST_TOUR_VERSION = 1 -- tour da aba Missões (visto à parte: quem já viu o das masmorras também vê este)
+-- subir quando o tour mudar o bastante para valer mostrar de novo.
+-- 2 (0.14): um tour só, do addon inteiro, passando pelas abas Masmorras e Missões (pedido do Fraga, 26/11).
+local TOUR_VERSION = 2
 local CALLOUT_W = 300
 
 local function tourDB()
@@ -17,17 +18,11 @@ local function tourDB()
     return db.tour
 end
 
--- cada aba tem o seu tour e o seu "já visto"
-local FIELD = { dungeons = "version", quests = "quests" }
-local VERSION = { dungeons = TOUR_VERSION, quests = QUEST_TOUR_VERSION }
-local function isDone(key)
-    key = key or "dungeons"
-    return (tonumber(tourDB()[FIELD[key]]) or 0) >= VERSION[key]
-end
-local function markDone(key, how)
-    key = key or "dungeons"
-    tourDB()[FIELD[key]] = VERSION[key]
-    NS.D.Trace("TOUR", "tour %s encerrado (%s)", key, how)
+local function seenVersion() return tonumber(tourDB().version) or 0 end
+local function isDone() return seenVersion() >= TOUR_VERSION end
+local function markDone(how)
+    tourDB().version = TOUR_VERSION
+    NS.D.Trace("TOUR", "tour encerrado (%s)", how)
 end
 
 local function CF(kind, name, parent, template)
@@ -85,15 +80,12 @@ local STEPS = {
     {   title = "Refresh the list",
         body = function() return L["GrupoFacil reads your Looking For Group search. Search again repeats the last one. The game only allows it from your click and refuses searches that come too fast."] end,
         from = { "search", "TOPLEFT", -6, 6 }, to = { "search", "BOTTOMRIGHT", 6, -6 }, below = "RIGHT" },
-    {   title = "Your message and settings",
-        body = function() return L["The bottom line shows the message leaders receive. Options changes it ({level}, {spec}, {class}, {name}), the send mode, the language and the minimap button. /gf tour shows this tour again."] end,
+    {   title = "Your message",
+        body = function() return L["The bottom line shows the message leaders receive. You change it in the options, under Messages, with {level}, {spec}, {class} and {name}."] end,
         from = { "pageUp", "TOPLEFT", -6, 6 }, to = { "panel", "BOTTOMRIGHT", -8, 8 }, above = "LEFT" },
-}
-NS.TOUR_STEPS = STEPS -- para teste
 
--- Tour da aba Missões (pedido do Fraga, 26/11). Aponta para um exemplo desenhado por cima da aba,
--- então funciona com ou sem missão no registro e não mexe na missão escolhida.
-local QSTEPS = {
+    -- aba Missões: os passos apontam para um exemplo desenhado por cima da aba, então funcionam
+    -- com ou sem missão no registro e não mexem na missão escolhida
     {   title = "Your quests",
         body = function() return L["The Quests tab starts with the quests in your log. Find group searches the quest's zone in Looking For Group. The magnifier next to a quest in the objective list or in the quest details does the same."] end,
         from = { "q:pick", "TOPLEFT", -4, 4 }, to = { "q:pick", "BOTTOMRIGHT", 4, -4 }, below = "LEFT", sample = "pick" },
@@ -107,16 +99,17 @@ local QSTEPS = {
         body = function() return L["Players who ask through GrupoFacil show up here, with Invite and Ignore. The tab shows how many are waiting, like Quests (1)."] end,
         from = { "q:req", "TOPLEFT", -4, 4 }, to = { "q:req", "BOTTOMRIGHT", 4, -4 }, below = "LEFT", sample = "quest" },
     {   title = "Options",
-        body = function() return L["Auto-invite players who ask for the same quest, auto-accept the invite from a leader you asked, and the magnifier next to quests. /gf tour on this tab shows this tour again."] end,
-        from = { "q:options", "TOPLEFT", -4, 4 }, to = { "q:options", "BOTTOMRIGHT", 4, -4 }, above = "LEFT" },
+        body = function() return L["The gear opens the options, split into General, Messages, Quests, Invite a friend and Help. Auto-invite, auto-accept and the magnifier are under Quests. /gf tour, or Show the tour in the options, starts this tour again."] end,
+        -- a engrenagem fica no meio do cabeçalho: o balão cresce para a esquerda e cabe na janela
+        from = { "options", "TOPLEFT", -4, 4 }, to = { "options", "BOTTOMRIGHT", 4, -4 }, below = "RIGHT" },
 }
-NS.QUEST_TOUR_STEPS = QSTEPS -- para teste
-local TOURS = { dungeons = STEPS, quests = QSTEPS }
+-- aba de cada passo: os 5 primeiros são das Masmorras, os outros das Missões
+for i, st in ipairs(STEPS) do st.tab = (i <= 5) and "dungeons" or "quests" end
+NS.TOUR_STEPS = STEPS -- para teste
 
 local panel, banner, callout, highlight, sample
 local qbanner, qsample -- da aba Missões (construídos quando a aba existe)
 local step -- passo atual (nil = tour parado)
-local tourKey = "dungeons" -- tour em andamento
 
 ------------------------------------------------------------------------
 -- construção (preguiçosa: só quando a janela do addon aparece)
@@ -252,17 +245,18 @@ local function buildQuestBanner(qp, level)
     b:EnableMouse(true)
     local t = b:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
     t:SetJustifyH("LEFT")
-    t:SetText(L["New: the Quests tab. Take a 20-second tour."])
+    b.text = t
     local no = button(b, L["No thanks"], 90)
     no:SetPoint("RIGHT", -10, 0)
     no:SetScript("OnClick", function()
-        markDone("quests", "recusado na faixa")
+        markDone("recusado na faixa (Missões)")
+        if banner then banner:Hide() end
         b:Hide()
         NS.Print(L["You can see the tour any time with /gf tour."])
     end)
     local go = button(b, L["Start tour"], 100)
     go:SetPoint("RIGHT", no, "LEFT", -6, 0)
-    go:SetScript("OnClick", function() NS.StartTour("quests") end)
+    go:SetScript("OnClick", function() NS.StartTour() end)
     t:SetPoint("LEFT", 12, 0)
     t:SetPoint("RIGHT", go, "LEFT", -8, 0)
     b:Hide()
@@ -297,17 +291,18 @@ function build()
     banner:EnableMouse(true)
     local bt = banner:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
     bt:SetJustifyH("LEFT")
-    bt:SetText(L["New to GrupoFacil? Take a 30-second tour."])
+    banner.text = bt
     local no = button(banner, L["No thanks"], 90)
     no:SetPoint("RIGHT", -10, 0)
     no:SetScript("OnClick", function()
-        markDone("dungeons", "recusado na faixa")
+        markDone("recusado na faixa")
         banner:Hide()
+        if qbanner then qbanner:Hide() end
         NS.Print(L["You can see the tour any time with /gf tour."])
     end)
     local go = button(banner, L["Start tour"], 100)
     go:SetPoint("RIGHT", no, "LEFT", -6, 0)
-    go:SetScript("OnClick", function() NS.StartTour("dungeons") end)
+    go:SetScript("OnClick", function() NS.StartTour() end)
     bt:SetPoint("LEFT", 12, 0)
     bt:SetPoint("RIGHT", go, "LEFT", -8, 0)
     banner:Hide()
@@ -377,7 +372,7 @@ end
 function NS.TourGo(i)
     if not build() then return end
     if i < 1 then i = 1 end
-    local steps = TOURS[tourKey]
+    local steps = STEPS
     if i > #steps then
         NS.StopTour(true, "concluído")
         NS.Print(L["Tour finished. /gf tour shows it again."])
@@ -385,6 +380,10 @@ function NS.TourGo(i)
     end
     step = i
     local s = steps[i]
+    -- o passo diz a aba: troca antes de desenhar (step já aponta para o novo passo, então
+    -- NS.SelectTab não interrompe o tour)
+    if NS.SelectTab and NS.tab ~= s.tab then NS.SelectTab(s.tab) end
+    if s.tab == "quests" and not buildQuest() then return end
     banner:Hide()
     if qbanner then qbanner:Hide() end
     sample:SetShown(s.sampleRow == true)
@@ -403,31 +402,29 @@ function NS.TourGo(i)
     local h = (callout.body:GetStringHeight() or 60) + 76
     callout:SetHeight(h)
     callout:Show()
-    NS.D.Trace("TOUR", "%s passo %d", tourKey, i)
+    NS.D.Trace("TOUR", "passo %d (%s)", i, s.tab)
 end
 
--- key: "dungeons" ou "quests"; sem key, o tour da aba aberta (/gf tour)
-function NS.StartTour(key)
+-- O tour é do addon inteiro: começa sempre no passo 1 (aba Masmorras) e passa pela aba Missões.
+function NS.StartTour()
     if InCombatLockdown() then
         NS.Print(L["The tour is not available in combat."])
         return
     end
-    if key ~= "dungeons" and key ~= "quests" then
-        key = (NS.CurrentTab and NS.CurrentTab()) or "dungeons"
-    end
-    if step then NS.StopTour(false, "outro tour") end
+    if step then NS.StopTour(false, "recomeçou") end
     if not (_G.GrupoFacilFrame and _G.GrupoFacilFrame:IsShown()) then
-        if NS.ShowPanel then NS.ShowPanel(false, key) end
+        if NS.ShowPanel then NS.ShowPanel(false, "dungeons") end
     end
-    tourKey = key
-    if NS.SelectTab then NS.SelectTab(key) end
-    if key == "quests" then
-        if not buildQuest() then return end
-    else
-        -- o tour aponta para os filtros: no modo compacto eles aparecem só durante o tour
-        if GrupoFacilDB.compact and NS.ApplyCompact then NS.forceFilters = true; NS.ApplyCompact() end
-    end
+    -- o tour aponta para os filtros: no modo compacto eles aparecem só durante o tour
+    if GrupoFacilDB.compact and NS.ApplyCompact then NS.forceFilters = true; NS.ApplyCompact() end
     NS.TourGo(1)
+end
+
+-- "Mostrar o tour" nas opções: esquece que já viu e começa do primeiro passo.
+function NS.RestartTour(from)
+    tourDB().version = nil
+    NS.D.Trace("TOUR", "tour reiniciado (%s)", tostring(from))
+    NS.StartTour()
 end
 
 -- done = true marca como visto (Concluir/Pular); false só interrompe (janela fechou, combate).
@@ -440,7 +437,7 @@ function NS.StopTour(done, why)
         sample:Hide()
     end
     if qsample then qsample:Hide() end
-    if done then markDone(tourKey, why or "?")
+    if done then markDone(why or "?")
     elseif was then NS.D.Trace("TOUR", "tour interrompido (%s)", why or "?") end
     -- volta ao modo compacto, se era a preferência
     if NS.forceFilters then
@@ -450,7 +447,8 @@ function NS.StopTour(done, why)
 end
 
 function NS.TourRunning() return step ~= nil end
-function NS.TourKey() return step and tourKey or nil end
+-- aba do passo atual (nil = tour parado): trocar para outra aba interrompe o tour
+function NS.TourKey() return step and STEPS[step] and STEPS[step].tab or nil end
 function NS.TourFrames() return banner, callout, highlight, sample end -- para diagnóstico e teste
 function NS.QuestTourFrames() buildQuest(); return qbanner, qsample end -- para teste
 
@@ -458,10 +456,15 @@ function NS.QuestTourFrames() buildQuest(); return qbanner, qsample end -- para 
 function NS.OnPanelShown()
     if not build() then return end
     if step then return end
-    local combat = InCombatLockdown()
-    banner:SetShown(not isDone("dungeons") and not combat)
+    local show = not isDone() and not InCombatLockdown()
+    -- quem viu o tour antigo (só Masmorras) ganha um convite diferente
+    local msg = seenVersion() > 0 and L["The tour now covers the Quests tab too. Take a look?"]
+        or L["New to GrupoFacil? Take a 30-second tour."]
+    banner.text:SetText(msg)
+    banner:SetShown(show)
     if NS.QuestPanel and NS.QuestPanel() and buildQuest() then
-        qbanner:SetShown(not isDone("quests") and not combat)
+        qbanner.text:SetText(msg)
+        qbanner:SetShown(show)
     end
 end
 

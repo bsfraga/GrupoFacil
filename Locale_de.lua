@@ -10,7 +10,8 @@ NS.LOCALES.de = {
     ["Leaders can turn on auto-invite for players who ask for the same quest (off by default, at most 6 invites every 10 minutes)."] = "Leiter können die automatische Einladung für Spieler einschalten, die für dieselbe Quest fragen (standardmäßig aus, höchstens 6 Einladungen alle 10 Minuten).",
     ["When the quest is done, the addon offers to leave the group and take it out of Looking For Group. It never does it on its own."] = "Wenn die Quest fertig ist, bietet das Addon an, die Gruppe zu verlassen und sie aus der Gruppensuche zu nehmen. Es macht das nie von selbst.",
     ["A warning when you get close to the game's limit of about 16 groups joined per hour."] = "Eine Warnung, wenn du dich dem Limit des Spiels von etwa 16 Gruppenbeitritten pro Stunde näherst.",
-    ["Dungeons and Quests are tabs of the same window. The Quests tab starts with the quests in your log and has its own tour (/gf tour)."] = "Dungeons und Quests sind Reiter im selben Fenster. Der Reiter Quests beginnt mit den Quests in deinem Questlog und hat eine eigene Tour (/gf tour).",
+    ["Dungeons and Quests are tabs of the same window. The Quests tab starts with the quests in your log, and the tour (/gf tour) now covers both tabs."] = "Dungeons und Quests sind Reiter im selben Fenster. Der Reiter Quests beginnt mit den Quests in deinem Questlog, und die Tour (/gf tour) zeigt jetzt beide Reiter.",
+    ["The options open from the gear in the title bar and are split into General, Messages, Quests, Invite a friend and Help."] = "Die Optionen öffnen sich über das Zahnrad in der Titelleiste und sind aufgeteilt in Allgemein, Nachrichten, Quests, Freund einladen und Hilfe.",
     -- v0.14: ajustes do teste no jogo (26/11)
     ["Dungeon groups and players looking for one."] = "Dungeongruppen und Spieler, die eine suchen.",
     ["Objective: "] = "Ziel: ",
@@ -21,7 +22,6 @@ NS.LOCALES.de = {
     ["Your quests"] = "Deine Quests",
     ["Your quests (%d)"] = "Deine Quests (%d)",
     ["Back to the list of the quests in your log."] = "Zurück zur Liste der Quests in deinem Questlog.",
-    ["Auto-invite, auto-accept and the magnifier next to quests."] = "Automatisch einladen, automatisch annehmen und die Lupe neben Quests.",
     ["Click Find group on a quest, or the magnifier next to it in the objective list or the quest log."] = "Klicke bei einer Quest auf Gruppe finden oder auf die Lupe daneben in der Zielliste oder im Questlog.",
     ["Groups and players in %s"] = "Gruppen und Spieler in %s",
     ["In a group for %s."] = "In einer Gruppe für %s.",
@@ -32,6 +32,28 @@ NS.LOCALES.de = {
     ["Your quest log is empty. Pick up a quest and come back, or click the magnifier next to a quest."] = "Dein Questlog ist leer. Nimm eine Quest an und komm zurück, oder klicke auf die Lupe neben einer Quest.",
     ["the game did not take your group out of Looking For Group. Remove it there, and send /gf diag to the author."] = "das Spiel hat deine Gruppe nicht aus dem Dungeonbrowser entfernt. Entferne sie dort und schick /gf diag an den Autor.",
     ["this quest"] = "diese Quest",
+    ["General"] = "Allgemein",
+    ["Messages"] = "Nachrichten",
+    ["Help"] = "Hilfe",
+    ["Your message"] = "Deine Nachricht",
+    ["Tour"] = "Tour",
+    ["Blocked players"] = "Blockierte Spieler",
+    ["Click the link, then Ctrl+C to copy it. Paste it in Discord, WhatsApp or wherever your friends are."] = "Klicke auf den Link und drücke Strg+C zum Kopieren. Füge ihn in Discord, WhatsApp oder wo deine Freunde sind ein.",
+    ["Diagnostics"] = "Diagnose",
+    ["General, messages, quests, invite a friend and help. Also in Options > AddOns > GrupoFacil."] = "Allgemein, Nachrichten, Quests, Freund einladen und Hilfe. Auch unter Optionen > AddOns > GrupoFacil.",
+    ["Invite a friend"] = "Freund einladen",
+    ["Link to share outside the game"] = "Link zum Teilen außerhalb des Spiels",
+    ["Nothing is sent until you press Enter. To send it to one friend, start the line with /w and their name."] = "Nichts wird gesendet, bevor du Enter drückst. Für einen einzelnen Freund beginne die Zeile mit /w und seinem Namen.",
+    ["Open the Quests tab"] = "Reiter Quests öffnen",
+    ["Problems and ideas"] = "Probleme und Ideen",
+    ["Quest groups and the quiet addon messages only work between players who have GrupoFacil. The more friends and guildmates use it, the more groups you find."] = "Questgruppen und die stillen Addon-Nachrichten funktionieren nur zwischen Spielern mit GrupoFacil. Je mehr Freunde und Gildenmitglieder es nutzen, desto mehr Gruppen findest du.",
+    ["Ready message"] = "Fertige Nachricht",
+    ["Shows the GitHub Sponsors link to copy. GrupoFacil is free and always will be."] = "Zeigt den GitHub-Sponsors-Link zum Kopieren. GrupoFacil ist kostenlos und bleibt es.",
+    ["Sponsor on GitHub"] = "Auf GitHub unterstützen",
+    ["Starts the tour of the whole addon again, from the first step: the Dungeons tab, then the Quests tab."] = "Startet die Tour durch das ganze Addon neu, ab dem ersten Schritt: erst der Reiter Dungeons, dann der Reiter Quests.",
+    ["The bottom line shows the message leaders receive. You change it in the options, under Messages, with {level}, {spec}, {class} and {name}."] = "Die untere Zeile zeigt die Nachricht, die Anführer bekommen. Du änderst sie in den Optionen unter Nachrichten, mit {level}, {spec}, {class} und {name}.",
+    ["The gear opens the options, split into General, Messages, Quests, Invite a friend and Help. Auto-invite, auto-accept and the magnifier are under Quests. /gf tour, or Show the tour in the options, starts this tour again."] = "Das Zahnrad öffnet die Optionen, aufgeteilt in Allgemein, Nachrichten, Quests, Freund einladen und Hilfe. Automatisch einladen, automatisch annehmen und die Lupe stehen unter Quests. /gf tour oder Tour zeigen in den Optionen startet diese Tour erneut.",
+    ["The tour now covers the Quests tab too. Take a look?"] = "Die Tour zeigt jetzt auch den Reiter Quests. Mal ansehen?",
     ["I use GrupoFacil, a free addon: it finds dungeon and quest groups in Looking For Group in 2 clicks, and players who have it find each other. Get it at %s"] = "Ich nutze GrupoFacil, ein kostenloses Addon: Es findet Dungeon- und Questgruppen im Dungeonbrowser mit 2 Klicks, und wer es hat, findet sich gegenseitig. Hol es dir auf %s",
     ["Recommend to a friend"] = "Einem Freund empfehlen",
     ["Puts a ready message in the chat box (in your guild chat if you have one). Change the channel if you want, and press Enter to send it."] = "Schreibt eine fertige Nachricht in die Chatzeile (im Gildenchat, wenn du eine Gilde hast). Ändere den Kanal, wenn du willst, und drücke Enter zum Senden.",
@@ -41,7 +63,6 @@ NS.LOCALES.de = {
     ["Another quest"] = "Andere Quest",
     ["Example player"] = "Beispielspieler",
     ["Example quest"] = "Beispielquest",
-    ["New: the Quests tab. Take a 20-second tour."] = "Neu: der Reiter Quests. Mach eine 20-Sekunden-Tour.",
     ["Groups for the quest"] = "Gruppen für die Quest",
     ["No group? Create one"] = "Keine Gruppe? Erstelle eine",
     ["Requests"] = "Anfragen",
@@ -49,7 +70,6 @@ NS.LOCALES.de = {
     ["Groups doing the same quest come first. Join whispers the leader; when the leader also uses GrupoFacil, the invite is accepted by itself. < Your quests goes back to the list."] = "Gruppen mit derselben Quest stehen oben. Beitreten flüstert den Anführer an; nutzt der Anführer auch GrupoFacil, wird die Einladung von selbst angenommen. < Deine Quests führt zurück zur Liste.",
     ["Create group lists your group in Looking For Group for this quest; a dungeon quest goes to Dungeons. The line beside it shows how your group is. Remove listing takes it out, and taking it out in the game's window also clears it here."] = "Gruppe erstellen listet deine Gruppe im Dungeonbrowser für diese Quest; eine Dungeonquest landet unter Dungeons. Die Zeile daneben zeigt, wie es um deine Gruppe steht. Eintrag entfernen nimmt sie heraus, und das Entfernen im Fenster des Spiels räumt es hier auch auf.",
     ["Players who ask through GrupoFacil show up here, with Invite and Ignore. The tab shows how many are waiting, like Quests (1)."] = "Wer über GrupoFacil anfragt, erscheint hier, mit Einladen und Ignorieren. Der Reiter zeigt, wie viele warten, etwa Quests (1).",
-    ["Auto-invite players who ask for the same quest, auto-accept the invite from a leader you asked, and the magnifier next to quests. /gf tour on this tab shows this tour again."] = "Spieler mit derselben Quest automatisch einladen, die Einladung des angefragten Anführers automatisch annehmen und die Lupe neben Quests. /gf tour in diesem Reiter zeigt diese Tour erneut.",
     ["Quests"] = "Quests",
     ["Bugs, feedback or ideas? Tell the author"] = "Fehler, Feedback oder Ideen? Sag es dem Autor",
     ["< Newer"] = "< Neuer",
@@ -214,8 +234,6 @@ NS.LOCALES.de = {
     ["Repeats the last Looking For Group search (same category and activities)."] =
         "Wiederholt die letzte Suche in \"Suche nach Gruppe\" (gleiche Kategorie und Aktivitäten).",
     ["Options"] = "Optionen",
-    ["Join request message, spec, send mode, window and language. Also in Options > AddOns > GrupoFacil."] =
-        "Beitrittsanfrage, Skillung, Sendemodus, Fenster und Sprache. Auch unter Optionen > Addons > GrupoFacil.",
     ["now"] = "jetzt",
     ["%d members"] = "%d Mitglieder",
     ["Whisper"] = "Flüstern",
@@ -301,7 +319,6 @@ NS.LOCALES.de = {
     -- Minikarte
     ["Click: open or close the window"] = "Klick: Fenster öffnen oder schließen",
     ["Right-click: options"] = "Rechtsklick: Optionen",
-    ["Donate"] = "Spenden",
     ["Support the addon"] = "Unterstütze das Addon",
     ["Press Ctrl+C to copy the link, then paste it in your browser."] =
         "Drücke Ctrl+C, um den Link zu kopieren, und füge ihn im Browser ein.",
@@ -367,7 +384,6 @@ NS.LOCALES.de = {
     ["Filter the list"] = "Filtere die Liste",
     ["Act on a row"] = "Nutze die Schaltflächen",
     ["Refresh the list"] = "Aktualisiere die Liste",
-    ["Your message and settings"] = "Nachricht und Einstellungen",
     ["Players lists people looking for a group: use it when you lead. Groups lists groups looking for players: use it when you are solo. All shows both."] =
         "Spieler zeigt Leute, die eine Gruppe suchen: nützlich, wenn du eine Gruppe leitest. Gruppen zeigt Gruppen, die Spieler suchen: nützlich, wenn du allein unterwegs bist. Alle zeigt beides.",
     ["Type a level range or click Near me. Click the class icons to pick classes (none = all). Role filters by tank, healer or DPS; in Groups mode it becomes Needs: groups missing that role."] =
@@ -376,8 +392,6 @@ NS.LOCALES.de = {
         "Einladen lädt einen Spieler ohne Gruppe in deine Gruppe ein. Anfragen flüstert dem Gruppenanführer deine Nachricht:\n|cffffffff%s|r\nFlüstern öffnet den Chat für eine eigene Nachricht.",
     ["GrupoFacil reads your Looking For Group search. Search again repeats the last one. The game only allows it from your click and refuses searches that come too fast."] =
         "GrupoFacil liest deine Suche in \"Suche nach Gruppe\" mit. Erneut suchen wiederholt die letzte. Das Spiel erlaubt das nur durch deinen Klick und lehnt zu schnell aufeinanderfolgende Suchen ab.",
-    ["The bottom line shows the message leaders receive. Options changes it ({level}, {spec}, {class}, {name}), the send mode, the language and the minimap button. /gf tour shows this tour again."] =
-        "Die untere Zeile zeigt die Nachricht, die Anführer erhalten. Unter Optionen änderst du sie ({level}, {spec}, {class}, {name}), den Sendemodus, die Sprache und das Minikartensymbol. /gf tour zeigt diese Tour erneut.",
 
     -- Status
     ["send mode: %s"] = "Sendemodus: %s",

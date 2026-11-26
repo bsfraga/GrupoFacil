@@ -1298,7 +1298,10 @@ SlashCmdList.GRUPOFACIL = function(input)
     if cmd == "" then
         if NS.TogglePanel then NS.TogglePanel() end
     elseif cmd == "options" then
-        if NS.OpenOptions then NS.OpenOptions() end
+        local SEC = { general = "general", geral = "general", messages = "messages", mensagens = "messages", msg = "messages",
+            quests = "quests", missoes = "quests", ["missões"] = "quests", invite = "invite", convide = "invite", share = "invite",
+            help = "help", ajuda = "help" }
+        if NS.OpenOptions then NS.OpenOptions(SEC[l]) end
     elseif cmd == "tour" then
         if NS.StartTour then NS.StartTour() end
     elseif cmd == "quests" then

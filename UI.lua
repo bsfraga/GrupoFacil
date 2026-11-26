@@ -576,15 +576,9 @@ function NS.BuildUI()
     previewFS:SetJustifyH("LEFT")
     previewFS:SetWordWrap(false)
 
-    -- opções (mensagem, spec, modo de envio etc.) ficam em Options > AddOns > GrupoFacil
-    local opts = button(panel, L["Options"], 80, 20)
-    opts:SetPoint("BOTTOMRIGHT", -12, 38)
-    opts:SetScript("OnClick", function() if NS.OpenOptions then NS.OpenOptions() end end)
-    tooltip(opts, L["Options"], L["Join request message, spec, send mode, window and language. Also in Options > AddOns > GrupoFacil."])
-
     -- modo compacto: recolhe os filtros e a lista ganha o espaço (os filtros continuam valendo)
     compactBtn = button(panel, L["Hide filters"], 100, 20)
-    compactBtn:SetPoint("RIGHT", opts, "LEFT", -4, 0)
+    compactBtn:SetPoint("BOTTOMRIGHT", -12, 38)
     fitWidth(compactBtn, 100, { L["Hide filters"], L["Show filters"] })
     compactBtn:SetScript("OnClick", function()
         if NS.TourRunning and NS.TourRunning() then return end -- o tour aponta para os filtros
@@ -634,14 +628,26 @@ function NS.BuildUI()
     frame.tabQuests:SetPoint("LEFT", frame.tabDungeons, "RIGHT", 4, 0)
     frame.tabs = { dungeons = frame.tabDungeons, quests = frame.tabQuests }
     fitWidth(frame.tabQuests, 90, { L["Quests"], format(L["Quests (%d)"], 9) })
+    -- opções: engrenagem, sempre o último botão do cabeçalho (pedido do Fraga, 26/11).
+    -- Botão novo no cabeçalho entra ANTES dela: ancore no anterior e passe a engrenagem para depois.
+    local gear = CF("Button", nil, frame)
+    gear:SetSize(18, 18)
+    gear:SetPoint("LEFT", frame.tabQuests, "RIGHT", 8, 0)
+    gear:SetNormalTexture("Interface\\Icons\\INV_Misc_Gear_01")
+    gear:SetHighlightTexture("Interface\\Buttons\\ButtonHilight-Square", "ADD")
+    gear:SetScript("OnClick", function()
+        if NS.OpenOptions then NS.OpenOptions(NS.tab == "quests" and "quests" or nil) end
+    end)
+    tooltip(gear, L["Options"], L["General, messages, quests, invite a friend and help. Also in Options > AddOns > GrupoFacil."])
+    frame.optionsButton = gear
     frame.authorLine:ClearAllPoints()
     frame.authorLine:SetPoint("TOPRIGHT", frame, "TOPRIGHT", -30, -6)
-    frame.authorLine:SetPoint("LEFT", frame.tabQuests, "RIGHT", 8, 0) -- encurta, não cobre as abas
+    frame.authorLine:SetPoint("LEFT", gear, "RIGHT", 8, 0) -- encurta, não cobre os botões
     NS.tab = "dungeons"
 
     -- referências para o tour (Onboarding.lua)
     NS.UIRefs = { modeFirst = modeButtons.players, modeLast = modeButtons.all, level = lvl, clear = clear,
-        search = searchBtn, list = list, pageUp = up, preview = previewFS, options = opts }
+        search = searchBtn, list = list, pageUp = up, preview = previewFS, options = gear }
 
     NS.ApplyCompact()
 

@@ -8,7 +8,6 @@ NS.LOCALES.mx = setmetatable({
     ["Guild member"] = "Miembro del clan",
     ["Needs your role: %s"] = "Hay lugar para tu función: %s",
     ["Open spots: "] = "Lugares libres: ",
-    ["Join request message, spec, send mode, window and language. Also in Options > AddOns > GrupoFacil."] = "Mensaje de solicitud, especialización, modo de envío, ventana e idioma. También en Opciones > Accesorios > GrupoFacil.",
     ["You can only invite when you are solo or the leader/assistant."] = "Solo puedes invitar si no tienes grupo o eres el líder o ayudante.",
     ["(prefill mode: opens the chat, you press Enter)"] = "(modo rellenar: abre el chat y tú presionas Enter)",
     ["The search got no answer. Try again."] = "La búsqueda no obtuvo respuesta. Intenta de nuevo.",

@@ -191,8 +191,7 @@ local function exercise(lang, admin)
     for _, child in ipairs({ qf.list:GetChildren() }) do
         if c.ui.visible(child) and child.entry then c:hover(child); c:hover(child.b1) end
     end
-    c:click(qf.optBtn)
-    for _, b in ipairs({ qf.back, qf.search, qf.create, qf.optBtn, qf.autoInvite, qf.autoAccept, qf.magnifier }) do c:hover(b) end
+    for _, b in ipairs({ qf.back, qf.search, qf.create, qf.share, f.optionsButton }) do c:hover(b) end
     check("GrupoFacilQuestFrame")
     -- a lista das missões do registro (o ponto de partida da aba)
     c:click(qf.back)
@@ -216,17 +215,25 @@ local function exercise(lang, admin)
     check("GrupoFacilQuestDone")
     c:slash("/gf quests")
     c:slash("/gf options")
-    check("GrupoFacilOptionsFrame")
+    -- cada seção das opções, uma por vez, sem texto vazando nem sobreposto
+    for _, sec in ipairs(ns.OPTION_SECTIONS) do
+        ns.OptionsSection(sec.key)
+        local of = c.env.GrupoFacilOptionsFrame
+        for _, x in pairs(of.content) do
+            if type(x) == "table" and x.GetObjectType and c.ui.visible(x) and c.ui.state(x).kind ~= "FontString" then c:hover(x) end
+        end
+        check("GrupoFacilOptionsFrame")
+    end
     c:hover(c.env.GrupoFacilMinimapButton)
     c:slash("/gf tour")
     for _ = 1, 8 do
         local _, callout = ns.TourFrames()
         if callout and c.ui.visible(callout) then c:click(callout.next) end
     end
-    -- o tour da aba Missões, passo a passo, sem texto sobreposto
+    -- o tour inteiro (Masmorras e Missões), passo a passo, sem texto sobreposto
     c:slash("/gf quests")
     c:slash("/gf tour")
-    for _ = 1, 8 do
+    for _ = 1, 12 do
         local _, callout = ns.TourFrames()
         if callout and c.ui.visible(callout) then check("GrupoFacilFrame"); c:click(callout.next) end
     end
