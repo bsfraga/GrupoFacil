@@ -953,3 +953,108 @@ describe("quest groups - indicar a um amigo", function()
         end
     end)
 end)
+
+describe("quest groups - testar sem outro jogador com o addon", function()
+    local function demoNet(w)
+        local n = 0
+        for _, r in ipairs(w.net.log) do if tostring(r.to):find("Demo") then n = n + 1 end end
+        return n
+    end
+
+    it("/gf debug demo: líderes falsos com o GrupoFacil na aba Missões, respostas simuladas, nada vai para o jogo", function()
+        local w = world()
+        local c = login(w, "Jogador", { ELITE })
+        c:slash("/gf debug demo")
+        w:advance(0.3)
+        T.has(c:chatLines(), "demo on: fake players in the Quests tab")
+        local win = qwin(c)
+        T.ok(c:isVisible(win), "abre a aba Missões")
+        T.match(c:text(win.status), "^.*Demo: fake players, nothing goes to the game%.")
+        local names = {}
+        for _, r in ipairs(qrows(c)) do names[#names + 1] = r.name end
+        T.match(names[1], "^Aldren Demo") -- faz a missão (listado) vem antes
+        T.ok(rowOf(c, "Brisa Demo") and rowOf(c, "Corvo Demo") and rowOf(c, "Duna Demo"), "os quatro jogadores falsos")
+        -- tooltip do líder listado mostra a missão que veio "pelo addon"
+        local tip = c:hover(rowOf(c, "Aldren Demo"))
+        T.has(tip, "uses GrupoFacil")
+        T.has(tip, "Quest: The Defias Brotherhood")
+        -- pedir vaga ao líder com o addon: resposta e convite simulados
+        c:click(rowOf(c, "Aldren Demo").b1)
+        w:advance(1.5)
+        T.has(c:chatLines(), "Aldren Demo got your request and will decide")
+        w:advance(2.5)
+        T.has(c:chatLines(), "%[demo%] Aldren Demo would invite you now")
+        -- grupo cheio
+        c:click(rowOf(c, "Brisa Demo").b1)
+        w:advance(1.5)
+        T.has(c:chatLines(), "Brisa Demo: the group is full")
+        -- líder sem o addon: mostra o sussurro, não manda
+        c:click(rowOf(c, "Duna Demo").b1)
+        w:advance(0.3)
+        T.has(c:chatLines(), "%[demo%] whisper that would go to Duna Demo: .*%(via GrupoFacil%)")
+        T.eq(#c.data.whispersSent, 0, "nenhum sussurro de chat")
+        -- alguém pede vaga a você; Convidar não convida ninguém de verdade
+        T.has(c:chatLines(), "Eira Demo wants to join your group for The Defias Brotherhood")
+        local yes = H.find(c, win.reqBox, "^Invite$", true)
+        c:click(yes)
+        w:advance(0.3)
+        T.has(c:chatLines(), "%[demo%] invite that would go to Eira Demo %(simulated%)")
+        T.eq(#c.data.invites, 0, "nenhum convite do jogo")
+        T.eq(demoNet(w), 0, "nenhuma mensagem de addon para os jogadores falsos")
+        -- desligar tira tudo
+        c:slash("/gf debug demo off")
+        w:advance(0.3)
+        T.has(c:chatLines(), "demo off%.")
+        T.eq(rowOf(c, "Aldren Demo"), nil)
+        T.ok(not c:text(win.status):find("Demo"), "sem o aviso de demonstração")
+        T.eq(#H.ns(c).Quest.Requests(), 0, "o pedido falso saiu")
+        T.eq(#c.blocked, 0)
+        T.clean(c)
+    end)
+
+    it("/gf debug demo sem missão no registro explica; com a lista aberta usa a primeira missão", function()
+        local w = world()
+        local c = login(w, "Jogador", {})
+        c:slash("/gf debug demo")
+        T.has(c:chatLines(), "pick up a quest first")
+        T.eq(H.ns(c).Quest.demo, nil)
+        c:addQuest(copy(PLAIN))
+        w:advance(0.2)
+        c:slash("/gf debug demo")
+        w:advance(0.3)
+        T.eq(H.ns(c).Quest.current.questID, PLAIN.id)
+        T.ok(rowOf(c, "Aldren Demo"))
+        T.clean(c)
+    end)
+
+    it("/gf debug ping: a mensagem silenciosa vai e volta (você mesmo ou um amigo com o addon)", function()
+        local w = world()
+        local c = login(w, "Bael", {}, { surname = "Goldmaker" })
+        c:slash("/gf debug ping")
+        w:advance(1)
+        T.has(c:chatLines(), "silent message sent to Bael Goldmaker")
+        T.has(c:chatLines(), "the silent message came back from Bael Goldmaker in .* s: sending through the server works")
+        local f = login(w, "Bagael", {}, { surname = "Bagacera" })
+        c:slash("/gf debug ping Bagael Bagacera")
+        w:advance(1)
+        T.has(c:chatLines(), "came back from Bagael Bagacera")
+        T.clean(c); T.clean(f)
+    end)
+
+    it("/gf debug ping sem volta (servidor não entrega, ou amigo sem o addon) avisa em 6 s", function()
+        local w = world()
+        local c = login(w, "Bael", {}, { surname = "Goldmaker" })
+        w.net.dropFn = function() return true end
+        c:slash("/gf debug selftest")
+        w:advance(7)
+        T.has(c:chatLines(), "did not come back from Bael Goldmaker in 6 s")
+        T.has(c:chatLines(), "Test with a friend who has this version: /gf debug ping Name Surname")
+        w.net.dropFn = nil
+        local f = login(w, "Bagael", {}, { surname = "Bagacera" })
+        f.prefixes.GFQ = nil
+        c:slash("/gf debug ping Bagael Bagacera")
+        w:advance(7)
+        T.has(c:chatLines(), "did not come back from Bagael Bagacera in 6 s")
+        T.clean(c); T.clean(f)
+    end)
+end)

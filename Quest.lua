@@ -300,6 +300,8 @@ end
 function Q.Send(msg, target)
     if type(target) ~= "string" or isSecret(target) or target == "" then return false end
     if NS.InLockdown() then Trace("MISSAO", "não enviado: restrição de chat") return false end
+    -- modo demonstração: nada vai para o jogo; a resposta do jogador falso é simulada
+    if Q.demo and Q.IsDemoName(target) then Q.DemoReceive(target, msg) return true end
     if #msg > 250 then msg = msg:sub(1, 250) end
     Q.queue[#Q.queue + 1] = { msg = msg, to = target }
     pump()
@@ -361,15 +363,17 @@ function Q.Results()
     local cur = Q.current
     local out = {}
     if not cur then return out end
+    local function add(e)
+        local score, why = Q.Match(e, cur.questID)
+        e.qScore, e.qWhy = score, why
+        e.qPeer = e.key and Q.peers[e.key] or nil
+        out[#out + 1] = e
+    end
     for _, id in ipairs(NS.order) do
         local e = NS.entries[id]
-        if e and not e.delisted and not NS.IsHiddenByPlayer(e) and inActivity(e, cur.activity) then
-            local score, why = Q.Match(e, cur.questID)
-            e.qScore, e.qWhy = score, why
-            e.qPeer = e.key and Q.peers[e.key] or nil
-            out[#out + 1] = e
-        end
+        if e and not e.delisted and not NS.IsHiddenByPlayer(e) and inActivity(e, cur.activity) then add(e) end
     end
+    if Q.demo then for _, e in ipairs(Q.DemoEntries(cur)) do add(e) end end
     table.sort(out, function(a, b)
         if a.qScore ~= b.qScore then return a.qScore > b.qScore end
         if a.solo ~= b.solo then return not a.solo end -- grupos antes de jogadores sozinhos
@@ -448,6 +452,8 @@ function Q.Join(e)
         Q.Send(format("J%s %d %d %s %s %s", Q.PROTO, questID, UnitLevel("player") or 0, classFile or "-", rolesCode(), t), e.name)
         Trace("MISSAO", "pedido de vaga por addon (missão %d)", questID)
         NS.Print(format(L["request sent to %s."], e.name))
+    elseif Q.demo and Q.IsDemoName(e.name) then
+        NS.Print(format(L["[demo] whisper that would go to %s: %s"], display(e.name), Q.BuildMessage(title)))
     else
         NS.AskToJoin(e, Q.BuildMessage(title))
         Trace("MISSAO", "pedido de vaga por sussurro (líder sem GrupoFacil), missão %d", questID)
@@ -693,6 +699,10 @@ function Q.InvitesLeft()
 end
 
 local function inviteName(name)
+    if Q.demo and Q.IsDemoName(name) then
+        NS.Print(format(L["[demo] invite that would go to %s (simulated)."], display(name)))
+        return true
+    end
     local fn = (C_PartyInfo and C_PartyInfo.InviteUnit) or rawget(_G, "InviteUnit")
     return fn and NS.GuardTag("InviteUnit(quest)", fn, name)
 end
@@ -775,6 +785,168 @@ function Q.Requests()
     return Q.requests
 end
 
+------------------------------------------------------------------------
+-- teste sem outro jogador (pedido do Fraga, 26/11: ninguém mais usa o addon para validar)
+------------------------------------------------------------------------
+-- /gf debug ping [nome]: manda uma mensagem silenciosa (P1 <n>) e espera a volta (A1 <n>). Sem nome,
+-- vai para você mesmo: se voltar, o servidor entrega o sussurro de addon. Com o nome de um amigo que
+-- tem esta versão, testa os dois lados de verdade.
+local PING_WAIT = 6
+Q.pings = {}
+local pingSeq = 0
+
+local function myName()
+    local n, r = UnitName("player")
+    if type(n) ~= "string" or isSecret(n) then return nil end
+    if type(r) == "string" and r ~= "" and not isSecret(r) then return n .. " " .. r end
+    return n
+end
+
+function Q.Ping(target)
+    local self = not target or target == ""
+    target = self and myName() or target
+    if not target then return false end
+    pingSeq = pingSeq + 1
+    local n = tostring(pingSeq)
+    local p = { to = target, at = GetTime(), self = self }
+    Q.pings[n] = p
+    if not Q.Send("P" .. Q.PROTO .. " " .. n, target) then
+        Q.pings[n] = nil
+        NS.Print(format(L["not sent: %s."], L["the game's chat restriction is active"]))
+        return false
+    end
+    NS.Print(format(L["silent message sent to %s; waiting for it to come back..."], display(target)))
+    Trace("MISSAO", "ping %s para %s", n, self and "você mesmo" or "outro jogador")
+    C_Timer.After(PING_WAIT, function()
+        if Q.pings[n] ~= p then return end
+        Q.pings[n] = nil
+        NS.Print(format(L["the silent message did not come back from %s in %d s."], display(target), PING_WAIT))
+        if p.self then NS.Print(L["The server may not deliver a message to yourself. Test with a friend who has this version: /gf debug ping Name Surname"]) end
+        Trace("MISSAO", "ping %s sem volta em %ds", n, PING_WAIT)
+    end)
+    return true
+end
+
+function Q.OnPing(sender, rest)
+    local n = rest and rest:match("^(%d+)")
+    if n then Q.Send("A" .. Q.PROTO .. " " .. n, sender) end
+end
+
+function Q.OnPong(sender, rest)
+    local n = rest and rest:match("^(%d+)")
+    local p = n and Q.pings[n]
+    if not p then return end
+    Q.pings[n] = nil
+    NS.Print(format(L["the silent message came back from %s in %.1f s: sending through the server works."], display(sender), GetTime() - p.at))
+    Trace("MISSAO", "ping %s voltou em %.1fs", n, GetTime() - p.at)
+end
+
+-- /gf debug demo: líderes e jogadores falsos com o GrupoFacil na aba Missões, para ver a tela inteira
+-- sozinho. Nada sai para o jogo: Q.Send, o convite e o sussurro para um nome da demonstração param
+-- aqui, e as respostas são simuladas. /gf debug demo off (ou /reload) tira tudo.
+local DEMO = {
+    { name = "Aldren Demo", class = "WARRIOR", members = 3, role = "listed", reply = "wait" },
+    { name = "Brisa Demo", class = "PRIEST", members = 4, role = "has", reply = "full" },
+    { name = "Corvo Demo", class = "HUNTER", solo = true, role = "listed", reply = "wait" },
+    { name = "Duna Demo", class = "ROGUE", members = 2 },             -- sem o GrupoFacil
+}
+local DEMO_ASKER = { name = "Eira Demo", class = "MAGE", roles = "d" } -- pede vaga a você
+
+function Q.IsDemoName(name)
+    local k = type(name) == "string" and key(name)
+    return k and Q.demo and Q.demo.keys[k] ~= nil or false
+end
+
+local function demoPersona(name)
+    local k = key(name)
+    for _, d in ipairs(DEMO) do if key(d.name) == k then return d end end
+end
+
+function Q.DemoEntries(cur)
+    local demo = Q.demo
+    if not demo or not cur then return {} end
+    local q = cur.info or Q.Info(cur.questID) or {}
+    local zone = (cur.activity and (cur.activity.label or cur.activity.name)) or q.zone
+    local lvl = UnitLevel("player") or 1
+    local out = {}
+    for i, d in ipairs(DEMO) do
+        local e = demo.entries[i]
+        if not e then
+            e = { id = -i, name = d.name, key = key(d.name), class = d.class, level = lvl, solo = d.solo or nil, demo = true,
+                numMembers = d.members or 1, maxPlayers = not d.solo and 5 or nil, age = i * 60, activityIDs = {} }
+            demo.entries[i] = e
+        end
+        e.activity = zone or ""
+        if d.role then
+            local p = Q.peers[e.key] or { gf = true, has = {} }
+            p.at, p.listed, p.has = GetTime(), nil, {}
+            if d.role == "listed" then
+                p.listed = cur.questID
+                p.info = { questID = cur.questID, title = q.title, objective = Q.Objective(cur.questID), zone = zone }
+            else
+                p.has[cur.questID] = true
+                p.info = nil
+            end
+            Q.peers[e.key] = p
+        end
+        out[#out + 1] = e
+    end
+    return out
+end
+
+-- o jogador falso "recebe" a mensagem e responde depois de um tempo, como no jogo
+function Q.DemoReceive(target, msg)
+    local demo = Q.demo
+    Trace("MISSAO", "demonstração: %s para um jogador falso (não enviado)", msg:sub(1, 2))
+    local d = demoPersona(target)
+    if not d or msg:sub(1, 1) ~= "J" then return end
+    C_Timer.After(1, function()
+        if Q.demo ~= demo then return end
+        Q.OnAddonMessage(Q.PREFIX, "R" .. Q.PROTO .. " " .. d.reply, "WHISPER", d.name)
+        if d.reply ~= "wait" then return end
+        C_Timer.After(2, function()
+            if Q.demo ~= demo then return end
+            NS.Print(format(L["[demo] %s would invite you now. Outside the demo, GrupoFacil accepts that invite by itself for 2 minutes."], display(d.name)))
+        end)
+    end)
+end
+
+function Q.StartDemo()
+    if not Q.current then
+        local q = Q.LogQuests()[1]
+        if not q then return false, L["pick up a quest first: the demo uses a quest from your log."] end
+        local act, category, from = Q.ActivityFor(q)
+        Q.current = { questID = q.id, info = q, activity = act, category = category, from = from, at = GetTime() }
+    end
+    local demo = { keys = {}, entries = {} }
+    for _, d in ipairs(DEMO) do demo.keys[key(d.name)] = true end
+    demo.keys[key(DEMO_ASKER.name)] = true
+    Q.demo = demo
+    Q.status = nil
+    Trace("MISSAO", "demonstração ligada (missão %d)", Q.current.questID)
+    -- alguém com o GrupoFacil pede vaga a você, para ver o pedido e o botão Convidar
+    C_Timer.After(4, function()
+        local cur = Q.current
+        if Q.demo ~= demo or not cur then return end
+        local t = ((cur.info and cur.info.title) or ""):gsub("[%c|]", "")
+        Q.OnAddonMessage(Q.PREFIX, format("J%s %d %d %s %s %s", Q.PROTO, cur.questID, UnitLevel("player") or 1,
+            DEMO_ASKER.class, DEMO_ASKER.roles, t), "WHISPER", DEMO_ASKER.name)
+    end)
+    refresh("demo")
+    return true
+end
+
+function Q.StopDemo()
+    local demo = Q.demo
+    if not demo then return false end
+    Q.demo = nil
+    for k in pairs(demo.keys) do Q.peers[k] = nil; Q.asked[k] = nil; Q.answers[k] = nil; Q.invitedAt[k] = nil end
+    for i = #Q.requests, 1, -1 do if demo.keys[Q.requests[i].key] then table.remove(Q.requests, i) end end
+    Trace("MISSAO", "demonstração desligada")
+    refresh("demo-off")
+    return true
+end
+
 function Q.OnAddonMessage(prefix, msg, channel, sender)
     if prefix ~= Q.PREFIX or isSecret(msg) or isSecret(sender) or type(msg) ~= "string" or type(sender) ~= "string" then return end
     if channel ~= "WHISPER" then return end
@@ -784,7 +956,9 @@ function Q.OnAddonMessage(prefix, msg, channel, sender)
     elseif kind == "Q" then onAnswer(sender, rest)
     elseif kind == "J" then onJoinRequest(sender, rest)
     elseif kind == "R" then onJoinReply(sender, rest)
-    elseif kind == "I" then onInfo(sender, rest) end
+    elseif kind == "I" then onInfo(sender, rest)
+    elseif kind == "P" then Q.OnPing(sender, rest)
+    elseif kind == "A" then Q.OnPong(sender, rest) end
 end
 
 ------------------------------------------------------------------------

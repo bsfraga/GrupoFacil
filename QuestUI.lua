@@ -883,6 +883,7 @@ function NS.RenderQuest()
         end
         status = format(L["%d groups in the zone, %d doing this quest. %d use GrupoFacil."], total, doing, peers)
     end
+    if Q.demo then status = "|cff66ccff" .. L["Demo: fake players, nothing goes to the game."] .. "|r  " .. status end
     win.status:SetText(status)
 
     win.search:SetEnabled(GetTime() >= NS.searchReadyAt and not NS.searching and not NS.InLockdown())

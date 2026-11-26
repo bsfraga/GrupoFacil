@@ -1397,6 +1397,8 @@ local HELP = {
     "/gf quests - quest groups window (or click the magnifier next to a quest)",
     "/gf share - put a ready message recommending GrupoFacil in the chat box (you press Enter); /gf share <name> - whisper it to a friend",
     "/gf debug on | off - show the trace in chat as it happens",
+    "/gf debug demo | demo off - fake quest groups to try the Quests tab alone (nothing goes to the game)",
+    "/gf debug ping [name] - test the silent message: to yourself, or to a friend who has this version",
 }
 
 local ALIAS = {
@@ -1512,8 +1514,26 @@ SlashCmdList.GRUPOFACIL = function(input)
     elseif cmd == "bug" or cmd == "bugs" then
         if NS.BugCommand then NS.BugCommand(cmd, rest) end
     elseif cmd == "debug" then
-        db.debug = (l == "on")
-        NS.Print(format(L["debug: %s"], db.debug and L["on (trace in chat)"] or L["off"]))
+        local sub = l:match("^(%S*)")
+        if sub == "demo" or sub == "demonstracao" or sub == "demonstração" then
+            local Q = NS.Quest
+            if l:match("%s(%S+)$") == "off" then
+                Q.StopDemo()
+                NS.Print(L["demo off."])
+            else
+                local ok, why = Q.StartDemo()
+                if not ok then NS.Print(why) return end
+                NS.Print(L["demo on: fake players in the Quests tab, nothing goes to the game. /gf debug demo off to leave."])
+                if NS.ShowQuestWindow then NS.ShowQuestWindow(true) end
+                if NS.QuestPick then NS.QuestPick(false) end
+                if NS.RefreshQuest then NS.RefreshQuest("demo") end
+            end
+        elseif sub == "ping" or sub == "selftest" then
+            NS.Quest.Ping((rest or ""):match("^%S+%s+(.+)$"))
+        else
+            db.debug = (l == "on")
+            NS.Print(format(L["debug: %s"], db.debug and L["on (trace in chat)"] or L["off"]))
+        end
     else
         for _, line in ipairs(HELP) do print(L[line]) end
         if NS.bugAdmin then print(L["/gf bugs - bug report inbox (author only); /gf bugs fix <id> [note]; /gf bugs flush"]) end

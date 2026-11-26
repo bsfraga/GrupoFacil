@@ -366,6 +366,20 @@ NS.LOCALES.de = {
         "/gf diag - Übersicht über Fehler und Protokoll; /gf diag snap - jetzt einen Schnappschuss speichern; /gf diag clear - löschen",
     ["/gf debug on | off - show the trace in chat as it happens"] =
         "/gf debug on | off - Protokoll live im Chat anzeigen",
+    -- v0.14: modo demonstração e ping (testar sem outro jogador)
+    ["/gf debug demo | demo off - fake quest groups to try the Quests tab alone (nothing goes to the game)"] = "/gf debug demo | demo off - falsche Questgruppen, um den Quests-Tab allein zu testen (nichts geht ans Spiel)",
+    ["/gf debug ping [name] - test the silent message: to yourself, or to a friend who has this version"] = "/gf debug ping [Name] - testet die stille Nachricht: an dich selbst oder an einen Freund mit dieser Version",
+    ["Demo: fake players, nothing goes to the game."] = "Demo: falsche Spieler, nichts geht ans Spiel.",
+    ["demo off."] = "Demo aus.",
+    ["demo on: fake players in the Quests tab, nothing goes to the game. /gf debug demo off to leave."] = "Demo an: falsche Spieler im Quests-Tab, nichts geht ans Spiel. /gf debug demo off zum Beenden.",
+    ["pick up a quest first: the demo uses a quest from your log."] = "nimm zuerst eine Quest an: die Demo nutzt eine Quest aus deinem Log.",
+    ["[demo] whisper that would go to %s: %s"] = "[Demo] Flüstern, das an %s ginge: %s",
+    ["[demo] invite that would go to %s (simulated)."] = "[Demo] Einladung, die an %s ginge (simuliert).",
+    ["[demo] %s would invite you now. Outside the demo, GrupoFacil accepts that invite by itself for 2 minutes."] = "[Demo] %s würde dich jetzt einladen. Außerhalb der Demo nimmt GrupoFacil diese Einladung 2 Minuten lang von selbst an.",
+    ["silent message sent to %s; waiting for it to come back..."] = "stille Nachricht an %s gesendet; warte auf die Antwort...",
+    ["the silent message did not come back from %s in %d s."] = "die stille Nachricht kam von %s nicht in %d s zurück.",
+    ["The server may not deliver a message to yourself. Test with a friend who has this version: /gf debug ping Name Surname"] = "Der Server stellt Nachrichten an dich selbst eventuell nicht zu. Teste mit einem Freund, der diese Version hat: /gf debug ping Name Nachname",
+    ["the silent message came back from %s in %.1f s: sending through the server works."] = "die stille Nachricht kam von %s in %.1f s zurück: das Senden über den Server funktioniert.",
     ["language: %s (use /gf lang followed by en, pt, es, mx, de or fr)"] =
         "Sprache: %s (nutze /gf lang gefolgt von en, pt, es, mx, de oder fr)",
     ["text (custom): %s"] = "Text (angepasst): %s",
