@@ -245,6 +245,8 @@ Q.requests = {}     -- pedidos recebidos (você é o líder): { key, name, quest
 Q.invitedAt = {}    -- [key] = GetTime() do último convite automático
 Q.inviteTimes = {}  -- horários dos convites automáticos (limite)
 Q.myQuest = nil     -- missão do seu grupo (criou a listagem ou entrou por ela)
+Q.questListing = nil -- missão da listagem que VOCÊ criou pela aba Missões (nil: a listagem, se houver, é outra)
+Q.pendingJoin = nil  -- { questID, key, at }: convite do líder a quem você pediu vaga, até entrar no grupo
 Q.answers = {}      -- [key] = { code, at } resposta do líder ao seu pedido
 Q.prompted = {}     -- [questID] = true: já ofereceu sair/tirar a listagem
 Q.queue = {}
@@ -459,7 +461,6 @@ function Q.Join(e)
         NS.AskToJoin(e, Q.BuildMessage(title))
         Trace("MISSAO", "pedido de vaga por sussurro (líder sem GrupoFacil), missão %d", questID)
     end
-    Q.myQuest = questID ~= 0 and questID or Q.myQuest
     refresh("join")
     return true
 end
@@ -479,6 +480,22 @@ function Q.HasListing()
     if not (C_LFGList and C_LFGList.HasActiveEntryInfo) then return false end
     local ok, v = pcall(C_LFGList.HasActiveEntryInfo)
     return ok and v == true
+end
+
+-- A listagem ativa é a que você criou para uma missão? Listado para masmorra, ou membro de um grupo
+-- listado por outro, não é (teste do Fraga, 26/11: a aba Missões tratava como grupo da missão).
+function Q.QuestListing()
+    return Q.questListing ~= nil and Q.HasListing()
+end
+
+-- Missão do seu grupo, ou nil quando o grupo (ou a listagem) não é de missão.
+function Q.QuestGroup()
+    if Q.QuestListing() then return Q.questListing end
+    if not Q.myQuest then return nil end
+    if not IsInGroup() then return nil end
+    -- líder com uma listagem que não é a da missão: o grupo virou outra coisa
+    if Q.HasListing() and UnitIsGroupLeader("player") then return nil end
+    return Q.myQuest
 end
 
 function Q.CanCreate()
@@ -588,9 +605,16 @@ end
 Q.wasListed = false
 function Q.CheckListing(why)
     local has = Q.HasListing()
-    if has then Q.wasListed = true return end
+    if has then
+        Q.wasListed = true
+        if Q.pendingCreate then Q.questListing = Q.pendingCreate.questID end
+        return
+    end
     if not Q.wasListed then return end
     Q.wasListed = false
+    -- a listagem que saiu não era a da missão (masmorra, ou a de outro líder): nada a limpar
+    if not Q.questListing then Trace("MISSAO", "listagem que não era de missão saiu (%s)", tostring(why)) return end
+    Q.questListing = nil
     Trace("MISSAO", "listagem saiu (%s): limpa a missão do grupo", tostring(why))
     if not IsInGroup() or UnitIsGroupLeader("player") then Q.myQuest = nil end
     Q.current = nil
@@ -641,7 +665,7 @@ end
 
 local function replyQuests(sender)
     local ids = Q.LogQuestIDs(MAX_LOG_IDS)
-    local listed = (Q.myQuest and (Q.HasListing() or IsInGroup())) and Q.myQuest or 0
+    local listed = Q.QuestGroup() or 0
     Q.Send(format("Q%s %d %s", Q.PROTO, listed, table.concat(ids, ",")), sender)
     -- grupo listado para uma missão: nome, objetivo e local, no lugar da descrição que o jogo não deixa
     -- o addon escrever (I1 <id> <nome>~<objetivo>~<local>)
@@ -721,7 +745,7 @@ local function onJoinRequest(sender, rest)
     if not canLead() then Q.Send("R" .. Q.PROTO .. " no", sender) return end
     if groupFull() then Q.Send("R" .. Q.PROTO .. " full", sender) return end
     local now = GetTime()
-    local same = (Q.myQuest == qid) or Q.OnQuest(qid)
+    local same = (Q.QuestGroup() == qid) or Q.OnQuest(qid)
     local db = Q.DB()
     if db.autoInvite and same and Q.InvitesLeft() > 0 and not (Q.invitedAt[k] and now - Q.invitedAt[k] < REINVITE_WAIT) then
         Q.invitedAt[k] = now
@@ -976,6 +1000,8 @@ function Q.OnInvite(name)
     if not hit then return end
     local a = Q.asked[hit]
     Q.asked[hit] = nil
+    -- vira a missão do grupo quando você entrar (aceitando sozinho ou pela janela do jogo)
+    Q.pendingJoin = { questID = a.questID, key = hit, at = now }
     if not Q.DB().autoAccept then
         Trace("MISSAO", "convite do líder pedido; aceite automático desligado")
         return
@@ -983,7 +1009,6 @@ function Q.OnInvite(name)
     local accept = rawget(_G, "AcceptGroup")
     local ok = accept and NS.GuardTag("AcceptGroup", accept)
     if ok and StaticPopup_Hide then pcall(StaticPopup_Hide, "PARTY_INVITE") end
-    Q.myQuest = a.questID ~= 0 and a.questID or Q.myQuest
     Trace("MISSAO", "convite aceito sozinho (pedido há %.0f s): %s", now - a.at, tostring(ok))
     if ok then NS.Print(format(L["joined %s's group (you asked to join)."], display(name))) end
     refresh("accept")
@@ -1017,6 +1042,14 @@ function Q.OnRoster()
             char.joins[#char.joins + 1] = time()
             Q.JoinsLastHour()
         end
+        -- Entrou num grupo: só é grupo de missão se foi o convite do líder a quem você pediu vaga pela
+        -- missão. Quem forma o grupo (líder) mantém a missão que já tinha.
+        if not UnitIsGroupLeader("player") then
+            local p = Q.pendingJoin
+            Q.myQuest = (p and GetTime() - p.at <= ACCEPT_FOR and p.questID ~= 0) and p.questID or nil
+            Trace("MISSAO", "entrou num grupo: %s", Q.myQuest and "de missão" or "não é de missão")
+        end
+        Q.pendingJoin = nil
     elseif not now and wasInGroup then
         if not Q.HasListing() then Q.myQuest = nil end
     end
@@ -1080,6 +1113,7 @@ local function onEvent(_, event, ...)
         local p = Q.pendingCreate
         if p and Q.HasListing() then
             Q.pendingCreate = nil
+            Q.questListing = p.questID
             if p.dungeon then
                 NS.Print(format(L["your group is listed in Looking For Group, in Dungeons: %s."], p.dungeon))
             else

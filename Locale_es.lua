@@ -29,6 +29,7 @@ NS.LOCALES.es = {
     ["No group? List yours: players who click the magnifier on this quest find you."] = "¿Sin grupo? Lista el tuyo: quien haga clic en la lupa de esta misión te encontrará.",
     ["Pick a quest: GrupoFacil searches its zone in Looking For Group."] = "Elige una misión: GrupoFacil busca su zona en Buscar grupo.",
     ["Your group is listed for %s."] = "Tu grupo está listado para %s.",
+    ["Your group is listed in Looking For Group for something else, not for a quest."] = "Tu grupo está en Buscar grupo para otra cosa, no para una misión.",
     ["Your quest log is empty. Pick up a quest and come back, or click the magnifier next to a quest."] = "Tu registro de misiones está vacío. Acepta una misión y vuelve, o haz clic en la lupa junto a una misión.",
     ["the game did not take your group out of Looking For Group. Remove it there, and send /gf diag to the author."] = "el juego no quitó tu grupo de Buscar grupo. Quítalo allí y envía /gf diag al autor.",
     ["this quest"] = "esta misión",

@@ -1137,3 +1137,108 @@ describe("quest groups - a busca da lupa e a aba Masmorras", function()
         T.clean(c)
     end)
 end)
+
+describe("quest groups - grupo ou listagem que não é de missão", function()
+    -- listagem ativa que não veio da aba Missões (masmorra pelo Looking For Group do jogo, ou o grupo
+    -- de outro líder em que você entrou: no jogo, os membros também veem a listagem)
+    local function otherListing(w, c, activity)
+        local l = { leader = c.name, members = { { name = c.name, level = 18, class = "HUNTER" } }, activityIDs = { activity or 1 }, owner = c, age = 0 }
+        w.lfg:add(l)
+        w.lfg.active[c] = l
+        c:fireEvent("LFG_LIST_ACTIVE_ENTRY_UPDATE", true)
+        w:advance(2)
+        return l
+    end
+    local function joinGroup(w, c, leader)
+        c.data.inGroup, c.data.leader = true, leader or false
+        c:fireEvent("GROUP_ROSTER_UPDATE")
+        w:advance(0.5)
+    end
+
+    it("listado para masmorra como líder: a aba Missões não mostra grupo de missão nem tira a listagem", function()
+        local w = world()
+        local c = login(w, "Jogador", { ELITE })
+        magnify(w, c, ELITE.id)
+        joinGroup(w, c, true)
+        otherListing(w, c, 1)
+        local win = qwin(c)
+        T.ok(not c:text(win.group):find("Defias"), "não diz que o grupo é da missão: " .. c:text(win.group))
+        T.match(c:text(win.group), "listed in Looking For Group for something else")
+        T.eq(c:text(win.create), "Create group", "não oferece tirar a listagem da masmorra")
+        T.no(win.create:IsEnabled())
+        -- quem pergunta pelo addon não ouve que o grupo é da missão
+        local other = login(w, "Outro", { ELITE })
+        H.ns(other).Quest.Send("?1", "Jogador")
+        w:advance(1)
+        local p = H.ns(other).Quest.peers.jogador
+        T.ok(p and p.gf, "respondeu")
+        T.eq(p.listed, nil, "não anuncia a missão")
+        -- a listagem da masmorra sai: a missão escolhida na aba continua (nada a limpar)
+        w.lfg:removeActive(c)
+        c:fireEvent("LFG_LIST_ACTIVE_ENTRY_UPDATE", false)
+        w:advance(2)
+        T.eq(H.ns(c).Quest.current.questID, ELITE.id)
+        T.clean(c); T.clean(other)
+    end)
+
+    it("entrar num grupo que não foi pedido pela missão (mesmo depois de pedir vaga a outro): não é grupo de missão", function()
+        local w = world()
+        w.lfg:add({ leader = "Estranho", activityIDs = { 20 }, members = { { name = "Estranho", level = 18, class = "ROGUE" },
+            { name = "Y", level = 17, class = "MAGE" } } })
+        local stranger = login(w, "Estranho", {})
+        stranger.prefixes.GFQ = nil
+        local c = login(w, "Jogador", { ELITE })
+        magnify(w, c, ELITE.id)
+        c:click(rowOf(c, "Estranho").b1) -- pediu vaga por sussurro
+        w:advance(0.5)
+        -- entra noutro grupo, de masmorra, já listado pelo líder dele
+        joinGroup(w, c, false)
+        otherListing(w, c, 1)
+        local win = qwin(c)
+        T.ok(not c:text(win.group):find("Defias"), "não é grupo da missão: " .. c:text(win.group))
+        T.eq(H.ns(c).Quest.myQuest, nil)
+        T.eq(c:text(win.create), "Create group")
+        T.clean(c)
+    end)
+
+    it("entrar pelo convite do líder a quem pediu vaga pela missão: é grupo de missão (aceite automático ou à mão)", function()
+        for _, auto in ipairs({ true, false }) do
+            local w = world()
+            local lead = listedLeader(w, "Lider", ELITE)
+            local c = login(w, "Jogador", { ELITE })
+            if not auto then H.ns(c).Quest.DB().autoAccept = false end
+            magnify(w, c, ELITE.id)
+            c:click(rowOf(c, "Lider").b1)
+            w:advance(0.5)
+            lead:click(H.find(lead, qwin(lead).reqBox, "^Invite$", true))
+            w:advance(0.5)
+            if not auto then joinGroup(w, c, false) end
+            T.eq(H.ns(c).Quest.myQuest, ELITE.id, "aceite " .. tostring(auto))
+            T.match(c:text(qwin(c).group), "In a group for The Defias Brotherhood")
+            T.clean(c); T.clean(lead)
+        end
+    end)
+
+    it("listar para a missão, tirar e voltar para Masmorras: a aba busca as masmorras sozinha e a lista volta", function()
+        local w = world()
+        H.sampleListings(w)
+        local c = login(w, "Jogador", { ELITE })
+        H.search(w, c, 2, { 1, 2, 3, 4, 5 })
+        w:advance(4)
+        local f = c.env.GrupoFacilFrame
+        magnify(w, c, ELITE.id)
+        local win = qwin(c)
+        c:click(win.create); w:advance(1)
+        T.match(c:text(win.group), "Your group is listed for The Defias Brotherhood")
+        c:click(win.create); w:advance(4)
+        T.no(H.ns(c).Quest.HasListing())
+        c:click(f.tabDungeons)
+        w:advance(1)
+        T.eq(c.lastSearch.category, 2, "o clique na aba buscou as masmorras")
+        T.eq(table.concat(c.lastSearch.activities, ","), "1,2,3,4,5", "a mesma busca de antes")
+        c:click(H.find(c, f, "^All dungeons$", true))
+        T.ok(H.find(c, c.env.GrupoFacilDungeonMenu, "^Deadmines", true), "a lista de masmorras volta")
+        T.eq(#c.blocked, 0, "uma ação protegida por clique")
+        T.clean(c)
+    end)
+end)

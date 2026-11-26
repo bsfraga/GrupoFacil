@@ -579,11 +579,11 @@ function NS.BuildQuestUI()
     win.create = button(win, L["Create group"], 130, 24, { L["Create group"], L["Remove listing"] })
     win.create:SetPoint("TOPLEFT", 12, -114)
     win.create:SetScript("OnClick", function()
-        if Q.HasListing() then Q.RemoveListing() else Q.Create() end
+        if Q.QuestListing() then Q.RemoveListing() else Q.Create() end
         NS.RefreshQuest("create")
     end)
-    tooltip(win.create, function() return Q.HasListing() and L["Remove listing"] or L["Create group"] end, function()
-        if Q.HasListing() then return L["Takes your group out of Looking For Group."] end
+    tooltip(win.create, function() return Q.QuestListing() and L["Remove listing"] or L["Create group"] end, function()
+        if Q.QuestListing() then return L["Takes your group out of Looking For Group."] end
         local ok, why = Q.CanCreate()
         if not ok then return L["Unavailable: "] .. why end
         local act = Q.current and Q.current.activity
@@ -726,14 +726,17 @@ end
 -- estado do seu grupo, ao lado do Criar grupo
 local function groupLine(cur)
     if Q.pendingCreate then return "|cffaaaaaa" .. L["Listing your group..."] .. "|r" end
-    if Q.HasListing() then
-        local q = Q.myQuest and Q.Info(Q.myQuest)
+    local qg = Q.QuestGroup()
+    if qg and Q.HasListing() then
+        local q = Q.Info(qg)
         return "|cff55ff55" .. format(L["Your group is listed for %s."], (q and q.title) or L["this quest"]) .. "|r"
     end
-    if IsInGroup() and Q.myQuest then
-        local q = Q.Info(Q.myQuest)
+    if qg then
+        local q = Q.Info(qg)
         return format(L["In a group for %s."], (q and q.title) or L["this quest"])
     end
+    -- listado para masmorra, ou num grupo que outro líder listou: não é grupo de missão
+    if Q.HasListing() then return "|cff999999" .. L["Your group is listed in Looking For Group for something else, not for a quest."] .. "|r" end
     local ok, why = Q.CanCreate()
     if not ok then return "|cff999999" .. why .. "|r" end
     return L["No group? List yours: players who click the magnifier on this quest find you."]
@@ -887,7 +890,7 @@ function NS.RenderQuest()
     win.status:SetText(status)
 
     win.search:SetEnabled(GetTime() >= NS.searchReadyAt and not NS.searching and not NS.InLockdown())
-    local has = Q.HasListing()
+    local has = Q.QuestListing()
     win.create:SetText(has and L["Remove listing"] or L["Create group"])
     -- esperando o jogo responder à criação: um clique por vez (no teste, 9 cliques seguidos)
     win.create:SetEnabled(not Q.pendingCreate and (has or (Q.CanCreate())))

@@ -31,6 +31,7 @@ NS.LOCALES.fr = {
     ["No group? List yours: players who click the magnifier on this quest find you."] = "Pas de groupe ? Inscrivez le vôtre : ceux qui cliquent sur la loupe de cette quête vous trouveront.",
     ["Pick a quest: GrupoFacil searches its zone in Looking For Group."] = "Choisissez une quête : GrupoFacil cherche sa zone dans la recherche de groupe.",
     ["Your group is listed for %s."] = "Votre groupe est inscrit pour %s.",
+    ["Your group is listed in Looking For Group for something else, not for a quest."] = "Votre groupe est inscrit dans la Recherche de groupe pour autre chose, pas pour une quête.",
     ["Your quest log is empty. Pick up a quest and come back, or click the magnifier next to a quest."] = "Votre journal de quêtes est vide. Prenez une quête et revenez, ou cliquez sur la loupe à côté d'une quête.",
     ["the game did not take your group out of Looking For Group. Remove it there, and send /gf diag to the author."] = "le jeu n'a pas retiré votre groupe de la recherche de groupe. Retirez-le là-bas et envoyez /gf diag à l'auteur.",
     ["this quest"] = "cette quête",

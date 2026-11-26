@@ -32,6 +32,7 @@ local PT = {
     ["No group? List yours: players who click the magnifier on this quest find you."] = "Sem grupo? Liste o seu: quem clicar na lupa desta missão encontra você.",
     ["Pick a quest: GrupoFacil searches its zone in Looking For Group."] = "Escolha uma missão: o GrupoFacil procura a zona dela no Looking For Group.",
     ["Your group is listed for %s."] = "Seu grupo está listado para %s.",
+    ["Your group is listed in Looking For Group for something else, not for a quest."] = "Seu grupo está listado no Looking For Group para outra coisa, não para uma missão.",
     ["Your quest log is empty. Pick up a quest and come back, or click the magnifier next to a quest."] = "Seu registro de missões está vazio. Pegue uma missão e volte, ou clique na lupa ao lado de uma missão.",
     ["the game did not take your group out of Looking For Group. Remove it there, and send /gf diag to the author."] = "o jogo não tirou seu grupo do Looking For Group. Tire por lá e mande o /gf diag ao autor.",
     ["this quest"] = "esta missão",

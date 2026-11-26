@@ -622,7 +622,18 @@ function NS.BuildUI()
     -- abas na barra de título, depois do ícone de report: Masmorras (esta) e Missões (QuestUI.lua)
     local function tab(key, text, tip)
         local b = button(frame, text, 90, 20)
-        b:SetScript("OnClick", function() NS.SelectTab(key) end)
+        b:SetScript("OnClick", function()
+            NS.SelectTab(key)
+            -- Voltar para Masmorras depois da lupa: os resultados são da missão, e a lista de masmorras
+            -- ficaria vazia (teste do Fraga, 26/11). O clique na aba é do jogador, então dá para buscar
+            -- as masmorras de novo aqui (a única ação protegida deste clique).
+            if key == "dungeons" and NS.resultsFromQuest and not NS.searching and not NS.InLockdown()
+                and GetTime() >= NS.searchReadyAt then
+                local ok, why = NS.SearchAgain()
+                if not ok and why then NS.status = why end
+                NS.Refresh("tab-search")
+            end
+        end)
         tooltip(b, text, tip)
         b.key = key
         return b
