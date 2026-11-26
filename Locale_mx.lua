@@ -6,6 +6,7 @@ NS.LOCALES.mx = setmetatable({
     ["No guild"] = "Sin clan",
     ["Opens the chat with /who and the name typed in; press Enter. The game only allows /who from your own chat. The answer (guild, zone, level) then shows in the row's tooltip."] = "Abre el chat con /who y el nombre ya escrito; presiona Enter. El juego solo acepta /who desde tu propio chat. La respuesta (clan, zona, nivel) aparece después en el tooltip de la fila.",
     ["Guild member"] = "Miembro del clan",
+    ["Guild"] = "Clan",
     ["Needs your role: %s"] = "Hay lugar para tu función: %s",
     ["Open spots: "] = "Lugares libres: ",
     ["You can only invite when you are solo or the leader/assistant."] = "Solo puedes invitar si no tienes grupo o eres el líder o ayudante.",

@@ -191,7 +191,7 @@ local function exercise(lang, admin)
     for _, child in ipairs({ qf.list:GetChildren() }) do
         if c.ui.visible(child) and child.entry then c:hover(child); c:hover(child.b1) end
     end
-    for _, b in ipairs({ qf.back, qf.search, qf.create, qf.share, f.optionsButton }) do c:hover(b) end
+    for _, b in ipairs({ qf.back, qf.search, qf.create, qf.share, qf.info, f.optionsButton }) do c:hover(b) end
     check("GrupoFacilQuestFrame")
     -- a lista das missões do registro (o ponto de partida da aba)
     c:click(qf.back)
@@ -224,6 +224,13 @@ local function exercise(lang, admin)
         end
         check("GrupoFacilOptionsFrame")
     end
+    -- destinos da indicação e o campo do amigo (sussurro)
+    ns.OptionsSection("invite")
+    local oc = c.env.GrupoFacilOptionsFrame.content
+    c:click(oc.shareTarget)
+    check("GrupoFacilShareMenu")
+    c:click(H.find(c, c.env.GrupoFacilShareMenu, ".", true))
+    check("GrupoFacilOptionsFrame")
     c:hover(c.env.GrupoFacilMinimapButton)
     c:slash("/gf tour")
     for _ = 1, 8 do

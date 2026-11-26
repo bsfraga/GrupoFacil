@@ -103,6 +103,7 @@ function NS.ShowDonate()
         end)
         f.box:SetScript("OnEscapePressed", function() f:Hide() end)
         f.box:SetScript("OnEnterPressed", function() f:Hide() end)
+        if UISpecialFrames then tinsert(UISpecialFrames, "GrupoFacilDonateFrame") end -- Esc fecha
         f:Hide()
     end
     donateFrame.box:SetText(url)
@@ -206,6 +207,51 @@ function NS.ToggleLanguageMenu(owner)
 end
 
 ------------------------------------------------------------------------
+-- destino da indicação: lista montada na hora (guilda, grupo e canais mudam)
+------------------------------------------------------------------------
+local shareMenu
+function NS.ToggleShareMenu(owner, onPick)
+    if not shareMenu then
+        local m = CF("Frame", "GrupoFacilShareMenu", UIParent, "BackdropTemplate")
+        shareMenu = m
+        m:SetFrameStrata("FULLSCREEN_DIALOG")
+        m:EnableMouse(true)
+        m:SetClampedToScreen(true)
+        if m.SetBackdrop then
+            m:SetBackdrop({ bgFile = "Interface\\Tooltips\\UI-Tooltip-Background", edgeFile = "Interface\\Tooltips\\UI-Tooltip-Border",
+                tile = true, tileSize = 16, edgeSize = 16, insets = { left = 4, right = 4, top = 4, bottom = 4 } })
+            m:SetBackdropColor(0.05, 0.05, 0.08, 0.97)
+        end
+        m.items = {}
+        if UISpecialFrames then tinsert(UISpecialFrames, "GrupoFacilShareMenu") end
+        m:Hide()
+    end
+    local m = shareMenu
+    if m:IsShown() and m.owner == owner then m:Hide() return end
+    m.owner = owner
+    local targets = NS.ShareTargets()
+    local cur = NS.ShareTarget()
+    for i, t in ipairs(targets) do
+        local b = m.items[i]
+        if not b then
+            b = CF("Button", nil, m, "UIPanelButtonTemplate")
+            b:SetSize(200, 22)
+            b:SetPoint("TOP", 0, -8 - (i - 1) * 24)
+            m.items[i] = b
+        end
+        b:SetText(t.label)
+        b:SetScript("OnClick", function() m:Hide(); NS.SetShareTarget(t.key); if onPick then onPick(t) end end)
+        if cur and cur.key == t.key then b:LockHighlight() else b:UnlockHighlight() end
+        b:Show()
+    end
+    for i = #targets + 1, #m.items do m.items[i]:Hide() end
+    m:SetSize(216, 16 + #targets * 24)
+    m:ClearAllPoints()
+    m:SetPoint("TOPLEFT", owner, "BOTTOMLEFT", 0, -2)
+    m:Show()
+end
+
+------------------------------------------------------------------------
 -- conteúdo das opções (montado uma vez por lugar)
 ------------------------------------------------------------------------
 local instances = {}
@@ -255,6 +301,11 @@ local function refreshOne(w)
     w.autoAccept:SetChecked(q.autoAccept ~= false)
     w.magnifier:SetChecked(q.magnifier ~= false)
     w.sharePreview:SetText("|cffffffff" .. (NS.ShareText and NS.ShareText() or "") .. "|r")
+    local st = NS.ShareTarget and NS.ShareTarget()
+    w.shareTarget:SetText(((st and st.label) or "") .. "  |cffffd200v|r")
+    local whisper = st and st.key == "whisper"
+    w.shareFriend:SetShown(whisper)
+    w.shareFriendL:SetShown(whisper)
     w.lang:SetText(NS.LanguageName(NS.Language()) .. "  |cffffd200v|r")
     w.donate:SetShown(NS.DONATE_URL ~= nil and NS.DONATE_URL ~= "")
     local nb = NS.BlockedCount and NS.BlockedCount() or 0
@@ -500,11 +551,34 @@ local function buildContent(root)
     w.sharePreview = text(S, "")
     w.sharePreview:SetPoint("TOPLEFT", h7b, "BOTTOMLEFT", 0, -6)
     w.sharePreview:SetWidth(590)
+    -- para onde vai: sussurro (com o nome completo do amigo), guilda, grupo, dizer, /1, /2...
+    local toL = text(S, L["Send to:"], "GameFontHighlight")
+    toL:SetPoint("TOPLEFT", w.sharePreview, "BOTTOMLEFT", 0, -16)
+    w.shareTarget = button(S, "", 180)
+    w.shareTarget:SetPoint("LEFT", toL, "LEFT", 80, 0)
+    w.shareTarget:SetScript("OnClick", function(self)
+        NS.ToggleShareMenu(self, function(t)
+            refreshOne(w)
+            if t.key == "whisper" then w.shareFriend:SetFocus() end
+        end)
+    end)
+    tipOn(w.shareTarget, L["Send to:"], L["Whisper a friend, your guild, your group, say, or a numbered channel like /1 or /2."])
+    w.shareFriendL = text(S, L["Friend:"], "GameFontHighlight")
+    w.shareFriendL:SetPoint("LEFT", w.shareTarget, "RIGHT", 12, 0)
+    w.shareFriend = editBox(S, 170)
+    w.shareFriend:SetPoint("LEFT", w.shareFriendL, "RIGHT", 8, 0)
+    w.shareFriend:SetMaxLetters(48)
+    w.shareFriend:SetScript("OnEnterPressed", function(self) self:ClearFocus(); NS.RecommendAddon("opções", self:GetText()) end)
+    w.shareFriend:SetScript("OnEscapePressed", function(self) self:ClearFocus() end)
+    tipOn(w.shareFriend, L["Friend:"], L["The full character name, with the surname (for example: Bael Bagacera)."])
     w.share = button(S, L["Recommend to a friend"], 180)
-    w.share:SetPoint("TOPLEFT", w.sharePreview, "BOTTOMLEFT", 0, -12)
-    w.share:SetScript("OnClick", function() NS.RecommendAddon("opções") end)
-    tipOn(w.share, L["Recommend to a friend"], L["Puts a ready message in the chat box (in your guild chat if you have one). Change the channel if you want, and press Enter to send it."])
-    local shareHint = text(S, L["Nothing is sent until you press Enter. To send it to one friend, start the line with /w and their name."], "GameFontDisableSmall")
+    w.share:SetPoint("TOPLEFT", toL, "BOTTOMLEFT", 0, -14)
+    w.share:SetScript("OnClick", function()
+        local st = NS.ShareTarget()
+        NS.RecommendAddon("opções", st and st.key == "whisper" and w.shareFriend:GetText() or nil)
+    end)
+    tipOn(w.share, L["Recommend to a friend"], L["Puts the ready message in the chat box, already on the channel you picked. Press Enter to send it."])
+    local shareHint = text(S, L["Nothing is sent until you press Enter. The message is in the language you use in GrupoFacil."], "GameFontDisableSmall")
     shareHint:SetPoint("TOPLEFT", w.share, "BOTTOMLEFT", 0, -6)
     shareHint:SetWidth(590)
     local h7c = text(S, L["Link to share outside the game"], "GameFontNormal")
@@ -624,6 +698,11 @@ local function buildWindow()
     content:SetPoint("TOPLEFT", 4, -22)
     content:SetPoint("BOTTOMRIGHT", -4, 4)
     f.content = buildContent(content)
+    if UISpecialFrames then tinsert(UISpecialFrames, "GrupoFacilOptionsFrame") end -- Esc fecha
+    f:SetScript("OnHide", function()
+        if langMenu then langMenu:Hide() end
+        if shareMenu then shareMenu:Hide() end
+    end)
     f:Hide()
     NS.D.Trace("OPCOES", "janela de opções própria criada")
 end

@@ -317,6 +317,8 @@ function NS.BuildUI()
     if frame then return end
     local db = GrupoFacilDB
     frame = CF("Frame", "GrupoFacilFrame", UIParent, "BasicFrameTemplateWithInset")
+    -- Esc fecha a janela (a janela não tem botão seguro, então fechar em combate também é seguro)
+    if UISpecialFrames then tinsert(UISpecialFrames, "GrupoFacilFrame") end
     local size = type(db.size) == "table" and db.size or {}
     frame:SetSize(min(MAX_W, max(MIN_W, size[1] or MIN_W)), min(MAX_H, max(MIN_H, size[2] or 600)))
     frame:SetResizable(true)

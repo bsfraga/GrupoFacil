@@ -405,6 +405,14 @@ function Client:buildEnv()
     env.IsInInstance = function() return c.data.inInstance, c.data.inInstance and "party" or "none" end
     env.IsInGroup = function() return c.data.inGroup end
     env.IsInRaid = function() return false end
+    -- canais numerados em que o jogador está (id, nome, desativado, ...)
+    env.GetChannelList = function()
+        local out = {}
+        for _, ch in ipairs(c.data.channels or { { 1, "General" }, { 2, "Trade" }, { 4, "LocalDefense" } }) do
+            out[#out + 1] = ch[1]; out[#out + 1] = ch[2]; out[#out + 1] = ch[3] or false
+        end
+        return unpack(out)
+    end
     env.GetNumGroupMembers = function() return c.data.inGroup and 2 or 0 end
     env.UnitIsGroupLeader = function(u) return u == "player" and c.data.leader end
     env.UnitIsGroupAssistant = function(u) return u == "player" and c.data.assistant end

@@ -846,14 +846,80 @@ function NS.ShareText()
     return format(L["I use GrupoFacil, a free addon: it finds dungeon and quest groups in Looking For Group in 2 clicks, and players who have it find each other. Get it at %s"], NS.SHARE_URL)
 end
 
-function NS.RecommendAddon(from)
+-- Para onde a frase vai (pedido do Fraga, 26/11): sussurro a um amigo (nome completo, com
+-- sobrenome), guilda, grupo, raide, dizer ou um canal numerado (/1, /2...). Só os que valem agora.
+local SHARE_PREFIX = { guild = "/g ", party = "/p ", raid = "/ra ", say = "/s " }
+
+function NS.ShareTargets()
+    local out = { { key = "whisper", label = L["Whisper a friend"] } }
+    if IsInGuild and IsInGuild() then out[#out + 1] = { key = "guild", label = L["Guild"] } end
+    if IsInGroup and IsInGroup() then out[#out + 1] = { key = "party", label = L["Group"] } end
+    if IsInRaid and IsInRaid() then out[#out + 1] = { key = "raid", label = L["Raid"] } end
+    out[#out + 1] = { key = "say", label = L["Say"] }
+    -- pcall direto: "x and f()" cortaria os vários valores de volta
+    local list = GetChannelList and { pcall(GetChannelList) } or {}
+    if list[1] then
+        -- GetChannelList devolve id, nome, desativado, id, nome, desativado...
+        for i = 2, #list, 3 do
+            local id, name, disabled = tonumber(list[i]), list[i + 1], list[i + 2]
+            if id and type(name) == "string" and not disabled then
+                out[#out + 1] = { key = "ch:" .. id, label = format("/%d %s", id, name) }
+            end
+        end
+    end
+    return out
+end
+
+local function shareDB()
+    local db = GrupoFacilDB
+    if not db then return {} end
+    if type(db.share) ~= "table" then db.share = {} end
+    return db.share
+end
+
+-- O alvo escolhido, se ainda vale (saiu da guilda, do grupo, do canal: cai para guilda ou dizer).
+function NS.ShareTarget()
+    local want = shareDB().target
+    local targets = NS.ShareTargets()
+    for _, t in ipairs(targets) do if t.key == want then return t end end
+    for _, t in ipairs(targets) do if t.key == "guild" then return t end end
+    for _, t in ipairs(targets) do if t.key == "say" then return t end end
+    return targets[1]
+end
+
+function NS.SetShareTarget(key)
+    shareDB().target = key
+    Trace("SHARE", "destino da indicação: %s", tostring(key))
+end
+
+-- from: de onde veio o clique (diagnóstico). friend: nome completo do personagem, para o sussurro.
+function NS.RecommendAddon(from, friend)
     local text = NS.ShareText()
-    local inGuild = IsInGuild and IsInGuild()
-    if inGuild then text = "/g " .. text end
-    local open = (ChatFrameUtil and ChatFrameUtil.OpenChat) or ChatFrame_OpenChat
-    if not open then NS.Print(text) return false end
-    local ok = NS.GuardTag("OpenChat(indicar)", open, text)
-    Trace("SHARE", "frase de indicação na caixa do chat (%s, guilda=%s): ok=%s", tostring(from), tostring(inGuild), tostring(ok))
+    local target = NS.ShareTarget()
+    local key = target and target.key or "say"
+    if friend and friend:gsub("%s", "") ~= "" then key = "whisper" end
+    local ok
+    if key == "whisper" then
+        friend = friend and friend:gsub("^%s+", ""):gsub("%s+$", ""):gsub("%s+", " ") or ""
+        if friend == "" then
+            NS.Print(L["type your friend's full character name first (name and surname)."])
+            return false
+        end
+        -- o mesmo caminho do sussurro ao líder: o jogo trata o nome com sobrenome
+        if ChatFrameUtil and ChatFrameUtil.SendTellWithMessage then
+            ok = NS.GuardTag("SendTellWithMessage(indicar)", ChatFrameUtil.SendTellWithMessage, friend, text)
+        else
+            local open = (ChatFrameUtil and ChatFrameUtil.OpenChat) or ChatFrame_OpenChat
+            if not open then NS.Print(text) return false end
+            ok = NS.GuardTag("OpenChat(indicar)", open, "/w " .. friend .. " " .. text)
+        end
+    else
+        local prefix = SHARE_PREFIX[key] or (key:match("^ch:(%d+)$") and ("/" .. key:match("^ch:(%d+)$") .. " ")) or ""
+        local open = (ChatFrameUtil and ChatFrameUtil.OpenChat) or ChatFrame_OpenChat
+        if not open then NS.Print(text) return false end
+        ok = NS.GuardTag("OpenChat(indicar)", open, prefix .. text)
+    end
+    Trace("SHARE", "frase de indicação na caixa do chat (%s, destino=%s): ok=%s", tostring(from), key, tostring(ok))
     return ok
 end
 
@@ -1270,7 +1336,7 @@ local HELP = {
     "/gf bug link - link to the comments on CurseForge (for other rulesets or factions)",
     "/gf news - what's new in this version",
     "/gf quests - quest groups window (or click the magnifier next to a quest)",
-    "/gf share - put a ready message recommending GrupoFacil in the chat box (you press Enter)",
+    "/gf share - put a ready message recommending GrupoFacil in the chat box (you press Enter); /gf share <name> - whisper it to a friend",
     "/gf debug on | off - show the trace in chat as it happens",
 }
 
@@ -1307,7 +1373,8 @@ SlashCmdList.GRUPOFACIL = function(input)
     elseif cmd == "quests" then
         if NS.ToggleQuestWindow then NS.ToggleQuestWindow() end
     elseif cmd == "share" then
-        NS.RecommendAddon("/gf share")
+        -- /gf share <nome sobrenome> sussurra a frase para esse amigo
+        NS.RecommendAddon("/gf share", rest ~= "" and rest or nil)
     elseif cmd == "news" then
         if NS.OpenNews then NS.OpenNews("/gf news") end
     elseif cmd == "lang" then
