@@ -764,8 +764,13 @@ local function onJoinRequest(sender, rest)
         roles = roles, at = now, same = same, title = title }
     Q.Send("R" .. Q.PROTO .. " wait", sender)
     local qi = Q.Info(qid)
-    NS.Print(format(L["%s wants to join your group for %s. Open the quest window to invite: /gf quests"], display(sender),
-        (qi and qi.inLog and qi.title) or title or (qi and qi.title) or tostring(qid)))
+    local what = (qi and qi.inLog and qi.title) or title or (qi and qi.title) or tostring(qid)
+    -- com a aba Missões aberta, o pedido já está na tela: não manda "abrir com /gf quests"
+    if NS.CurrentTab and NS.CurrentTab() == "quests" then
+        NS.Print(format(L["%s wants to join your group for %s. The request is in the Quests tab."], display(sender), what))
+    else
+        NS.Print(format(L["%s wants to join your group for %s. Open the quest window to invite: /gf quests"], display(sender), what))
+    end
     Trace("MISSAO", "pedido de vaga recebido (missão %d, mesma=%s)", qid, tostring(same))
     if NS.ShowQuestWindow then NS.ShowQuestWindow(false) end
     refresh("request")

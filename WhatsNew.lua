@@ -110,7 +110,17 @@ local function showPage(i)
     f.pageFS:SetText(format(L["Version %s · page %d of %d"], page.version, i, #PAGES))
     f.newer:SetEnabled(i > 1)
     f.older:SetEnabled(i < #PAGES)
-    f:SetHeight(32 + f.pages[i].h + 14 + 22 + 12 + 8)
+    -- cabe na tela (768 px de altura ou menos): a janela para na altura da tela e o texto rola
+    local want = 32 + f.pages[i].h + 14 + 22 + 12 + 8
+    local screen = (UIParent and UIParent.GetHeight and UIParent:GetHeight()) or 768
+    local h = math.min(want, math.max(300, screen - 40))
+    f:SetHeight(h)
+    f.holder:SetHeight(f.pages[i].h)
+    f.scroll:SetVerticalScroll(0)
+    f.scrollMax = math.max(0, want - h)
+    if f.scrollMax > 0 then
+        f.pageFS:SetText(format(L["Version %s · page %d of %d"], page.version, i, #PAGES) .. " · " .. L["scroll for more"])
+    end
     f.action = f.pages[i].action
 end
 NS.NewsPage = function(i) if frame and i then showPage(i) end return frame and frame.page end
@@ -178,10 +188,24 @@ local function build()
         return b
     end
 
+    -- área rolável entre o título e o rodapé (a roda do mouse rola quando não cabe na tela)
+    f.scroll = CF("ScrollFrame", nil, f)
+    f.scroll:SetPoint("TOPLEFT", f, "TOPLEFT", PAD - 6, -32)
+    f.scroll:SetPoint("BOTTOMRIGHT", f, "BOTTOMRIGHT", -(PAD - 6), 12 + 22 + 12)
+    f.holder = CF("Frame", nil, f.scroll)
+    f.holder:SetSize(INNER + 12, 400)
+    f.scroll:SetScrollChild(f.holder)
+    f.scroll:EnableMouseWheel(true)
+    f.scrollMax = 0
+    f.scroll:SetScript("OnMouseWheel", function(self, delta)
+        local v = (self:GetVerticalScroll() or 0) - delta * 40
+        self:SetVerticalScroll(math.max(0, math.min(f.scrollMax or 0, v)))
+    end)
+
     f.pages = {}
     for pi, news in ipairs(PAGES) do
-        local pg = CF("Frame", nil, f)
-        pg:SetPoint("TOPLEFT", f, "TOPLEFT", PAD, -32)
+        local pg = CF("Frame", nil, f.holder)
+        pg:SetPoint("TOPLEFT", f.holder, "TOPLEFT", 6, 0)
         pg:SetWidth(INNER)
         local used = 0
 

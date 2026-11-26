@@ -1294,3 +1294,104 @@ describe("quest groups - grupo ou listagem que não é de missão", function()
         T.clean(c)
     end)
 end)
+
+describe("quest groups - layout que outro simulador apontou", function()
+    local VERT = { TOPLEFT = "T", TOP = "T", TOPRIGHT = "T", LEFT = "C", CENTER = "C", RIGHT = "C", BOTTOMLEFT = "B", BOTTOM = "B", BOTTOMRIGHT = "B" }
+    -- texto com borda de cima (ou de baixo) e um RIGHT/LEFT: a altura fica ambígua e, no jogo, o texto
+    -- pode ir para o meio da janela. Toda borda direita vai pela quina (TOPRIGHT/BOTTOMRIGHT).
+    local function ambiguous(c, root)
+        local seen, bad = {}, {}
+        local function walk(f)
+            if seen[f] then return end
+            seen[f] = true
+            local st = c.ui.state(f)
+            if not st then return end
+            if st.kind == "FontString" and st.points and #st.points > 1 then
+                local k, ps = {}, {}
+                for _, p in ipairs(st.points) do k[VERT[p.point] or "?"] = true; ps[#ps + 1] = p.point end
+                if k.C and (k.T or k.B) then bad[#bad + 1] = table.concat(ps, "+") .. " " .. tostring(st.text):sub(1, 30) end
+            end
+            for _, ch in ipairs(st.children or {}) do walk(ch) end
+            for _, rg in ipairs(st.regions or {}) do walk(rg) end
+        end
+        walk(root)
+        return bad
+    end
+
+    it("nenhum texto do addon tem altura ambígua (TOPLEFT + RIGHT)", function()
+        local w = world()
+        local c = login(w, "Jogador", { ELITE })
+        magnify(w, c, ELITE.id)
+        H.ns(c).Quest.OnAddonMessage("GFQ", "J1 155 18 MAGE d The Defias Brotherhood", "WHISPER", "Pedinte")
+        w:advance(0.5)
+        c:slash("/gf options")
+        H.ns(c).OpenNews("teste")
+        local bad = {}
+        for _, n in ipairs({ "GrupoFacilFrame", "GrupoFacilOptionsFrame", "GrupoFacilWhatsNew" }) do
+            for _, b in ipairs(ambiguous(c, c.env[n])) do bad[#bad + 1] = n .. ": " .. b end
+        end
+        T.eq(#bad, 0, table.concat(bad, "\n"))
+        T.clean(c)
+    end)
+
+    it("rodapé da aba Missões e autoria do cabeçalho ficam dentro da janela, sem cobrir a engrenagem", function()
+        local w = world()
+        local c = login(w, "Jogador", { ELITE })
+        c:slash("/gf debug demo") -- o aviso da demonstração alonga o rodapé
+        w:advance(0.5)
+        local f, win = c.env.GrupoFacilFrame, qwin(c)
+        local fr, sr = c.ui.rect(f), c.ui.rect(win.status)
+        T.ok(sr.r <= fr.r - 8, "status dentro da borda direita")
+        T.ok(sr.r <= c.ui.rect(win.pageFS).l, "status não passa do contador de páginas")
+        local ar, gr = c.ui.rect(f.authorLine), c.ui.rect(f.optionsButton)
+        T.ok(ar.l >= gr.r, "a autoria começa depois da engrenagem")
+        T.ok(ar.r <= fr.r, "a autoria fica dentro da janela")
+        T.clean(c)
+    end)
+
+    it("Novidades cabem numa tela de 768 px: a janela para na altura da tela e o texto rola", function()
+        local w = world()
+        local c = login(w, "Jogador", {})
+        c.ui.state(c.env.UIParent).fixedRect = { l = 0, r = 1024, t = 768, b = 0 }
+        H.ns(c).OpenNews("teste")
+        local f = H.ns(c).NewsFrame()
+        T.ok(f:GetHeight() <= 768 - 40, "altura " .. tostring(f:GetHeight()))
+        T.match(c:text(f.pageFS), "scroll for more")
+        c.ui.fire(f.scroll, "OnMouseWheel", -1)
+        T.ok(f.scroll:GetVerticalScroll() > 0, "a roda rola")
+        c.ui.fire(f.scroll, "OnMouseWheel", -100)
+        T.eq(f.scroll:GetVerticalScroll(), f.scrollMax, "para no fim")
+        -- tela grande: sem rolagem
+        c.ui.state(c.env.UIParent).fixedRect = { l = 0, r = 1920, t = 1440, b = 0 }
+        H.ns(c).OpenNews("teste")
+        T.eq(f.scrollMax, 0)
+        T.no(c:text(f.pageFS):find("scroll"))
+        T.clean(c)
+    end)
+
+    it("pedido de vaga com a aba Missões aberta não manda abrir com /gf quests", function()
+        local w = world()
+        local c = login(w, "Lider", { ELITE })
+        c:slash("/gf quests")
+        H.ns(c).Quest.OnAddonMessage("GFQ", "J1 155 18 MAGE d The Defias Brotherhood", "WHISPER", "Pedinte")
+        w:advance(0.5)
+        T.has(c:chatLines(), "Pedinte wants to join your group for The Defias Brotherhood%. The request is in the Quests tab%.")
+        c:click(c.env.GrupoFacilFrame.tabDungeons)
+        H.ns(c).Quest.OnAddonMessage("GFQ", "J1 155 18 MAGE d The Defias Brotherhood", "WHISPER", "Outro")
+        w:advance(0.5)
+        T.has(c:chatLines(), "Outro wants to join .*Open the quest window to invite: /gf quests")
+        T.clean(c)
+    end)
+
+    it("Buscar de novo nas masmorras tira o aviso da missão mesmo sem o hook da busca", function()
+        local w = world({ hardwareEvents = false })
+        local c = login(w, "Jogador", { ELITE })
+        local ns = H.ns(c)
+        ns.resultsFromQuest = true
+        H.db(c).hookSearch = false
+        local ok = ns.SearchAgain()
+        T.ok(ok)
+        T.eq(ns.resultsFromQuest, false)
+        T.clean(c)
+    end)
+end)

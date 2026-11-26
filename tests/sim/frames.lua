@@ -144,6 +144,11 @@ function M.new(client)
             end
         end
         guard[f] = nil
+        -- filho de rolagem sem âncoras: o ScrollFrame põe no canto de cima, deslocado pela rolagem
+        if #s.points == 0 and s.parent and S[s.parent] and S[s.parent].scrollChild == f then
+            local pr = rectOf(s.parent, guard, memo)
+            if pr then L, T = pr.l, pr.t + (S[s.parent].vscroll or 0) end
+        end
         local w = s.width
         local h = s.height
         if (not w or w == 0) and s.kind == "FontString" then w = textWidth(s.text, charWidth(s.template or s.fontObject)) end

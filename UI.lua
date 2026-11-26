@@ -656,9 +656,11 @@ function NS.BuildUI()
     end)
     tooltip(gear, L["Options"], L["General, messages, quests, invite a friend and help. Also in Options > AddOns > GrupoFacil."])
     frame.optionsButton = gear
+    -- autoria entre a engrenagem e o X, na mesma linha: encurta (sem quebrar) e nunca cobre os botões
     frame.authorLine:ClearAllPoints()
-    frame.authorLine:SetPoint("TOPRIGHT", frame, "TOPRIGHT", -30, -6)
-    frame.authorLine:SetPoint("LEFT", gear, "RIGHT", 8, 0) -- encurta, não cobre os botões
+    frame.authorLine:SetPoint("LEFT", gear, "RIGHT", 8, 0)
+    frame.authorLine:SetPoint("RIGHT", frame.CloseButton or frame, frame.CloseButton and "LEFT" or "TOPRIGHT", -2, 0)
+    frame.authorLine:SetWordWrap(false)
     NS.tab = "dungeons"
 
     -- referências para o tour (Onboarding.lua)

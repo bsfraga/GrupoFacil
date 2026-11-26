@@ -358,6 +358,7 @@ function NS.SearchAgain()
     NS.addonSearching = false
     if not ok then return false, L["the search failed (see /gf diag)"] end
     if not NS.searching then NS.MarkSearching() end -- com o hook desligado
+    NS.resultsFromQuest = false -- buscou masmorras (mesmo sem o hook, o aviso da missão sai)
     return true
 end
 
