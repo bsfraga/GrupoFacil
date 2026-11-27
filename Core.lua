@@ -924,7 +924,7 @@ end
 NS.SHARE_URL = "curseforge.com/wow/addons/grupofacil"
 
 function NS.ShareText()
-    return format(L["I use GrupoFacil, a free addon: it finds dungeon and quest groups in Looking For Group in 2 clicks, and players who have it find each other. Get it at %s"], NS.SHARE_URL)
+    return format(L["I use GrupoFacil, a free addon: it finds dungeon and quest groups in Looking For Group, and players who have it find each other. Get it at %s"], NS.SHARE_URL)
 end
 
 -- Para onde a frase vai (pedido do Fraga, 26/11): sussurro a um amigo (nome completo, com
