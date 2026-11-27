@@ -1,5 +1,8 @@
 # Changelog
 
+## 0.14.1
+- The ready message of **Recommend to a friend** is shorter and no longer counts clicks.
+
 ## 0.14.0
 - **Groups for your quests**: a magnifier next to every quest in the objective list (under the minimap) and in the quest details of the quest log. Click it and GrupoFacil searches Looking For Group (Quests & Zones, the quest's zone; a dungeon quest searches the dungeon) and opens the new **Quests** tab.
 - The Quests tab lists the zone's groups and players: groups doing that quest first, then groups where someone has it, then the rest of the zone. **Join** asks the leader; **Invite** asks a solo player in.
